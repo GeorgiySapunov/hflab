@@ -14,7 +14,8 @@ df = pd.DataFrame()
 
 # choose GPIB Channel 23 as Drain-Source
 rm = pyvisa.ResourceManager()
-rm.list_resources()
+# rm = pyvisa.ResourceManager('@py') # for pyvisa-py
+print(rm.list_resources())
 
 # check visa address
 for addr in rm.list_resources():
@@ -49,12 +50,14 @@ max_power = 0
 for i in range(0, 0.05, 0.00001):
     Keysight_B2901A.write(":SOUR:CURR " + str(i)) # Outputs i mA immediately
     Keysight_B2901A.query("*OPC?") # synchronization
+    print(Keysight_B2901A.query("*OPC?")) # TODO
     voltage = float(Keysight_B2901A.query_ascii_values("MEAS:VOLT?"))
     Keysight_B2901A.query("*OPC?") # synchronization
     current = float(Keysight_B2901A.query_ascii_values("MEAS:CURR?"))
     Keysight_B2901A.query("*OPC?") # synchronization
     power = float(PM100USB.query('measure:power?'))
     PM100USB.query("*OPC?") # synchronization
+    print(PM100USB.query("*OPC?")) # TODO
     if power > max_power:
         max_power = power
 
@@ -67,6 +70,7 @@ for i in range(0, 0.05, 0.00001):
     if current != float(i):
         print("WARNING: i is not equal to current!")
 
+    # TODO
     if power < max_power*0.8 and i > 0.0003:
         break
 
