@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt
 
 df = pd.DataFrame()
 
+pm100toggle = false
+
 # choose GPIB Channel 23 as Drain-Source
 rm = pyvisa.ResourceManager()
 # rm = pyvisa.ResourceManager('@py') # for pyvisa-py
@@ -21,19 +23,21 @@ print(rm.list_resources())
 for addr in rm.list_resources():
     try:
         print(addr, '-->', rm.open_resource(addr).query('*IDN?').strip())
-    except visa.VisaIOError:
+    except pyvisa.VisaIOError:
         pass
 
 input() # check visa
 
 Keysight_B2901A = rm.open_resource('GPIB0::23::INSTR')
-PM100USB = rm.open_resource('') # TODO input
+if pm100toggle:
+    PM100USB = rm.open_resource('') # TODO input
 
 Keysight_B2901A.write("*RST") # The initial settings are applied by the *RST command
 Keysight_B2901A.timeout = 50 # units: ms
 
-PM100USB.write('sense:corr:wav ' + srt(1550)) # set wavelengh
-PM100USB.write('power:dc:unit W')
+if pm100toggle:
+    PM100USB.write('sense:corr:wav ' + srt(1550)) # set wavelengh
+    PM100USB.write('power:dc:unit W')
 
 # Keysight_B2901A.write("")
 
@@ -55,29 +59,33 @@ for i in range(0, 0.05, 0.00001):
     Keysight_B2901A.query("*OPC?") # synchronization
     current = float(Keysight_B2901A.query_ascii_values("MEAS:CURR?"))
     Keysight_B2901A.query("*OPC?") # synchronization
-    power = float(PM100USB.query('measure:power?'))
-    PM100USB.query("*OPC?") # synchronization
-    print(PM100USB.query("*OPC?")) # TODO
+    if pm100toggle:
+        power = float(PM100USB.query('measure:power?'))
+        PM100USB.query("*OPC?") # synchronization
+        print(PM100USB.query("*OPC?")) # TODO
     if power > max_power:
         max_power = power
 
 
     df.lock[i]["Voltage, V"] = voltage
     df.lock[i]["Current, V"] = current*1000
-    df.lock[i]["Power, W"] = power
+    if pm100toggle:
+        df.lock[i]["Power, W"] = power
 
     print(f"curret set at {i*1000} mA, current: {current*1000} mA, voltage: {voltage}")
     if current != float(i):
         print("WARNING: i is not equal to current!")
 
     # TODO
-    if power < max_power*0.8 and i > 0.0003:
+    if i > 0.0005 and power < max_power*0.8:
         break
 
 # slowly decrease current
 for i in range(current, 0, 0.0001):
     Keysight_B2901A.write(":SOUR:CURR " + str(i)) # Outputs i mA immediately
     time.sleep(0.2)
+
+print(f"curret set at {i*1000} mA")
 
 Keysight_B2901A.write(":OUTP OFF") # Measurement is stopped by the :OUTP OFF command.
 
