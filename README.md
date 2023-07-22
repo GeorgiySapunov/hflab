@@ -1,7 +1,10 @@
 Script fot LIV measurements using following equipment:
-- Keysight 8163B Lightwave Multimeter
 - Keysight B2901A Precision Source/Measure Unit
 - Thorlabs PM100USB Power and energy meter
+- Keysight 8163B Lightwave Multimeter (TODO)
+- YOKOGAWA AQ6370D Optical Spectrum Analyzer (TODO)
+
+
 
 If you are told your version of pip is out of date, you might as well update it with
 
@@ -21,3 +24,5 @@ On Linux, however, you will also need to install pyvisa-py which provides a Pyth
 
 1. https://goughlui.com/2021/03/28/tutorial-introduction-to-scpi-automation-of-test-equipment-with-pyvisa/
 2. https://youtu.be/1HQxnz3P9P4
+3. https://github.com/instrumentkit/InstrumentKit
+4. https://instrumentkit.readthedocs.io/en/latest/_modules/instruments/yokogawa/yokogawa6370.html
