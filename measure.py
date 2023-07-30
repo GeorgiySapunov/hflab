@@ -26,8 +26,8 @@ Thorlabs_PM100USB_address = "USB0::0x1313::0x8072::1923257::INSTR"
 Keysight_8163B_address = ""
 
 
-pm100_toggle = True  # toggle Thorlabs PM100USB Power and energy meter
-Keysight_8163B_toggle = False  # TODO toggle Keysight 8163B Lightwave Multimeter
+pm100_toggle = False  # toggle Thorlabs PM100USB Power and energy meter
+keysight_8163B_toggle = True  # TODO toggle Keysight 8163B Lightwave Multimeter
 
 current_list = [
     i / 100000 for i in range(0, 5000, 1)
@@ -84,7 +84,7 @@ def main():
         if pm100_toggle:
             PM100USB = rm.open_resource(Thorlabs_PM100USB_address)
             powermeter = "PM100USB"
-        if Keysight_8163B_toggle:
+        if keysight_8163B_toggle:
             Keysight_8163B = rm.open_resource(Keysight_8163B_address)
             powermeter = "Keysight_8163B"
 
@@ -103,10 +103,11 @@ def main():
             "*RST"
         )  # The initial settings are applied by the *RST command
 
+        # TODO
         if pm100_toggle:
             PM100USB.write("sense:corr:wav " + wavelength)  # set wavelength
             PM100USB.write("power:dc:unit W")  # set power units
-        elif Keysight_8163B_toggle:  # TODO
+        elif keysight_8163B_toggle:  # TODO
             Keysight_8163B.write("*cls'")
             Keysight_8163B.write(
                 "SENS1:CHAN2:POW:WAV:VAL" + wavelength + "nm"
@@ -262,6 +263,8 @@ def main():
             voltage = float(Keysight_B2901A.query("MEAS:VOLT?"))  # measure Voltage, V
             # time.sleep(0.06)  # TODO do I need this?
             current = float(Keysight_B2901A.query("MEAS:CURR?"))  # measure Current, mA
+
+            # TODO
             if pm100_toggle:
                 output_power = float(
                     PM100USB.query("measure:power?")
@@ -271,10 +274,11 @@ def main():
                 # print(PM100USB.query("*OPC?")) # TODO
                 if output_power > max_output_power:  # track max power
                     max_output_power = output_power
-            elif Keysight_8163B_toggle:  # TODO test
+            elif keysight_8163B_toggle:  # TODO test
                 output_power = float(
                     Keysight_8163B.query("FETC1:CHAN2:POW?")
                 )  # measure output power, W
+
                 output_power *= 1000
                 # PM100USB.query("*OPC?") # synchronization TODO is it working?
                 # print(PM100USB.query("*OPC?")) # TODO
@@ -286,16 +290,15 @@ def main():
                 current * 1000,
                 voltage,
                 None,
-                None,
-            ]  # add current, measured current, voltage, and power to the DataFrame
+                voltage * current * 1000,
+            ]  # add current, measured current, voltage, power, power conlumption to the DataFrame
             if (
-                pm100_toggle or Keysight_8163B_toggle
+                pm100_toggle or keysight_8163B_toggle
             ):  # add power data if pm100toggle is set to True TODO test
                 df.iloc[-1]["Output power, mW"] = output_power
-                df.iloc[-1]["Power consumption, mW"] = output_power * current * 1000
 
             print(
-                f"{i*1000:3.2f} mA: {current*1000:10.5f} mA, {voltage:8.5f} V, {output_power:8.5f} mW"
+                f"{i*1000:3.2f} mA: {current*1000:10.5f} mA, {voltage:8.5f} V, {output_power:8.5f} mW, {output_power/(voltage*current*10):8.2f} %"
             )
             # buildplt_all()  # plot the data
 
