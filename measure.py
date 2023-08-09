@@ -21,16 +21,19 @@ import matplotlib.pyplot as plt
 # |___/\___|\__|\__|_|_| |_|\__, |___/
 #                            __/ |
 #                           |___/
-Keysight_B2901A_address = "GPIB0::23::INSTR"
+# Keysight_B2901A_address = "GPIB0::23::INSTR"
+Keysight_B2901A_address = "USB0::0x0957::0x8B18::MY51143485::INSTR"
 Thorlabs_PM100USB_address = "USB0::0x1313::0x8072::1923257::INSTR"
-Keysight_8163B_address = ""
+Keysight_8163B_address = "GPIB0::10::INSTR"
 
 
 pm100_toggle = False  # toggle Thorlabs PM100USB Power and energy meter
 keysight_8163B_toggle = True  # TODO toggle Keysight 8163B Lightwave Multimeter
 
 current_list = [
-    i / 100000 for i in range(0, 5000, 1)
+    # i / 100000 for i in range(0, 5000, 1)
+    i / 100000
+    for i in range(0, 50, 1)
 ]  # list of current to measure (from 0 to 50 mA)
 # current_list = [i/1000 for i in [**put a list of currents here**]] # put values and uncomment for arbitrary list of currents to measure
 stop_cond = 0.8  # stop if power lower then 80% of max power
@@ -47,6 +50,7 @@ def main():
         # rm = pyvisa.ResourceManager('@py') # for pyvisa-py
         print("List of resources:")
         print(rm.list_resources())
+        print()
 
         # check visa addresses
         for addr in rm.list_resources():
@@ -108,9 +112,9 @@ def main():
             PM100USB.write("sense:corr:wav " + wavelength)  # set wavelength
             PM100USB.write("power:dc:unit W")  # set power units
         elif keysight_8163B_toggle:  # TODO
-            Keysight_8163B.write("*cls'")
+            Keysight_8163B.write("*RST")  # reset
             Keysight_8163B.write(
-                "SENS1:CHAN2:POW:WAV:VAL" + wavelength + "nm"
+                "SENS1:CHAN2:POW:WAV " + wavelength + "nm"
             )  # set wavelength
             Keysight_8163B.write("SENS1:CHAN2:POW:UNIT W")  # set power units
 
@@ -280,8 +284,6 @@ def main():
                 )  # measure output power, W
 
                 output_power *= 1000
-                # PM100USB.query("*OPC?") # synchronization TODO is it working?
-                # print(PM100USB.query("*OPC?")) # TODO
                 if output_power > max_output_power:  # track max power
                     max_output_power = output_power
 
