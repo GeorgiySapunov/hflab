@@ -30,8 +30,8 @@ YOKOGAWA_AQ6370D_address = ""
 
 
 current_list = [
-    i / 1000000 for i in range(0, 50000, 1)
-]  # list of current to measure (from 0 to 50 mA)
+    i / 1000000 for i in range(0, 50000, 10)
+]  # list of current to measure (from 0 to 50 mA, 0.01 mA steps)
 beyond_rollover_stop_cond = 0.9  # stop if power lower then 90% of max output power
 current_limit1 = 4  # mA, stop measuremet if current above limit1 (mA) and output power less then 0.01 mW
 current_limit2 = 10  # mA, stop measuremet if current above limit2 (mA) and maximum output power less then 0.5 mW
@@ -41,7 +41,7 @@ current_limit2 = 10  # mA, stop measuremet if current above limit2 (mA) and maxi
 
 
 def main():
-    # if python got less then or more then 5 parameters
+    # if python got less then or more then 6 parameters
     if len(sys.argv) != 6:
         # initiate pyvisa
         rm = pyvisa.ResourceManager()
@@ -64,7 +64,7 @@ def main():
         print()
         print("following arguments are needed:")
         print("Equipment_choice WaferID Wavelength(nm) Coordinates Temperature(°C)")
-        print("e.g. run 'python k2 measure.py gs15 1550 00C9 25'")
+        print("e.g. run 'python measure.py k2 gs15 1550 00C9 25'")
         print()
         print("for equipment choise use:")
         print("t   for Thorlabs PM100USB Power and energy meter")
@@ -124,21 +124,20 @@ def main():
                 ]
             )
 
-            Keysight_B2901A.write(
-                "*RST"
-            )  # The initial settings are applied by the *RST command
+            # The initial settings are applied by the *RST command
+            Keysight_B2901A.write("*RST")
 
             if pm100_toggle:
                 PM100USB.write("sense:corr:wav " + wavelength)  # set wavelength
                 PM100USB.write("power:dc:unit W")  # set power units
             elif keysight_8163B_toggle:
                 Keysight_8163B.write("*RST")  # reset
+                # set wavelength
                 Keysight_8163B.write(
                     "SENS1:CHAN" + k_port + ":POW:WAV " + wavelength + "nm"
-                )  # set wavelength
-                Keysight_8163B.write(
-                    "SENS1:CHAN" + k_port + ":POW:UNIT W"
-                )  # set power units
+                )
+                # set power units
+                Keysight_8163B.write("SENS1:CHAN" + k_port + ":POW:UNIT W")
 
             Keysight_B2901A.write(
                 ":SOUR:FUNC:MODE CURR"
@@ -157,8 +156,13 @@ def main():
             max_output_power = 0
             output_power = 0
 
-            # Creating figure
-            fig = plt.figure(figsize=(20, 20))
+            #  _____ _
+            # |  ___(_) __ _ _   _ _ __ ___  ___
+            # | |_  | |/ _` | | | | '__/ _ \/ __|
+            # |  _| | | (_| | |_| | | |  __/\__ \
+            # |_|   |_|\__, |\__,_|_|  \___||___/
+            #          |___/
+            fig = plt.figure(figsize=(15, 20))
             ax1 = fig.add_subplot(221)  # subplot for set current
             ax12 = ax1.twinx()
 
@@ -173,9 +177,9 @@ def main():
             # ax2.legend(loc=0)
             # ax22.legend(loc=0)
 
-            ax1.grid()  # adding grid
-            ax2.grid()  # adding grid
-            ax3.grid()  # adding grid
+            ax1.grid(which="both")  # adding grid
+            ax2.grid(which="both")  # adding grid
+            ax3.grid(which="both")  # adding grid
 
             # Adding labels
             ax1.set_xlabel("Current set, mA")
@@ -188,6 +192,12 @@ def main():
 
             ax12.set_ylabel("Voltage, V", color="red")
             ax22.set_ylabel("Voltage, V", color="red")
+
+            ax1.minorticks_on()
+            ax2.minorticks_on()
+            ax12.minorticks_on()
+            ax22.minorticks_on()
+            ax3.minorticks_on()
 
             # Setting Y limits
             # ax1.set_ylim(0, 40) # Power
@@ -216,11 +226,9 @@ def main():
                 # plt.draw()
                 # plt.pause(0.01)
 
-                plt.minorticks_on()
-
             def buildplt_tosave(dataframe=df):
                 # Creating figure
-                fig = plt.figure(figsize=(20, 20))
+                fig = plt.figure(figsize=(15, 20))
                 ax = fig.add_subplot(111)
                 ax2 = ax.twinx()
 
@@ -241,7 +249,7 @@ def main():
                 # ax.legend(loc=0)
                 # ax2.legend(loc=0)
 
-                ax.grid()  # adding grid
+                ax.grid(which="both")  # adding grid
 
                 # Adding labels
                 ax.set_xlabel("Current, mA")
@@ -264,7 +272,8 @@ def main():
                 # Creating Twin axes for dataset_1
                 ax2.plot(i, v, "-r", label="Voltage, V")
 
-                plt.minorticks_on()
+                ax.minorticks_on()
+                ax2.minorticks_on()
 
             #                 (_)       | |
             #  _ __ ___   __ _ _ _ __   | | ___   ___  _ __
@@ -274,46 +283,40 @@ def main():
             #                                         | |
             #                                         |_|
             for i in current_list:
-                # apply and measure current
-                Keysight_B2901A.write(
-                    ":SOUR:CURR " + str(i)
-                )  # Outputs i Ampere immediately
+                # Outputs i Ampere immediately
+                Keysight_B2901A.write(":SOUR:CURR " + str(i))
                 time.sleep(0.03)
-                voltage = float(
-                    Keysight_B2901A.query("MEAS:VOLT?")
-                )  # measure Voltage, V
-                current = float(
-                    Keysight_B2901A.query("MEAS:CURR?")
-                )  # measure Current, mA
+                # measure Voltage, V
+                voltage = float(Keysight_B2901A.query("MEAS:VOLT?"))
+                # measure Current, mA
+                current = float(Keysight_B2901A.query("MEAS:CURR?"))
 
                 # measure output power
                 if pm100_toggle:
-                    output_power = float(
-                        PM100USB.query("measure:power?")
-                    )  # measure output power, W
+                    # measure output power, W
+                    output_power = float(PM100USB.query("measure:power?"))
                     output_power *= 1000
                     if output_power > max_output_power:  # track max power
                         max_output_power = output_power
                 elif keysight_8163B_toggle:
-                    output_power = float(
-                        Keysight_8163B.query("FETC1:CHAN2:POW?")
-                    )  # measure output power, W
+                    # measure output power, W
+                    output_power = float(Keysight_8163B.query("FETC1:CHAN2:POW?"))
 
                     output_power *= 1000
                     if output_power > max_output_power:  # track max power
                         max_output_power = output_power
 
-                # add data to a pandas data frame
+                # add current, measured current, voltage, power, power conlumption to the DataFrame
                 df.loc[len(df)] = [
                     i * 1000,
                     current * 1000,
                     voltage,
                     None,
                     voltage * current * 1000,
-                ]  # add current, measured current, voltage, power, power conlumption to the DataFrame
-                if (
-                    pm100_toggle or keysight_8163B_toggle
-                ):  # add power data if pm100toggle is set to True
+                ]
+
+                # add power data if pm100toggle is set to True
+                if pm100_toggle or keysight_8163B_toggle:
                     df.iloc[-1]["Output power, mW"] = output_power
 
                 # print data to the terminal
@@ -339,19 +342,15 @@ def main():
 
             # slowly decrease current
             current = float(Keysight_B2901A.query("MEAS:CURR?"))  # measure current
-            for i in range(
-                int(current * 10000), 0, -1
-            ):  # e.g. 5 mA to 50 and 1 is a step
+            # e.g. 5 mA to 50 and 1 is a step
+            for i in range(int(current * 10000), 0, -1):
                 i /= 10000  # makes 0.1 mA steps
                 Keysight_B2901A.write(":SOUR:CURR " + str(i))  # Outputs i A immediately
                 print(f"Current set: {i*1000:3.1f} mA")
                 time.sleep(0.01)  # 0.01 sec for a step, 1 sec for 10 mA
 
-            Keysight_B2901A.write(
-                ":OUTP OFF"
-            )  # Measurement is stopped by the :OUTP OFF command.
-
-            # print(df.head()) # print first 5 lines of Data Frame
+            # Measurement is stopped by the :OUTP OFF command.
+            Keysight_B2901A.write(":OUTP OFF")
 
             timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
             dirpath = f"data/{waferid}-{wavelength}nm/{coordinates}/liv"
@@ -371,9 +370,9 @@ def main():
             buildplt_tosave()
             plt.savefig(filepath)  # save figure
             # plt.show()
-            plt.close()
+            plt.close("all")
             # show figure
-            image = mpimg.imread(filepath + "-all")
+            image = mpimg.imread(filepath + "-all" + ".png")
             plt.imshow(image)
             plt.show()
 
