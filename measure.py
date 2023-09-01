@@ -162,7 +162,32 @@ def main():
             # |  _| | | (_| | |_| | | |  __/\__ \
             # |_|   |_|\__, |\__,_|_|  \___||___/
             #          |___/
-            fig = plt.figure(figsize=(15, 20))
+            def annotate_max(x, y, ax=None):
+                xmax = x[np.argmax(y)]
+                ymax = y.max()
+                text = f"current={xmax:.2f}, optical power={ymax:.2f}"
+                if not ax:
+                    ax = plt.gca()
+                bbox_props = dict(boxstyle="square,pad=0.3", fc="w", ec="k", lw=0.72)
+                arrowprops = dict(
+                    arrowstyle="->", connectionstyle="angle,angleA=0,angleB=60"
+                )
+                kw = dict(
+                    xycoords="data",
+                    textcoords="axes fraction",
+                    arrowprops=arrowprops,
+                    bbox=bbox_props,
+                    ha="right",
+                    va="top",
+                )
+                ax.annotate(text, xy=(xmax, ymax), xytext=(0.94, 0.96), **kw)
+                return xmax
+
+            def annotate_threshhold(x, y, ax=None):  # TODO
+                first_der = np.gradient(y, x)
+                second_der = np.gradient(first_der, x)
+
+            fig = plt.figure(figsize=(20, 10))
             ax1 = fig.add_subplot(221)  # subplot for set current
             ax12 = ax1.twinx()
 
@@ -223,12 +248,13 @@ def main():
                 ax22.plot(i, v, "-r", label="Voltage, V")
                 ax3.plot(i, p, "-b", label="Power consumption, mW")
                 ax3.legend(loc=0)
-                # plt.draw()
-                # plt.pause(0.01)
+                # annotate maximum output power
+                annotate_max(seti, l, ax=ax1)
+                annotate_max(i, l, ax=ax2)
 
             def buildplt_tosave(dataframe=df):
                 # Creating figure
-                fig = plt.figure(figsize=(15, 20))
+                fig = plt.figure(figsize=(20, 10))
                 ax = fig.add_subplot(111)
                 ax2 = ax.twinx()
 
@@ -275,6 +301,10 @@ def main():
                 ax.minorticks_on()
                 ax2.minorticks_on()
 
+                # annotate maximum output power
+                i_rollover = annotate_max(i, l, ax=ax)
+                return i_rollover
+
             #                 (_)       | |
             #  _ __ ___   __ _ _ _ __   | | ___   ___  _ __
             # | '_ ` _ \ / _` | | '_ \  | |/ _ \ / _ \| '_ \
@@ -288,23 +318,20 @@ def main():
                 time.sleep(0.03)
                 # measure Voltage, V
                 voltage = float(Keysight_B2901A.query("MEAS:VOLT?"))
-                # measure Current, mA
+                # measure Current, A
                 current = float(Keysight_B2901A.query("MEAS:CURR?"))
 
                 # measure output power
                 if pm100_toggle:
                     # measure output power, W
                     output_power = float(PM100USB.query("measure:power?"))
-                    output_power *= 1000
-                    if output_power > max_output_power:  # track max power
-                        max_output_power = output_power
                 elif keysight_8163B_toggle:
                     # measure output power, W
                     output_power = float(Keysight_8163B.query("FETC1:CHAN2:POW?"))
 
-                    output_power *= 1000
-                    if output_power > max_output_power:  # track max power
-                        max_output_power = output_power
+                output_power *= 1000
+                if output_power > max_output_power:  # track max power
+                    max_output_power = output_power
 
                 # add current, measured current, voltage, power, power conlumption to the DataFrame
                 df.loc[len(df)] = [
@@ -367,8 +394,8 @@ def main():
             # save figures
             buildplt_all()
             plt.savefig(filepath + "-all")  # save figure
-            buildplt_tosave()
-            plt.savefig(filepath)  # save figure
+            i_rollover = buildplt_tosave()
+            plt.savefig(filepath + f"_Iro={i_rollover:.2f}")  # save figure
             # plt.show()
             plt.close("all")
             # show figure
