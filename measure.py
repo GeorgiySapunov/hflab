@@ -7,6 +7,7 @@
 
 import sys
 import os
+import re
 import time
 import pyvisa
 import numpy as np
@@ -26,12 +27,11 @@ import matplotlib.image as mpimg
 Keysight_B2901A_address = "USB0::0x0957::0x8B18::MY51143485::INSTR"
 Thorlabs_PM100USB_address = "USB0::0x1313::0x8072::1923257::INSTR"
 Keysight_8163B_address = "GPIB0::10::INSTR"
-YOKOGAWA_AQ6370D_address = ""
+YOKOGAWA_AQ6370D_address = "TCPIP::169.254.5.10::10001::INSTR"
 
 
-current_list = [
-    i / 1000000 for i in range(0, 50000, 10)
-]  # list of current to measure (from 0 to 50 mA, 0.01 mA steps)
+# list of current to measure (from 0 to 50 mA, 0.01 mA steps)
+current_list = [i / 1000000 for i in range(0, 50000, 10)]
 beyond_rollover_stop_cond = 0.9  # stop if power lower then 90% of max output power
 current_limit1 = 4  # mA, stop measuremet if current above limit1 (mA) and output power less then 0.01 mW
 current_limit2 = 10  # mA, stop measuremet if current above limit2 (mA) and maximum output power less then 0.5 mW
@@ -49,6 +49,7 @@ def main():
         print("List of resources:")
         print(rm.list_resources())
         print()
+        tcpiplist = [YOKOGAWA_AQ6370D_address]
 
         # check visa addresses
         for addr in rm.list_resources():
@@ -57,20 +58,30 @@ def main():
             except pyvisa.VisaIOError:
                 pass
 
+        print()
+        print("TCP/IP list:")
+
+        for addr in tcpiplist:
+            try:
+                print(addr, "-->", rm.open_resource(addr).query("*IDN?").strip())
+            except pyvisa.VisaIOError:
+                pass
+
         print("Make sure addressees in the programm are correct!")
-        print(f"Keysight_B2901A_address set to    {Keysight_B2901A_address}")
-        print(f"Thorlabs_PM100USB_address set to           {Thorlabs_PM100USB_address}")
-        print(f"Keysight_8163B_address set to           {Keysight_8163B_address}")
+        print(f"Keysight_B2901A_address is set to       {Keysight_B2901A_address}")
+        print(f"Thorlabs_PM100USB_address is set to     {Thorlabs_PM100USB_address}")
+        print(f"Keysight_8163B_address is set to        {Keysight_8163B_address}")
+        print(f"Yokogawa_AQ6370D_adress is set to       {YOKOGAWA_AQ6370D_address}")
         print()
         print("following arguments are needed:")
         print("Equipment_choice WaferID Wavelength(nm) Coordinates Temperature(°C)")
         print("e.g. run 'python measure.py k2 gs15 1550 00C9 25'")
         print()
         print("for equipment choise use:")
-        print("t   for Thorlabs PM100USB Power and energy meter")
+        print("t    for Thorlabs PM100USB Power and energy meter")
         print("k1   for Keysight 8163B Lightwave Multimeter port 1")
         print("k2   for Keysight 8163B Lightwave Multimeter port 2")
-        print("y   for YOKOGAWA AQ6370D Optical Spectrum Analyzer")
+        print("y    for YOKOGAWA AQ6370D Optical Spectrum Analyzer")
 
     else:
         # parameters
@@ -79,6 +90,8 @@ def main():
         wavelength = sys.argv[3]
         coordinates = sys.argv[4]
         temperature = sys.argv[5]
+
+        dirpath = f"data/{waferid}-{wavelength}nm/{coordinates}/"
 
         if equipment == "t":
             pm100_toggle = True  # toggle Thorlabs PM100USB Power and energy meter
@@ -104,6 +117,7 @@ def main():
             Keysight_8163B = rm.open_resource(Keysight_8163B_address)
             powermeter = "Keysight_8163B_port" + k_port
         elif YOKOGAWA_AQ6370D_toggle:
+            YOKOGAWA_AQ6370D = rm.open_resource(YOKOGAWA_AQ6370D_address)
             osa = "YOKOGAWA_AQ6370D"
 
         #  _     _____     __
@@ -112,7 +126,7 @@ def main():
         # | |___ | |  \ V /
         # |_____|___|  \_/
         if powermeter:
-            print("Measuring LIV using " + powermeter)
+            print(f"Measuring LIV using {powermeter}")
             # initiate pandas Data Frame
             df = pd.DataFrame(
                 columns=[
@@ -128,16 +142,14 @@ def main():
             Keysight_B2901A.write("*RST")
 
             if pm100_toggle:
-                PM100USB.write("sense:corr:wav " + wavelength)  # set wavelength
+                PM100USB.write(f"sense:corr:wav {wavelength}")  # set wavelength
                 PM100USB.write("power:dc:unit W")  # set power units
             elif keysight_8163B_toggle:
                 Keysight_8163B.write("*RST")  # reset
                 # set wavelength
-                Keysight_8163B.write(
-                    "SENS1:CHAN" + k_port + ":POW:WAV " + wavelength + "nm"
-                )
+                Keysight_8163B.write(f"SENS1:CHAN{k_port}:POW:WAV {wavelength}nm")
                 # set power units
-                Keysight_8163B.write("SENS1:CHAN" + k_port + ":POW:UNIT W")
+                Keysight_8163B.write(f"SENS1:CHAN{k_port}:POW:UNIT W")
 
             Keysight_B2901A.write(
                 ":SOUR:FUNC:MODE CURR"
@@ -327,7 +339,9 @@ def main():
                     output_power = float(PM100USB.query("measure:power?"))
                 elif keysight_8163B_toggle:
                     # measure output power, W
-                    output_power = float(Keysight_8163B.query("FETC1:CHAN2:POW?"))
+                    output_power = float(
+                        Keysight_8163B.query(f"FETC1:CHAN{k_port}:POW?")
+                    )
 
                 output_power *= 1000
                 if output_power > max_output_power:  # track max power
@@ -372,7 +386,7 @@ def main():
             # e.g. 5 mA to 50 and 1 is a step
             for i in range(int(current * 10000), 0, -1):
                 i /= 10000  # makes 0.1 mA steps
-                Keysight_B2901A.write(":SOUR:CURR " + str(i))  # Outputs i A immediately
+                Keysight_B2901A.write(f":SOUR:CURR {str(i)}")  # Outputs i A immediately
                 print(f"Current set: {i*1000:3.1f} mA")
                 time.sleep(0.01)  # 0.01 sec for a step, 1 sec for 10 mA
 
@@ -380,10 +394,10 @@ def main():
             Keysight_B2901A.write(":OUTP OFF")
 
             timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
-            dirpath = f"data/{waferid}-{wavelength}nm/{coordinates}/liv"
             filepath = (
-                f"data/{waferid}-{wavelength}nm/{coordinates}/liv/"
-                + f"{waferid}-{wavelength}nm-{coordinates}-{temperature}c-{powermeter}-{timestr}"
+                dirpath
+                + "liv/"
+                + f"{waferid}-{wavelength}nm-{coordinates}-{temperature}c-{timestr}-{powermeter}"
             )
 
             if not os.path.exists(dirpath):  # make directories
@@ -399,7 +413,7 @@ def main():
             # plt.show()
             plt.close("all")
             # show figure
-            image = mpimg.imread(filepath + "-all" + ".png")
+            image = mpimg.imread(filepath + "-all.png")
             plt.imshow(image)
             plt.show()
 
@@ -408,7 +422,91 @@ def main():
         # | |_| |___) / ___ \
         #  \___/|____/_/   \_\
         elif osa:
-            pass
+            walk = list(os.walk(dirpath + "liv/"))
+            r = re.compile(
+                f"{waferid}-{wavelength}nm-{coordinates}-{temperature}c.*\\.csv"
+            )
+            files = walk[0][2]
+            matched_files = list(filter(r.match, files)).sort(reverse=True)
+            file = matched_files[0]
+            dataframe = pd.read_csv(dirpath + "liv/" + file)
+
+            max_current = dataframe.iloc[-1]["Current set, mA"]
+
+            osa_current_list = [i / 1000000 for i in range(0, max_current * 1000, 100)]
+
+            df = pd.DataFrame(
+                columns=[
+                    "Current set, mA",
+                    "Current, mA",
+                    "Voltage, V",
+                    "Power consumption, mW",
+                ]
+            )
+
+            YOKOGAWA_AQ6370D.write("*RST")
+            YOKOGAWA_AQ6370D.write(":TRAC:ACT TRA")
+            YOKOGAWA_AQ6370D.write(":SENS:BAND:RES 0.02nm")
+            YOKOGAWA_AQ6370D.write(f":sens:wav:cent {wavelength}nm")
+            YOKOGAWA_AQ6370D.write(f":sens:wav:span {osa_span}nm")
+            YOKOGAWA_AQ6370D.write(":SENS:SWE:POIN 1000")
+            YOKOGAWA_AQ6370D.write(":sens:sens mid")
+            YOKOGAWA_AQ6370D.write(":sens:sweep:points:auto on")
+            YOKOGAWA_AQ6370D.write(":init:smode 1")
+            YOKOGAWA_AQ6370D.write("*CLS")
+            YOKOGAWA_AQ6370D.write(":init")
+            YOKOGAWA_AQ6370D.write("")
+            YOKOGAWA_AQ6370D.write("")
+            YOKOGAWA_AQ6370D.write("")
+            YOKOGAWA_AQ6370D.write("")
+            YOKOGAWA_AQ6370D.write("")
+            YOKOGAWA_AQ6370D.write("")
+            YOKOGAWA_AQ6370D.write("")
+            YOKOGAWA_AQ6370D.write("")
+            YOKOGAWA_AQ6370D.write("")
+            YOKOGAWA_AQ6370D.write("")
+            YOKOGAWA_AQ6370D.write("")
+            YOKOGAWA_AQ6370D.write("")
+
+            # main loop for osa
+            for i in osa_current_list:
+                # Outputs i Ampere immediately
+                Keysight_B2901A.write(":SOUR:CURR " + str(i))
+                time.sleep(0.03)
+                # measure Voltage, V
+                voltage = float(Keysight_B2901A.query("MEAS:VOLT?"))
+                # measure Current, A
+                current = float(Keysight_B2901A.query("MEAS:CURR?"))
+
+                # add current, measured current, voltage, power, power conlumption to the DataFrame
+                df.loc[len(df)] = [
+                    i * 1000,
+                    current * 1000,
+                    voltage,
+                    voltage * current * 1000,
+                ]
+
+                # print data to the terminal
+                print(f"{i*1000:3.2f} mA: {current*1000:10.5f} mA, {voltage:8.5f} V")
+
+            # slowly decrease current
+            current = float(Keysight_B2901A.query("MEAS:CURR?"))  # measure current
+            # e.g. 5 mA to 50 and 1 is a step
+            for i in range(int(current * 10000), 0, -1):
+                i /= 10000  # makes 0.1 mA steps
+                Keysight_B2901A.write(":SOUR:CURR " + str(i))  # Outputs i A immediately
+                print(f"Current set: {i*1000:3.1f} mA")
+                time.sleep(0.01)  # 0.01 sec for a step, 1 sec for 10 mA
+
+            # Measurement is stopped by the :OUTP OFF command.
+            Keysight_B2901A.write(":OUTP OFF")
+
+            timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
+            dirpath = f"data/{waferid}-{wavelength}nm/{coordinates}/osa"
+            filepath = (
+                f"data/{waferid}-{wavelength}nm/{coordinates}/liv/"
+                + f"{waferid}-{wavelength}nm-{coordinates}-{temperature}c-{timestr}-{osa}"
+            )
 
 
 # Run main when the script is run by passing it as a command to the Python interpreter (just a good practice)
