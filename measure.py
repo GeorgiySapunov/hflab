@@ -128,7 +128,7 @@ def main():
         if powermeter:
             print(f"Measuring LIV using {powermeter}")
             # initiate pandas Data Frame
-            df = pd.DataFrame(
+            iv = pd.DataFrame(
                 columns=[
                     "Current set, mA",
                     "Current, mA",
@@ -243,7 +243,7 @@ def main():
             # ax22.set_ylim(0, 10) # Voltage
 
             # functions to build graphs
-            def buildplt_all(dataframe=df):
+            def buildplt_all(dataframe=iv):
                 # select columns in the Data Frame
                 seti = dataframe["Current set, mA"]
                 i = dataframe["Current, mA"]
@@ -264,7 +264,7 @@ def main():
                 annotate_max(seti, l, ax=ax1)
                 annotate_max(i, l, ax=ax2)
 
-            def buildplt_tosave(dataframe=df):
+            def buildplt_tosave(dataframe=iv):
                 # Creating figure
                 fig = plt.figure(figsize=(20, 10))
                 ax = fig.add_subplot(111)
@@ -347,8 +347,8 @@ def main():
                 if output_power > max_output_power:  # track max power
                     max_output_power = output_power
 
-                # add current, measured current, voltage, power, power conlumption to the DataFrame
-                df.loc[len(df)] = [
+                # add current, measured current, voltage, power, power consumption to the DataFrame
+                iv.loc[len(iv)] = [
                     i * 1000,
                     current * 1000,
                     voltage,
@@ -358,7 +358,7 @@ def main():
 
                 # add power data if pm100toggle is set to True
                 if pm100_toggle or keysight_8163B_toggle:
-                    df.iloc[-1]["Output power, mW"] = output_power
+                    iv.iloc[-1]["Output power, mW"] = output_power
 
                 # print data to the terminal
                 if voltage * current == 0 or output_power >= (voltage * current * 1000):
@@ -403,7 +403,7 @@ def main():
             if not os.path.exists(dirpath):  # make directories
                 os.makedirs(dirpath)
 
-            df.to_csv(filepath + ".csv")  # save DataFrame to csv file
+            iv.to_csv(filepath + ".csv")  # save DataFrame to csv file
 
             # save figures
             buildplt_all()
@@ -435,7 +435,7 @@ def main():
 
             osa_current_list = [i / 1000000 for i in range(0, max_current * 1000, 100)]
 
-            df = pd.DataFrame(
+            iv = pd.DataFrame(
                 columns=[
                     "Current set, mA",
                     "Current, mA",
@@ -444,29 +444,20 @@ def main():
                 ]
             )
 
+            spectra = pd.DataFrame()
+
             YOKOGAWA_AQ6370D.write("*RST")
+            YOKOGAWA_AQ6370D.write("FORMAT:DATA ASCII")
             YOKOGAWA_AQ6370D.write(":TRAC:ACT TRA")
-            YOKOGAWA_AQ6370D.write(":SENS:BAND:RES 0.02nm")
-            YOKOGAWA_AQ6370D.write(f":sens:wav:cent {wavelength}nm")
-            YOKOGAWA_AQ6370D.write(f":sens:wav:span {osa_span}nm")
-            YOKOGAWA_AQ6370D.write(":SENS:SWE:POIN 1000")
-            YOKOGAWA_AQ6370D.write(":sens:sens mid")
-            YOKOGAWA_AQ6370D.write(":sens:sweep:points:auto on")
-            YOKOGAWA_AQ6370D.write(":init:smode 1")
+            YOKOGAWA_AQ6370D.write(":SENSe:BANDwidth:RESolution 0.02nm")
+            YOKOGAWA_AQ6370D.write(f":SENSe:WAVelength:CENTer {wavelength}nm")
+            YOKOGAWA_AQ6370D.write(f":SENSe:WAVelength:SPAN {osa_span}nm")
+            YOKOGAWA_AQ6370D.write(":SENSe:SWEep:POINts 2000")
+            # YOKOGAWA_AQ6370D.write(":sens:sweep:points:auto on")
+            YOKOGAWA_AQ6370D.write(":SENSe:SENSe MID")
+            YOKOGAWA_AQ6370D.write(":INITiate:SMODe SINGle")
             YOKOGAWA_AQ6370D.write("*CLS")
-            YOKOGAWA_AQ6370D.write(":init")
-            YOKOGAWA_AQ6370D.write("")
-            YOKOGAWA_AQ6370D.write("")
-            YOKOGAWA_AQ6370D.write("")
-            YOKOGAWA_AQ6370D.write("")
-            YOKOGAWA_AQ6370D.write("")
-            YOKOGAWA_AQ6370D.write("")
-            YOKOGAWA_AQ6370D.write("")
-            YOKOGAWA_AQ6370D.write("")
-            YOKOGAWA_AQ6370D.write("")
-            YOKOGAWA_AQ6370D.write("")
-            YOKOGAWA_AQ6370D.write("")
-            YOKOGAWA_AQ6370D.write("")
+            status = None
 
             # main loop for osa
             for i in osa_current_list:
@@ -478,8 +469,8 @@ def main():
                 # measure Current, A
                 current = float(Keysight_B2901A.query("MEAS:CURR?"))
 
-                # add current, measured current, voltage, power, power conlumption to the DataFrame
-                df.loc[len(df)] = [
+                # add current, measured current, voltage, power, power consumption to the DataFrame
+                iv.loc[len(iv)] = [
                     i * 1000,
                     current * 1000,
                     voltage,
@@ -488,6 +479,25 @@ def main():
 
                 # print data to the terminal
                 print(f"{i*1000:3.2f} mA: {current*1000:10.5f} mA, {voltage:8.5f} V")
+
+                YOKOGAWA_AQ6370D.write("*CLS")
+                YOKOGAWA_AQ6370D.write(":INITiate")
+
+                status = YOKOGAWA_AQ6370D.query(":STATus:OPERation:EVENt?")[0]
+                while status != 1:
+                    status = YOKOGAWA_AQ6370D.query(":STATus:OPERation:EVENt?")[0]
+                    sleep(0.5)
+
+                if not i:
+                    wavelength_list = (
+                        YOKOGAWA_AQ6370D.query(":TRACE:X? TRA").strip().split(",")
+                    )
+                    spectra["Wavelength, nm"] = pd.Series(wavelength_list)
+                intensity = YOKOGAWA_AQ6370D.query(":TRACE:Y? TRA").strip().split(",")
+                column_spectra = f"Intensity for {i*1000:.2f} mA, dBm"
+                spectra[column_spectra] = pd.Series(intensity)
+
+            YOKOGAWA_AQ6370D.write("*CLS")
 
             # slowly decrease current
             current = float(Keysight_B2901A.query("MEAS:CURR?"))  # measure current
@@ -502,11 +512,14 @@ def main():
             Keysight_B2901A.write(":OUTP OFF")
 
             timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
-            dirpath = f"data/{waferid}-{wavelength}nm/{coordinates}/osa"
             filepath = (
-                f"data/{waferid}-{wavelength}nm/{coordinates}/liv/"
+                dirpath
+                + "osa/"
                 + f"{waferid}-{wavelength}nm-{coordinates}-{temperature}c-{timestr}-{osa}"
             )
+
+            iv.to_csv(filepath + "-IV.csv")
+            spectra.to_csv(filepath + ".csv")
 
 
 # Run main when the script is run by passing it as a command to the Python interpreter (just a good practice)
