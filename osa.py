@@ -10,18 +10,26 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
-import settings
+from settings import settings
 
 
 # parameters
-equipment = sys.argv[1]
-waferid = sys.argv[2]
-wavelength = sys.argv[3]
-coordinates = sys.argv[4]
-temperature = sys.argv[5]
+# equipment = sys.argv[1]
+# waferid = sys.argv[2]
+# wavelength = sys.argv[3]
+# coordinates = sys.argv[4]
+# temperature = sys.argv[5]
 
 
-def measure_osa(waferid, wavelength, coordinates, temperature, YOKOGAWA_AQ6370D=None):
+def measure_osa(
+    waferid,
+    wavelength,
+    coordinates,
+    temperature,
+    Keysight_B2901A=None,
+    YOKOGAWA_AQ6370D=None,
+    **settings,
+):
     if YOKOGAWA_AQ6370D:
         YOKOGAWA_AQ6370D_toggle = True
         osa = "YOKOGAWA_AQ6370D"

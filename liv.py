@@ -9,15 +9,15 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
-import settings
+from settings import settings
 
 
 # parameters
-equipment = sys.argv[1]
-waferid = sys.argv[2]
-wavelength = sys.argv[3]
-coordinates = sys.argv[4]
-temperature = sys.argv[5]
+# equipment = sys.argv[1]
+# waferid = sys.argv[2]
+# wavelength = sys.argv[3]
+# coordinates = sys.argv[4]
+# temperature = sys.argv[5]
 
 
 def measure_liv(
@@ -25,16 +25,18 @@ def measure_liv(
     wavelength,
     coordinates,
     temperature,
+    Keysight_B2901A=None,
     PM100USB=None,
     Keysight_8163B=None,
     k_port=None,
+    **settings,
 ):
     if PM100USB:
         pm100_toggle = True
         powermeter = "PM100USB"
     if Keysight_8163B:
         keysight_8163B_toggle = True
-        powermeter = "Keysight_8163B_port" + k_port
+        powermeter = "Keysight_8163B_port" + str(k_port)
 
     dirpath = f"data/{waferid}-{wavelength}nm/{coordinates}/"
 
@@ -325,5 +327,4 @@ def measure_liv(
     # plt.imshow(image)
     # plt.show()
 
-
-return filepath
+    return filepath

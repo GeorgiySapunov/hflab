@@ -16,7 +16,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
-import settings
+from settings import settings
 from liv import measure_liv
 from osa import measure_osa
 
@@ -40,11 +40,21 @@ def main():
 
         print()
         print("Make sure addresses in the programm are correct!")
-        print(f"Keysight_B2901A_address is set to       {Keysight_B2901A_address}")
-        print(f"Thorlabs_PM100USB_address is set to     {Thorlabs_PM100USB_address}")
-        print(f"Keysight_8163B_address is set to        {Keysight_8163B_address}")
-        print(f"Yokogawa_AQ6370D_adress is set to       {YOKOGAWA_AQ6370D_address}")
-        print(f"ATT_A160CMI_address is set to           {ATT_A160CMI_address}")
+        print(
+            f"Keysight_B2901A_address is set to       {settings['Keysight_B2901A_address']}"
+        )
+        print(
+            f"Thorlabs_PM100USB_address is set to     {settings['Thorlabs_PM100USB_address']}"
+        )
+        print(
+            f"Keysight_8163B_address is set to        {settings['Keysight_8163B_address']}"
+        )
+        print(
+            f"Yokogawa_AQ6370D_adress is set to       {settings['YOKOGAWA_AQ6370D_address']}"
+        )
+        print(
+            f"ATT_A160CMI_address is set to           {settings['ATT_A160CMI_address']}"
+        )
         print()
         print("following arguments are needed:")
         print("Equipment_choice WaferID Wavelength(nm) Coordinates Temperature(°C)")
@@ -60,7 +70,7 @@ def main():
             "for multiple temperature you need to specify start, stop and step tempertature values:"
         )
         print(
-            "Equipment_choice WaferID Wavelength(nm) Coordinates Start_Temperature(°C) Stop_Temperature(°C) Step_Temperature(°C)"
+            "Equipment_choice WaferID Wavelength(nm) Coordinates Start_Temperature(°C) Stop_Temperature(°C) Temperature_Increment(°C)"
         )
         print("e.g. run 'python measure.py t gs15 1550 00C9 25 85 40'")
         print("in this case you will get LIVs for 25, 65 and 85 degrees")
@@ -145,9 +155,11 @@ def main():
                     wavelength,
                     coordinates,
                     temperature,
+                    Keysight_B2901A=Keysight_B2901A,
                     PM100USB=PM100USB,
                     Keysight_8163B=Keysight_8163B,
                     k_port=k_port,
+                    **settings,
                 )
                 if len(temperature_list) == 1:
                     # show figure
@@ -165,7 +177,9 @@ def main():
                     wavelength,
                     coordinates,
                     temperature,
+                    Keysight_B2901A=Keysight_B2901A,
                     YOKOGAWA_AQ6370D=YOKOGAWA_AQ6370D,
+                    **settings,
                 )
 
 
