@@ -118,15 +118,15 @@ def main():
         # initiate pyvisa
         rm = pyvisa.ResourceManager()
         # set addresses for devices
-        Keysight_B2901A = rm.open_resource(Keysight_B2901A_address)
+        Keysight_B2901A = rm.open_resource(settings['Keysight_B2901A_address'])
         if pm100_toggle:
-            PM100USB = rm.open_resource(Thorlabs_PM100USB_address)
+            PM100USB = rm.open_resource(settings['Thorlabs_PM100USB_address'])
             powermeter = "PM100USB"
         elif keysight_8163B_toggle:
-            Keysight_8163B = rm.open_resource(Keysight_8163B_address)
+            Keysight_8163B = rm.open_resource(settings['Keysight_8163B_address'])
             powermeter = "Keysight_8163B_port" + k_port
         elif YOKOGAWA_AQ6370D_toggle:
-            YOKOGAWA_AQ6370D = rm.open_resource(YOKOGAWA_AQ6370D_address)
+            YOKOGAWA_AQ6370D = rm.open_resource(settings['YOKOGAWA_AQ6370D_address'])
             osa = "YOKOGAWA_AQ6370D"
         if len(temperature_list) != 1:
             ATT_A160CMI = rm.open_resource(

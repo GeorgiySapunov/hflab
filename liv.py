@@ -29,7 +29,17 @@ def measure_liv(
     PM100USB=None,
     Keysight_8163B=None,
     k_port=None,
-    **settings,
+    # settings
+    Keysight_B2901A_address=None,
+    Thorlabs_PM100USB_address=None,
+    Keysight_8163B_address=None,
+    YOKOGAWA_AQ6370D_address=None,
+    ATT_A160CMI_address=None,
+    current_list=None,
+    beyond_rollover_stop_cond=None,
+    current_limit1=None,
+    current_limit2=None,
+    temperature_limit=None,
 ):
     if PM100USB:
         pm100_toggle = True
@@ -39,6 +49,7 @@ def measure_liv(
         powermeter = "Keysight_8163B_port" + str(k_port)
 
     dirpath = f"data/{waferid}-{wavelength}nm/{coordinates}/"
+
 
     print(f"Measuring LIV using {powermeter}")
     # initiate pandas Data Frame
@@ -183,13 +194,13 @@ def measure_liv(
         ax2 = ax.twinx()
 
         plt.title(
-            waferid
+            str(waferid)
             + " "
-            + wavelength
+            + str(wavelength)
             + " nm "
-            + coordinates
+            + str(coordinates)
             + " "
-            + temperature
+            + str(temperature)
             + " °C"
             # + " "
             # + powermeter
@@ -310,16 +321,16 @@ def measure_liv(
         + f"{waferid}-{wavelength}nm-{coordinates}-{temperature}c-{timestr}-{powermeter}"
     )
 
-    if not os.path.exists(dirpath):  # make directories
-        os.makedirs(dirpath)
+    if not os.path.exists(dirpath + "liv/"):  # make directories
+        os.makedirs(dirpath + "liv/")
 
     iv.to_csv(filepath + ".csv")  # save DataFrame to csv file
 
     # save figures
     buildplt_all()
-    plt.savefig(filepath + "-all")  # save figure
+    plt.savefig(filepath + "-all.png")  # save figure
     i_rollover = buildplt_tosave()
-    plt.savefig(filepath + f"_Iro={i_rollover:.2f}")  # save figure
+    plt.savefig(filepath + f"_Iro={i_rollover:.2f}.png")  # save figure
     # plt.show()
     plt.close("all")
     # show figure

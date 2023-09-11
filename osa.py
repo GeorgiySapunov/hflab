@@ -28,7 +28,17 @@ def measure_osa(
     temperature,
     Keysight_B2901A=None,
     YOKOGAWA_AQ6370D=None,
-    **settings,
+    #
+    Keysight_B2901A_address=None,
+    Thorlabs_PM100USB_address=None,
+    Keysight_8163B_address=None,
+    YOKOGAWA_AQ6370D_address=None,
+    ATT_A160CMI_address=None,
+    current_list=None,
+    beyond_rollover_stop_cond=None,
+    current_limit1=None,
+    current_limit2=None,
+    temperature_limit=None,
 ):
     if YOKOGAWA_AQ6370D:
         YOKOGAWA_AQ6370D_toggle = True
@@ -39,7 +49,10 @@ def measure_osa(
     walk = list(os.walk(dirpath + "liv/"))
     r = re.compile(f"{waferid}-{wavelength}nm-{coordinates}-{temperature}c.*\\.csv")
     files = walk[0][2]
+    print(files)
+    print(f"{waferid}-{wavelength}nm-{coordinates}-{temperature}c.*\\.csv")
     matched_files = list(filter(r.match, files)).sort(reverse=True)
+    print(matched_files)
     file = matched_files[0]
     dataframe = pd.read_csv(dirpath + "liv/" + file)
 
@@ -122,6 +135,9 @@ def measure_osa(
     Keysight_B2901A.write(":OUTP OFF")
 
     timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
+    if not os.path.exists(dirpath + "osa/"):  # make directories
+        os.makedirs(dirpath + "osa/")
+
     filepath = (
         dirpath
         + "osa/"
