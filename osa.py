@@ -46,15 +46,16 @@ def measure_osa(
 
     dirpath = f"data/{waferid}-{wavelength}nm/{coordinates}/"
 
-    walk = list(os.walk(dirpath + "liv/"))
-    r = re.compile(f"{waferid}-{wavelength}nm-{coordinates}-{temperature}c.*\\.csv")
+    walk = list(os.walk(dirpath + "LIV"))
+    string_for_re = (
+        f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C".replace(".", "\.")
+        + ".*\\.csv"
+    )
+    r = re.compile(string_for_re)
     files = walk[0][2]
-    print(files)
-    print(f"{waferid}-{wavelength}nm-{coordinates}-{temperature}c.*\\.csv")
     matched_files = list(filter(r.match, files)).sort(reverse=True)
-    print(matched_files)
     file = matched_files[0]
-    dataframe = pd.read_csv(dirpath + "liv/" + file)
+    dataframe = pd.read_csv(dirpath + "LIV" + file)
 
     max_current = dataframe.iloc[-1]["Current set, mA"]
 
@@ -135,13 +136,13 @@ def measure_osa(
     Keysight_B2901A.write(":OUTP OFF")
 
     timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
-    if not os.path.exists(dirpath + "osa/"):  # make directories
-        os.makedirs(dirpath + "osa/")
+    if not os.path.exists(dirpath + "OSA"):  # make directories
+        os.makedirs(dirpath + "OSA")
 
     filepath = (
         dirpath
-        + "osa/"
-        + f"{waferid}-{wavelength}nm-{coordinates}-{temperature}c-{timestr}-{osa}"
+        + "OSA"
+        + f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-{timestr}-{osa}"
     )
 
     iv.to_csv(filepath + "-IV.csv")

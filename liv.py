@@ -50,7 +50,6 @@ def measure_liv(
 
     dirpath = f"data/{waferid}-{wavelength}nm/{coordinates}/"
 
-
     print(f"Measuring LIV using {powermeter}")
     # initiate pandas Data Frame
     iv = pd.DataFrame(
@@ -102,7 +101,7 @@ def measure_liv(
     def annotate_max(x, y, ax=None):
         xmax = x[np.argmax(y)]
         ymax = y.max()
-        text = f"current={xmax:.2f}, optical power={ymax:.2f}"
+        text = f"current={xmax:.2f} mA, optical power={ymax:.2f} mW"
         if not ax:
             ax = plt.gca()
         bbox_props = dict(boxstyle="square,pad=0.3", fc="w", ec="k", lw=0.72)
@@ -121,6 +120,24 @@ def measure_liv(
     def annotate_threshhold(x, y, ax=None):  # TODO
         first_der = np.gradient(y, x)
         second_der = np.gradient(first_der, x)
+        x_threshold = x[np.argmax(second_der > 10)]  # decision level
+        y_threshold = y[x_threshold]
+
+        text = f"current={x_threshold:.2f} mA"
+        if not ax:
+            ax = plt.gca()
+        bbox_props = dict(boxstyle="square,pad=0.3", fc="w", ec="k", lw=0.72)
+        arrowprops = dict(arrowstyle="->", connectionstyle="angle,angleA=0,angleB=60")
+        kw = dict(
+            xycoords="data",
+            textcoords="axes fraction",
+            arrowprops=arrowprops,
+            bbox=bbox_props,
+            ha="right",
+            va="top",
+        )
+        ax.annotate(text, xy=(x_threshold, y_threshold), xytext=(0.94, 0.96), **kw)
+        return x_threshold
 
     fig = plt.figure(figsize=(20, 10))
     ax1 = fig.add_subplot(221)  # subplot for set current
@@ -186,6 +203,8 @@ def measure_liv(
         # annotate maximum output power
         annotate_max(seti, l, ax=ax1)
         annotate_max(i, l, ax=ax2)
+        annotate_threshhold(seti, l, ax=ax1)
+        annotate_threshhold(i, l, ax=ax2)
 
     def buildplt_tosave(dataframe=iv):
         # Creating figure
@@ -238,7 +257,8 @@ def measure_liv(
 
         # annotate maximum output power
         i_rollover = annotate_max(i, l, ax=ax)
-        return i_rollover
+        i_threshold = annotate_threshhold(i, l, ax=ax)
+        return i_threshold, i_rollover
 
     #                 (_)       | |
     #  _ __ ___   __ _ _ _ __   | | ___   ___  _ __
@@ -317,20 +337,22 @@ def measure_liv(
     timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
     filepath = (
         dirpath
-        + "liv/"
-        + f"{waferid}-{wavelength}nm-{coordinates}-{temperature}c-{timestr}-{powermeter}"
+        + "LIV"
+        + f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-{timestr}-{powermeter}"
     )
 
-    if not os.path.exists(dirpath + "liv/"):  # make directories
-        os.makedirs(dirpath + "liv/")
+    if not os.path.exists(dirpath + "LIV"):  # make directories
+        os.makedirs(dirpath + "LIV")
 
     iv.to_csv(filepath + ".csv")  # save DataFrame to csv file
 
     # save figures
     buildplt_all()
     plt.savefig(filepath + "-all.png")  # save figure
-    i_rollover = buildplt_tosave()
-    plt.savefig(filepath + f"_Iro={i_rollover:.2f}.png")  # save figure
+    i_threshold, i_rollover = buildplt_tosave()
+    plt.savefig(
+        filepath + f"_Ith={i_threshold:.2f}_Iro={i_rollover:.2f}.png"
+    )  # save figure
     # plt.show()
     plt.close("all")
     # show figure
