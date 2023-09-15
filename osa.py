@@ -53,7 +53,8 @@ def measure_osa(
     )
     r = re.compile(string_for_re)
     files = walk[0][2]
-    matched_files = list(filter(r.match, files)).sort(reverse=True)
+    matched_files = list(filter(r.match, files))
+    matched_files.sort(reverse=True)
     file = matched_files[0]
     dataframe = pd.read_csv(dirpath + "LIV" + file)
 
@@ -141,7 +142,7 @@ def measure_osa(
 
     filepath = (
         dirpath
-        + "OSA"
+        + "OSA/"
         + f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-{timestr}-{osa}"
     )
 

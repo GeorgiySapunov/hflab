@@ -121,7 +121,7 @@ def measure_liv(
         first_der = np.gradient(y, x)
         second_der = np.gradient(first_der, x)
         x_threshold = x[np.argmax(second_der > 10)]  # decision level
-        y_threshold = y[x_threshold]
+        y_threshold = 0.1
 
         text = f"current={x_threshold:.2f} mA"
         if not ax:
@@ -337,7 +337,7 @@ def measure_liv(
     timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
     filepath = (
         dirpath
-        + "LIV"
+        + "LIV/"
         + f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-{timestr}-{powermeter}"
     )
 
