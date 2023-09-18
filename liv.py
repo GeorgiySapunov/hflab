@@ -101,7 +101,7 @@ def measure_liv(
     def annotate_max(x, y, ax=None):
         xmax = x[np.argmax(y)]
         ymax = y.max()
-        text = f"current={xmax:.2f} mA, optical power={ymax:.2f} mW"
+        text = f"Rollover current={xmax:.2f} mA, optical power={ymax:.2f} mW"
         if not ax:
             ax = plt.gca()
         bbox_props = dict(boxstyle="square,pad=0.3", fc="w", ec="k", lw=0.72)
@@ -114,29 +114,34 @@ def measure_liv(
             ha="right",
             va="top",
         )
-        ax.annotate(text, xy=(xmax, ymax), xytext=(0.94, 0.96), **kw)
+        ax.annotate(text, xy=(xmax, ymax), xytext=(0.88, 0.96), **kw)
         return xmax
 
     def annotate_threshhold(x, y, ax=None):  # TODO
         first_der = np.gradient(y, x)
         second_der = np.gradient(first_der, x)
-        x_threshold = x[np.argmax(second_der > 10)]  # decision level
-        y_threshold = 0.1
+        if second_der.max >= 10:
+            x_threshold = x[np.argmax(second_der >= 10)]  # decision level
+            y_threshold = y[x_threshold]
 
-        text = f"current={x_threshold:.2f} mA"
-        if not ax:
-            ax = plt.gca()
-        bbox_props = dict(boxstyle="square,pad=0.3", fc="w", ec="k", lw=0.72)
-        arrowprops = dict(arrowstyle="->", connectionstyle="angle,angleA=0,angleB=60")
-        kw = dict(
-            xycoords="data",
-            textcoords="axes fraction",
-            arrowprops=arrowprops,
-            bbox=bbox_props,
-            ha="right",
-            va="top",
-        )
-        ax.annotate(text, xy=(x_threshold, y_threshold), xytext=(0.94, 0.96), **kw)
+            text = f"Threshold current={x_threshold:.2f} mA"
+            if not ax:
+                ax = plt.gca()
+            bbox_props = dict(boxstyle="square,pad=0.3", fc="w", ec="k", lw=0.72)
+            arrowprops = dict(
+                arrowstyle="->", connectionstyle="angle,angleA=0,angleB=60"
+            )
+            kw = dict(
+                xycoords="data",
+                textcoords="axes fraction",
+                arrowprops=arrowprops,
+                bbox=bbox_props,
+                ha="right",
+                va="top",
+            )
+            ax.annotate(text, xy=(x_threshold, y_threshold), xytext=(0.94, 0.96), **kw)
+        else:
+            x_threshold = None
         return x_threshold
 
     fig = plt.figure(figsize=(20, 10))
