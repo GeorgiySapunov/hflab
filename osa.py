@@ -39,6 +39,7 @@ def measure_osa(
     current_limit1=None,
     current_limit2=None,
     temperature_limit=None,
+    osa_span=None,
 ):
     if YOKOGAWA_AQ6370D:
         YOKOGAWA_AQ6370D_toggle = True
@@ -56,11 +57,11 @@ def measure_osa(
     matched_files = list(filter(r.match, files))
     matched_files.sort(reverse=True)
     file = matched_files[0]
-    dataframe = pd.read_csv(dirpath + "LIV" + file)
+    dataframe = pd.read_csv(dirpath + "LIV/" + file)
 
     max_current = dataframe.iloc[-1]["Current set, mA"]
 
-    osa_current_list = [i / 1000000 for i in range(0, max_current * 1000, 100)]
+    osa_current_list = [i / 1000000 for i in range(0, int(max_current * 1000), 100)]
 
     iv = pd.DataFrame(
         columns=[
@@ -76,7 +77,7 @@ def measure_osa(
     YOKOGAWA_AQ6370D.write("*RST")
     YOKOGAWA_AQ6370D.write("FORMAT:DATA ASCII")
     YOKOGAWA_AQ6370D.write(":TRAC:ACT TRA")
-    YOKOGAWA_AQ6370D.write(":SENSe:BANDwidth:RESolution 0.02nm")
+    YOKOGAWA_AQ6370D.write(":SENSe:BANDwidth:RESolution 0.017nm")
     YOKOGAWA_AQ6370D.write(f":SENSe:WAVelength:CENTer {wavelength}nm")
     YOKOGAWA_AQ6370D.write(f":SENSe:WAVelength:SPAN {osa_span}nm")
     YOKOGAWA_AQ6370D.write(":SENSe:SWEep:POINts 2000")
@@ -111,14 +112,23 @@ def measure_osa(
         YOKOGAWA_AQ6370D.write(":INITiate")
 
         status = YOKOGAWA_AQ6370D.query(":STATus:OPERation:EVENt?")[0]
-        while status != 1:
-            status = YOKOGAWA_AQ6370D.query(":STATus:OPERation:EVENt?")[0]
-            sleep(0.5)
 
-        if not i:
-            wavelength_list = YOKOGAWA_AQ6370D.query(":TRACE:X? TRA").strip().split(",")
+        while status != "1":
+            status = YOKOGAWA_AQ6370D.query(":STATus:OPERation:EVENt?")[0]
+            time.sleep(0.5)
+
+        if not i:  # if i == 0.0:
+            print("zero")
+            YOKOGAWA_AQ6370D.write("*CLS")
+            wavelength_list = (
+                YOKOGAWA_AQ6370D.query(":TRACE:X? TRA\n").strip().split(",")
+            )
+            print(wavelength_list)
             spectra["Wavelength, nm"] = pd.Series(wavelength_list)
-        intensity = YOKOGAWA_AQ6370D.query(":TRACE:Y? TRA").strip().split(",")
+            print(spectra["Wavelength, nm"])
+        YOKOGAWA_AQ6370D.write("*CLS")
+        intensity = YOKOGAWA_AQ6370D.query(":TRACE:Y? TRA\n").strip().split(",")
+        print(intensity)
         column_spectra = f"Intensity for {i*1000:.2f} mA, dBm"
         spectra[column_spectra] = pd.Series(intensity)
 
@@ -147,4 +157,4 @@ def measure_osa(
     )
 
     iv.to_csv(filepath + "-IV.csv")
-    spectra.to_csv(filepath + ".csv")
+    spectra.to_csv(filepath + "-OS.csv")

@@ -40,7 +40,10 @@ def measure_liv(
     current_limit1=None,
     current_limit2=None,
     temperature_limit=None,
+    osa_span=None,
 ):
+    pm100_toggle = False
+    keysight_8163B_toggle = False
     if PM100USB:
         pm100_toggle = True
         powermeter = "PM100USB"
@@ -101,7 +104,7 @@ def measure_liv(
     def annotate_max(x, y, ax=None):
         xmax = x[np.argmax(y)]
         ymax = y.max()
-        text = f"Rollover current={xmax:.2f} mA, optical power={ymax:.2f} mW"
+        text = f"I_ro={xmax:.2f} mA, optical power={ymax:.2f} mW"
         if not ax:
             ax = plt.gca()
         bbox_props = dict(boxstyle="square,pad=0.3", fc="w", ec="k", lw=0.72)
@@ -114,34 +117,38 @@ def measure_liv(
             ha="right",
             va="top",
         )
-        ax.annotate(text, xy=(xmax, ymax), xytext=(0.88, 0.96), **kw)
+        ax.annotate(text, xy=(xmax, ymax), xytext=(0.99, 0.99), **kw)
         return xmax
 
     def annotate_threshhold(x, y, ax=None):  # TODO
         first_der = np.gradient(y, x)
         second_der = np.gradient(first_der, x)
-        if second_der.max >= 10:
+        #print(second_der)
+        print(second_der.max())
+        if second_der.max() >= 10:
             x_threshold = x[np.argmax(second_der >= 10)]  # decision level
-            y_threshold = y[x_threshold]
+            print(x_threshold)
+            y_threshold = y[np.argmax(second_der >= 10)]
+            print(y_threshold)
 
-            text = f"Threshold current={x_threshold:.2f} mA"
+            text = f"I_th={x_threshold:.2f} mA"
             if not ax:
                 ax = plt.gca()
             bbox_props = dict(boxstyle="square,pad=0.3", fc="w", ec="k", lw=0.72)
             arrowprops = dict(
-                arrowstyle="->", connectionstyle="angle,angleA=0,angleB=60"
+                arrowstyle="->", connectionstyle="angle,angleA=0,angleB=80"
             )
             kw = dict(
                 xycoords="data",
                 textcoords="axes fraction",
                 arrowprops=arrowprops,
                 bbox=bbox_props,
-                ha="right",
+                ha="left",
                 va="top",
             )
-            ax.annotate(text, xy=(x_threshold, y_threshold), xytext=(0.94, 0.96), **kw)
+            ax.annotate(text, xy=(x_threshold, y_threshold), xytext=(0.01, 0.99), **kw)
         else:
-            x_threshold = None
+            x_threshold = 0.0
         return x_threshold
 
     fig = plt.figure(figsize=(20, 10))
