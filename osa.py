@@ -75,6 +75,7 @@ def measure_osa(
     spectra = pd.DataFrame()
 
     YOKOGAWA_AQ6370D.write("*RST")
+    YOKOGAWA_AQ6370D.write(":CALibration:ZERO once")
     YOKOGAWA_AQ6370D.write("FORMAT:DATA ASCII")
     YOKOGAWA_AQ6370D.write(":TRAC:ACT TRA")
     YOKOGAWA_AQ6370D.write(":SENSe:BANDwidth:RESolution 0.017nm")
@@ -115,21 +116,14 @@ def measure_osa(
 
         while status != "1":
             status = YOKOGAWA_AQ6370D.query(":STATus:OPERation:EVENt?")[0]
-            time.sleep(0.5)
+            time.sleep(0.1)
 
         if not i:  # if i == 0.0:
-            print("zero")
-            YOKOGAWA_AQ6370D.write("*CLS")
-            wavelength_list = (
-                YOKOGAWA_AQ6370D.query(":TRACE:X? TRA\n").strip().split(",")
-            )
-            print(wavelength_list)
-            spectra["Wavelength, nm"] = pd.Series(wavelength_list)
-            print(spectra["Wavelength, nm"])
+            wavelength_list = YOKOGAWA_AQ6370D.query(":TRACE:X? TRA").strip().split(",")
+            spectra["Wavelength, nm"] = pd.Series(wavelength_list) * 10**9
         YOKOGAWA_AQ6370D.write("*CLS")
-        intensity = YOKOGAWA_AQ6370D.query(":TRACE:Y? TRA\n").strip().split(",")
-        print(intensity)
-        column_spectra = f"Intensity for {i*1000:.2f} mA, dBm"
+        intensity = YOKOGAWA_AQ6370D.query(":TRACE:Y? TRA").strip().split(",")
+        column_spectra = f"Intensity at {i*1000:.2f} mA, dBm"
         spectra[column_spectra] = pd.Series(intensity)
 
     YOKOGAWA_AQ6370D.write("*CLS")

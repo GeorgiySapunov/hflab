@@ -11,8 +11,8 @@
 # Keysight_B2901A_address = "GPIB0::23::INSTR"
 Keysight_B2901A_address = "USB0::0x0957::0x8B18::MY51143485::INSTR"
 Thorlabs_PM100USB_address = "USB0::0x1313::0x8072::1923257::INSTR"
-Keysight_8163B_address = "GPIB0::10::INSTR"
-# Keysight_8163B_address = "TCPIP0::169.254.5.10::10001::SOCKET"
+# Keysight_8163B_address = "GPIB0::10::INSTR"
+Keysight_8163B_address = "TCPIP::169.254.20.100::5025::SOCKET"
 # YOKOGAWA_AQ6370D_address = "TCPIP0::169.254.5.10::10001::SOCKET"
 YOKOGAWA_AQ6370D_address = "GPIB0::1::INSTR"
 ATT_A160CMI_address = ""
@@ -31,7 +31,7 @@ settings = {
     "Keysight_B2901A_address": "USB0::0x0957::0x8B18::MY51143485::INSTR",
     "Thorlabs_PM100USB_address": "USB0::0x1313::0x8072::1923257::INSTR",
     "Keysight_8163B_address": "GPIB0::10::INSTR",
-    "YOKOGAWA_AQ6370D_address": "GPIB0::1::INSTR",
+    "YOKOGAWA_AQ6370D_address": "TCPIP::169.254.5.10::INSTR",
     "ATT_A160CMI_address": "",
     # list of current to measure (from 0 to 50 mA, 0.01 mA steps)
     "current_list": (i / 1000000 for i in range(0, 50000, 10)),

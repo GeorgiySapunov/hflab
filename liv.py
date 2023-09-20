@@ -108,7 +108,7 @@ def measure_liv(
         if not ax:
             ax = plt.gca()
         bbox_props = dict(boxstyle="square,pad=0.3", fc="w", ec="k", lw=0.72)
-        arrowprops = dict(arrowstyle="->", connectionstyle="angle,angleA=0,angleB=60")
+        arrowprops = dict(arrowstyle="->", connectionstyle="angle,angleA=0,angleB=90")
         kw = dict(
             xycoords="data",
             textcoords="axes fraction",
@@ -123,7 +123,7 @@ def measure_liv(
     def annotate_threshhold(x, y, ax=None):  # TODO
         first_der = np.gradient(y, x)
         second_der = np.gradient(first_der, x)
-        #print(second_der)
+        # print(second_der)
         print(second_der.max())
         if second_der.max() >= 10:
             x_threshold = x[np.argmax(second_der >= 10)]  # decision level
@@ -136,7 +136,7 @@ def measure_liv(
                 ax = plt.gca()
             bbox_props = dict(boxstyle="square,pad=0.3", fc="w", ec="k", lw=0.72)
             arrowprops = dict(
-                arrowstyle="->", connectionstyle="angle,angleA=0,angleB=80"
+                arrowstyle="->", connectionstyle="angle,angleA=0,angleB=90"
             )
             kw = dict(
                 xycoords="data",

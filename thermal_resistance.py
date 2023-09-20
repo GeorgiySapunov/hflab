@@ -28,11 +28,12 @@ def analyse(directory):
         temperature = list(filter(r2.match, file_name_parser))[0]
         temperature = float(temperature.removesuffix("°C"))
         temperatures.add(float(temperature))
-    print(f"temperature set from osa: {temperatures}")
+    print(f"temperature set from OSA: {temperatures}")
 
     df1 = pd.DataFrame(
         columns=[
-            # "Current set, mA",
+            "Dissipated power, mW",
+            *temperatures
             # "Current, mA",
             # "Voltage, V",
             # "Power consumption, mW",
@@ -40,17 +41,17 @@ def analyse(directory):
     )
     for temperature in temperatures:
         # 1. take liv file
-
         # 2. take osa file
+        # 3. get the last peak lambda
         # 3. make a Pdis, lambda df
         # 4. merge them together on Pdis
         pass
 
-    # 5. sort and interpolate
-    # 6. reshape the data to (T, lambdas at diff Pdis)
-    # 7. plot heatmaps (T, lambda, Pdis and Pdis, lambda, T)
-    # 8. plot the same lineplots
-    # 9. calculate dT/dPdis
+    # 6. sort and interpolate
+    # 7. reshape the data to (T, lambdas at diff Pdis)
+    # 8. plot heatmaps (T, lambda, Pdis and Pdis, lambda, T)
+    # 9. plot the same lineplots
+    # 10. calculate dT/dPdis
 
 
 for i, directory in enumerate(sys.argv[1:]):

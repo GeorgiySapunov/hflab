@@ -25,7 +25,7 @@ def main():
     # if python got less then or more then 6 parameters
     if len(sys.argv) not in (6, 8):
         # initiate pyvisa
-        rm = pyvisa.ResourceManager()
+        rm = pyvisa.ResourceManager("@py")
         # rm = pyvisa.ResourceManager('@py') # for pyvisa-py
         print("List of resources:")
         print(rm.list_resources())
@@ -125,19 +125,37 @@ def main():
         # initiate pyvisa
         rm = pyvisa.ResourceManager()
         # set addresses for devices
-        Keysight_B2901A = rm.open_resource(settings["Keysight_B2901A_address"])
+        Keysight_B2901A = rm.open_resource(
+            settings["Keysight_B2901A_address"],
+            write_termination="\r\n",
+            read_termination="\n",
+        )
         if pm100_toggle:
-            PM100USB = rm.open_resource(settings["Thorlabs_PM100USB_address"])
+            PM100USB = rm.open_resource(
+                settings["Thorlabs_PM100USB_address"],
+                write_termination="\r\n",
+                read_termination="\n",
+            )
             powermeter = "PM100USB"
         elif keysight_8163B_toggle:
-            Keysight_8163B = rm.open_resource(settings["Keysight_8163B_address"])
+            Keysight_8163B = rm.open_resource(
+                settings["Keysight_8163B_address"],
+                write_termination="\r\n",
+                read_termination="\n",
+            )
             powermeter = "Keysight_8163B_port" + k_port
         elif YOKOGAWA_AQ6370D_toggle:
-            YOKOGAWA_AQ6370D = rm.open_resource(settings["YOKOGAWA_AQ6370D_address"])
+            YOKOGAWA_AQ6370D = rm.open_resource(
+                settings["YOKOGAWA_AQ6370D_address"],
+                write_termination="\r\n",
+                read_termination="\n",
+            )
             osa = "YOKOGAWA_AQ6370D"
         if len(temperature_list) != 1:
             ATT_A160CMI = rm.open_resource(
-                ATT_A160CMI_address, write_termination="\r\n", read_termination="\n"
+                settings["ATT_A160CMI_address"],
+                write_termination="\r\n",
+                read_termination="\n",
             )
 
         if powermeter:
