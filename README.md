@@ -1,10 +1,34 @@
-Script fot LIV measurements using following equipment:
+1. Scripts for LIV measurements using following equipment:
 - Keysight B2901A Precision Source/Measure Unit
 - Thorlabs PM100USB Power and energy meter
-- Keysight 8163B Lightwave Multimeter (TODO)
-- YOKOGAWA AQ6370D Optical Spectrum Analyzer (TODO)
+- Keysight 8163B Lightwave Multimeter
+- YOKOGAWA AQ6370D Optical Spectrum Analyzer
+2. Script to approximate small signal modulation signal (S-parameters) at
+   different currents stored in multiple .s2p files
+3. Script to calculate and plot thermal resistance of a VCSEL
+
+# How to use:
+
+- To measure LIV run ```python measure.py```. You will get a small instruction on
+what arguments to provide. settings.py file contains a dictionary with visa
+addresses and settings.
+
+- To approximate S-parameters run ```python ssm_analysis.py *directories with
+.s2p files (or with PNA directory with .s2p files)*``` (e.g. ```python
+smm_analysis.py data/test-1550nm/0000/PNA/``` or ```python smm_analysis.py
+data/test-1550nm/*```)
+
+- To calculate thermal resistance run ```python thermal_resistance.py
+*directories with LIV and OSA directories inside*``` (e.g. ```python
+thermal_resistance.py data/test-1550nm/0000/``` or ```python
+thermal_resistance.py data/test-1550nm/*```)
 
 
+# Needed python libraries
+
+    pip install numpy scikit-rf pandas scipy scikit-learn matplotlib pyvisa pyvisa-py pyusb pyserial psutil zeroconf
+
+# note: PyVISA installation
 
 If you are told your version of pip is out of date, you might as well update it with
 
