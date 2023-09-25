@@ -41,6 +41,7 @@ def measure_liv(
     current_limit2=None,
     temperature_limit=None,
     osa_span=None,
+    osa_increment=None,
 ):
     pm100_toggle = False
     keysight_8163B_toggle = False
@@ -114,10 +115,10 @@ def measure_liv(
             textcoords="axes fraction",
             arrowprops=arrowprops,
             bbox=bbox_props,
-            ha="right",
+            ha="left",
             va="top",
         )
-        ax.annotate(text, xy=(xmax, ymax), xytext=(0.99, 0.99), **kw)
+        ax.annotate(text, xy=(xmax, ymax), xytext=(0.2, 0.99), **kw)
         return xmax
 
     def annotate_threshhold(x, y, ax=None):  # TODO

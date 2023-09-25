@@ -40,13 +40,15 @@ def measure_osa(
     current_limit2=None,
     temperature_limit=None,
     osa_span=None,
+    osa_increment=None,
 ):
     if YOKOGAWA_AQ6370D:
         YOKOGAWA_AQ6370D_toggle = True
         osa = "YOKOGAWA_AQ6370D"
 
-    dirpath = f"data/{waferid}-{wavelength}nm/{coordinates}/"
+    dirpath = f"data/{waferid}-{wavelength}nm/{coordinates}/"  # get the directory path
 
+    # read LIV .csv file
     walk = list(os.walk(dirpath + "LIV"))
     string_for_re = (
         f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C".replace(".", "\.")
@@ -59,10 +61,16 @@ def measure_osa(
     file = matched_files[0]
     dataframe = pd.read_csv(dirpath + "LIV/" + file)
 
+    # get maximum current from LIV file
     max_current = dataframe.iloc[-1]["Current set, mA"]
 
-    osa_current_list = [i / 1000000 for i in range(0, int(max_current * 1000), 100)]
+    # make a list of currents for spectra measurements
+    osa_current_list = [
+        i / 1000000 for i in range(0, int(max_current * 1000), osa_increment * 10)
+    ]
+    print(f"to {osa_current_list[-1]*1000} mA")
 
+    # make a data frame for additional IV measurements (.csv file in OSA directory)
     iv = pd.DataFrame(
         columns=[
             "Current set, mA",
@@ -72,13 +80,15 @@ def measure_osa(
         ]
     )
 
+    # make a data frame for spectra measurements
     spectra = pd.DataFrame()
 
+    # initial setings for OSA
     YOKOGAWA_AQ6370D.write("*RST")
     YOKOGAWA_AQ6370D.write(":CALibration:ZERO once")
     YOKOGAWA_AQ6370D.write("FORMAT:DATA ASCII")
     YOKOGAWA_AQ6370D.write(":TRAC:ACT TRA")
-    YOKOGAWA_AQ6370D.write(":SENSe:BANDwidth:RESolution 0.017nm")
+    YOKOGAWA_AQ6370D.write(":SENSe:BANDwidth:RESolution 0.032nm")  # TODO it changes
     YOKOGAWA_AQ6370D.write(f":SENSe:WAVelength:CENTer {wavelength}nm")
     YOKOGAWA_AQ6370D.write(f":SENSe:WAVelength:SPAN {osa_span}nm")
     YOKOGAWA_AQ6370D.write(":SENSe:SWEep:POINts 2000")
@@ -88,7 +98,7 @@ def measure_osa(
     YOKOGAWA_AQ6370D.write("*CLS")
     status = None
 
-    # main loop for osa
+    # main loop for OSA measurements at different currents
     for i in osa_current_list:
         # Outputs i Ampere immediately
         Keysight_B2901A.write(":SOUR:CURR " + str(i))
@@ -114,13 +124,14 @@ def measure_osa(
 
         status = YOKOGAWA_AQ6370D.query(":STATus:OPERation:EVENt?")[0]
 
+        # loop to check whether spectrum is aquired
         while status != "1":
             status = YOKOGAWA_AQ6370D.query(":STATus:OPERation:EVENt?")[0]
-            time.sleep(0.1)
+            time.sleep(0.3)
 
         if not i:  # if i == 0.0:
             wavelength_list = YOKOGAWA_AQ6370D.query(":TRACE:X? TRA").strip().split(",")
-            spectra["Wavelength, nm"] = pd.Series(wavelength_list) * 10**9
+            spectra["Wavelength, m"] = pd.Series(wavelength_list)
         YOKOGAWA_AQ6370D.write("*CLS")
         intensity = YOKOGAWA_AQ6370D.query(":TRACE:Y? TRA").strip().split(",")
         column_spectra = f"Intensity at {i*1000:.2f} mA, dBm"
@@ -144,6 +155,7 @@ def measure_osa(
     if not os.path.exists(dirpath + "OSA"):  # make directories
         os.makedirs(dirpath + "OSA")
 
+    # get a filepath and save .csv files
     filepath = (
         dirpath
         + "OSA/"

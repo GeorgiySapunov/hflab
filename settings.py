@@ -40,4 +40,5 @@ settings = {
     "current_limit2": 10,  # mA, stop measuremet if current above limit2 (mA) and maximum output power less then 0.5 mW
     "temperature_limit": 110,
     "osa_span": 20,
+    "osa_increment": 0.3,
 }
