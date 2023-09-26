@@ -36,18 +36,21 @@ def analyse(dirpath):
         temperature = list(filter(r2.match, file_name_parser))[0]
         temperature = float(temperature.removesuffix("°C"))
         temperatures.add(float(temperature))
+    temperatures = list(temperatures)
+    temperatures.sort()
     print(f"temperature set from OSA:\n{temperatures}")
 
     df_Pdis_T = (
         pd.DataFrame(columns=[*temperatures])
-        .set_index("Dissipated power, mW")
+        # .set_index("Dissipated power, mW") # TODO
         .rename_axis("Temperature, °C", axis=1)
     )
 
     dict_of_filenames_liv = {}
     dict_of_filenames_os = {}
 
-    for temperature in temperatures:
+    for i, temperature in enumerate(temperatures):
+        print(f"{i+1}/{len(temperatures)} temperature {temperature} °C")
         # 1. take liv files
         walk = list(os.walk(dirpath + "LIV"))
         string_for_re = (
@@ -59,7 +62,7 @@ def analyse(dirpath):
         matched_files.sort(reverse=True)
         livfile = matched_files[0]
         dict_of_filenames_liv[temperature] = livfile
-        print(dict_of_filenames_liv)
+        print(f"LIV file {dict_of_filenames_liv}")
 
         # 2. take osa file
         walk = list(os.walk(dirpath + "OSA"))
@@ -72,19 +75,29 @@ def analyse(dirpath):
         matched_files.sort(reverse=True)
         osfile = matched_files[0]
         dict_of_filenames_os[temperature] = osfile
-        print(dict_of_filenames_os)
+        print(f"OS file {dict_of_filenames_os}")
 
         # 3. get last peak lambdas and Pdis
         # read files
         osdf = pd.read_csv(dirpath + "OSA/" + osfile, index_col=0)
         livdf = pd.read_csv(dirpath + "LIV/" + livfile, index_col=0)
-        columns = osdf.columns.values.tolist()
+        columns = [
+            col
+            for col in osdf.columns.values.tolist()
+            if col.startswith("Intensity at")
+        ]
         # get a list of currents from "Intensity for 0.00 mA, dBm" columns
-        currents = [float(col.split()[2]) for col in columns]
+        currents = [
+            float(col.split()[2]) for col in columns if col.startswith("Intensity at")
+        ]
+        # if Wavelength in meters
+        if "Wavelength, nm" not in osdf.columns.values.tolist():
+            osdf["Wavelength, nm"] = osdf["Wavelength, m"] * 10**9
         # find peaks
-        for current, column in zip(currents, columns):  # itterate by current
+        # itterate by current
+        for current, column in zip(currents, columns):
             # get Pdis
-            row = livdf[livdf["Current set, mA"] == current]
+            row = livdf.loc[round(current * 100, 2)]
             pdis = float(
                 row["Current, mA"] * row["Voltage, V"] - row["Output power, mW"]
             )  # mW
@@ -92,27 +105,34 @@ def analyse(dirpath):
             peak_indexes, _ = fp(x=osdf[column], height=-65, prominence=2, distance=10)
             if len(peak_indexes):
                 last_peak_index = peak_indexes[-1]  # get last peak index
-                wl_peak = osdf.index.values[last_peak_index]  # get last peak wl
+                # get last peak wl
+                wl_peak = osdf["Wavelength, nm"].iloc[last_peak_index]
+                print(
+                    f"{temperature} °C\t{current} mA\tPdis: {pdis:.3f} mW\tpeak: {wl_peak:.3f} nm\t{column}"
+                )
             else:
                 wl_peak = None
-            print(
-                f"{temperature} °C\t{current} mA\tPdis: {pdis} mW\tpeak: {wl_peak} nm\t{column}"
-            )
+                print(
+                    f"{temperature} °C\t{current} mA\tPdis: {pdis:.3f} mW\tpeak: {wl_peak}\t\t{column}"
+                )
 
-            # TODO 4. make a plot and save .png
+            # 4. fill Pdis, temperature, lambda df
+            df_Pdis_T.at[pdis, temperature] = wl_peak
+
+            # 5. make a plot and save .png
             # Creating figure
-            fig = plt.figure()
+            fig = plt.figure(figsize=(20, 10))
             # Plotting dataset
             ax = fig.add_subplot(111)
             ax.plot(
-                osdf.index,
+                osdf["Wavelength, nm"],
                 osdf[column],
                 "-",
                 alpha=0.5,
                 label=f"{temperature} °C, {current} mA, dissipated power: {pdis} mW, peak: {wl_peak} nm",
             )
             ax.scatter(
-                osdf.iloc[peak_indexes].index.values,
+                osdf["Wavelength, nm"].iloc[peak_indexes],
                 osdf[column].iloc[peak_indexes],
                 alpha=0.5,
             )
@@ -126,21 +146,21 @@ def analyse(dirpath):
             ax.set_xlabel("Wavelength, nm")
             ax.set_ylabel("Intensity, dBm")
             # Adding legend
-            ax.legend(loc=0, prop={"size": 4})
+            # ax.legend(loc=0, prop={"size": 4})
             # Setting limits (xlim1 and xlim2 will be also used in saved csv)
             # xlim1 = 930
             # xlim2 = 955
             # ax.set_xlim(xlim1, xlim2)
-            ax.set_ylim(-75, -10)
+            ax.set_ylim(-80, -10)
 
             filepath_t = (
                 dirpath
-                + f"OSA/figures/temperature/{temperature}°C"
+                + f"OSA/figures/temperature/{temperature}°C/"
                 + f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-{current}mA"
             )
             filepath_i = (
                 dirpath
-                + f"OSA/figures/current/{current}mA"
+                + f"OSA/figures/current/{current}mA/"
                 + f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-{current}mA"
             )
 
@@ -153,18 +173,22 @@ def analyse(dirpath):
             plt.savefig(filepath_i + ".png")
             plt.close()
 
-            # 5. fill Pdis, temperature, lambda df
-            df_Pdis_T[temperature].loc[pdis] = wl_peak
-
     # 6. sort and interpolate
-    df_Pdis_T.interpolate(method="linear", limit_area="inside")
+    df_Pdis_T = df_Pdis_T.sort_index().astype("float64")
+    df_Pdis_T.to_csv(
+        dirpath
+        + f"OSA/figures/"
+        + f"{waferid}-{wavelength}nm-{coordinates}-withNaN.csv"
+    )
+    df_Pdis_T = df_Pdis_T.interpolate(method="linear", limit_area="inside", axis=0)
 
     # 7. transpose the data to T, lambdas at diff Pdis
     # df_T_Pdis = df_Pdis_T.T
 
-    # 8. TODO plot lineplots
+    # 8. plot lineplots
     # Creating figure
-    fig = plt.figure()
+    fig = plt.figure(figsize=(20, 10))
+    plt.suptitle(f"{waferid}-{wavelength}nm-{coordinates}")
     # Plotting dataset
     ax = fig.add_subplot(121)
     for col in df_Pdis_T.columns:
@@ -176,7 +200,6 @@ def analyse(dirpath):
             label=f"{col} °C",
         )
     # Adding title
-    plt.title(f"{waferid}-{wavelength}nm-{coordinates}")
     # adding grid
     ax.grid()
     # Adding labels
@@ -185,7 +208,7 @@ def analyse(dirpath):
     # Adding legend
     ax.legend(loc=0, prop={"size": 4})
 
-    ax2 = fig.add_subplot(121)
+    ax2 = fig.add_subplot(122)
     for col in df_Pdis_T.T.columns:
         ax2.plot(
             df_Pdis_T.T.index,
@@ -213,6 +236,9 @@ def analyse(dirpath):
 
     plt.savefig(filepath + ".png")
     plt.close()
+    df_Pdis_T.to_csv(
+        dirpath + f"OSA/figures/" + f"{waferid}-{wavelength}nm-{coordinates}.csv"
+    )
 
     # 9. TODO plot heatmaps (T, lambda, Pdis and Pdis, lambda, T)
     # heatdf = df_Pdis_T.pivot(columns="")

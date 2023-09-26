@@ -131,7 +131,9 @@ def measure_osa(
 
         if not i:  # if i == 0.0:
             wavelength_list = YOKOGAWA_AQ6370D.query(":TRACE:X? TRA").strip().split(",")
-            spectra["Wavelength, m"] = pd.Series(wavelength_list)
+            spectra["Wavelength, nm"] = (
+                pd.Series(wavelength_list).astype("float64") * 10**9
+            )
         YOKOGAWA_AQ6370D.write("*CLS")
         intensity = YOKOGAWA_AQ6370D.query(":TRACE:Y? TRA").strip().split(",")
         column_spectra = f"Intensity at {i*1000:.2f} mA, dBm"
