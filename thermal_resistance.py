@@ -9,6 +9,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from scipy.signal import find_peaks as fp
+from sklearn import linear_model
 
 from settings import settings
 
@@ -123,6 +124,7 @@ def analyse(dirpath):
 
             # 5. make a plot and save .png
             # Creating figure
+
             fig = plt.figure(figsize=(20, 10))
             # Plotting dataset
             ax = fig.add_subplot(111)
@@ -178,57 +180,86 @@ def analyse(dirpath):
 
     # 6. sort and interpolate
     df_Pdis_T = df_Pdis_T.sort_index().astype("float64")
+    df_Pdis_T_drop = df_Pdis_T.dropna()
+    df_Pdis_T_int = df_Pdis_T.interpolate(method="values", limit_area="inside", axis=0)
     df_Pdis_T.to_csv(
         dirpath
         + f"OSA/figures/"
         + f"{waferid}-{wavelength}nm-{coordinates}-withNaN.csv"
     )
-    df_Pdis_T_int = df_Pdis_T.interpolate(method="values", limit_area="inside", axis=0)
+    df_Pdis_T_int.to_csv(
+        dirpath + f"OSA/figures/" + f"{waferid}-{wavelength}nm-{coordinates}.csv"
+    )
+    df_Pdis_T_int_drop = df_Pdis_T_int.dropna()
 
-    # 7. transpose the data to T, lambdas at diff Pdis
-    # df_T_Pdis = df_Pdis_T_int.T
+    # 7. fill dλ/dP_dis and dλ/dT
+    dldp = pd.DataFrame(columns=["Temperature, °C", "dλ/dP_dis", "intercept"])
+    dldt = pd.DataFrame(columns=["Dissipated power, mW", "dλ/dT", "intercept"])
 
     # 8. plot lineplots
     # Creating figure
     fig = plt.figure(figsize=(20, 10))
     plt.suptitle(f"{waferid}-{wavelength}nm-{coordinates}")
     # Plotting dataset
-    ax = fig.add_subplot(121)
-    for col in df_Pdis_T_int.columns:
-        ax.plot(
+    ax1 = fig.add_subplot(221)
+    # iteration for left plot ax
+    for col_temp in df_Pdis_T_int.columns:  # columns are temperature
+        model = linear_model.LinearRegression()
+        X = df_Pdis_T_int_drop.index.values.reshape(-1, 1)
+        y = df_Pdis_T_int_drop[col_temp]
+        model.fit(X, y)
+        slope = model.coef_[0]
+        dldp.loc[len(dldp)] = [col_temp, slope, model.intercept_]
+
+        ax1.plot(
             df_Pdis_T_int.index,
-            df_Pdis_T_int[col],
+            df_Pdis_T_int[col_temp],
             "-",
-            alpha=0.5,
-            label=f"{col} °C",
+            alpha=0.8,
+            label=f"{col_temp} °C",
         )
-        ax.scatter(
+        ax1.scatter(
             df_Pdis_T.index,
-            df_Pdis_T[col],
+            df_Pdis_T[col_temp],
             alpha=0.2,
+        )
+        ax1.plot(
+            df_Pdis_T_int.index,
+            model.predict(df_Pdis_T_int.index.values.reshape(-1, 1)),
+            "-.",
+            alpha=0.2,
+            label=f"fit {col_temp} °C, dλ/dP_dis={slope:.3f}, intercept={model.intercept_:.3f}",
         )
     # Adding title
     # adding grid
-    ax.grid(which="both")  # adding grid
-    ax.minorticks_on()
+    ax1.grid(which="both")  # adding grid
+    ax1.minorticks_on()
     # Adding labels
-    ax.set_xlabel("Dissipated power, mW")
-    ax.set_ylabel("Peak wavelength, nm")
+    ax1.set_xlabel("Dissipated power, mW")
+    ax1.set_ylabel("Peak wavelength, nm")
     # Adding legend
-    ax.legend(loc=0, prop={"size": 4})
+    ax1.legend(loc=0, prop={"size": 4})
 
-    ax2 = fig.add_subplot(122)
-    for col in df_Pdis_T_int.T.columns:
+    ax2 = fig.add_subplot(222)
+    for col_pdis in df_Pdis_T_int.T.columns:  # columns are dissipated power
+        if col_pdis in df_Pdis_T_int_drop.T.columns:
+            model = linear_model.LinearRegression()
+            X = df_Pdis_T_int_drop.T.index.values.reshape(-1, 1)
+            y = df_Pdis_T_int_drop.T[col_pdis]
+            model.fit(X, y)
+            slope = model.coef_[0]
+            dldt.loc[len(dldt)] = [col_pdis, slope, model.intercept_]
+
         ax2.plot(
             df_Pdis_T_int.T.index,
-            df_Pdis_T_int.T[col],
+            df_Pdis_T_int.T[col_pdis],
             "-",
-            alpha=0.5,
+            alpha=0.4,
             # label=f"Dissipated power {col} mW",
         )
         ax2.scatter(
             df_Pdis_T.T.index,
-            df_Pdis_T.T[col],
+            df_Pdis_T.T[col_pdis],
             alpha=0.2,
         )
     # Adding title
@@ -242,6 +273,84 @@ def analyse(dirpath):
     # Adding legend
     # ax.legend(loc=0, prop={"size": 4})
 
+    model = linear_model.LinearRegression()
+    X = dldt["Dissipated power, mW"].values.reshape(-1, 1)
+    y = dldt["dλ/dT"]
+    model.fit(X, y)
+    model.coef_[0]
+    dldt_zero = model.intercept_
+
+    ax3 = fig.add_subplot(223)
+    ax3.scatter(
+        dldt["Dissipated power, mW"],
+        dldt["dλ/dT"],
+        alpha=0.2,
+    )
+    ax3.plot(
+        np.vstack([[0], dldt["Dissipated power, mW"].values.reshape(-1, 1)]),
+        model.predict(
+            np.vstack([[0], dldt["Dissipated power, mW"].values.reshape(-1, 1)])
+        ),
+        "-.",
+        alpha=0.6,
+        label=f"fit dλ/dT, slope={model.coef_[0]:.6f}, intercept={model.intercept_:.6f}",
+    )
+    # Adding title
+    # plt.title(f"{waferid}-{wavelength}nm-{coordinates}")
+    # adding grid
+    ax3.grid(which="both")  # adding grid
+    ax3.minorticks_on()
+    # Adding labels
+    ax3.set_xlabel("Dissipated power, mW")
+    ax3.set_ylabel("dλ/dT")
+    # Adding legend
+    ax3.legend(loc=0, prop={"size": 12})
+    ax3.set_ylim(bottom=0)
+
+    R_th = pd.DataFrame(columns=["Temperature, °C", "R_th, K/mW"])
+    # TODO del
+    # print(dldp.head())
+    # print(dldp.info)
+    # print(dldp.iloc[0])
+    for i, temperature in enumerate(temperatures):
+        R_th.loc[i] = [temperature, dldp["dλ/dP_dis"].iloc[i] / dldt_zero]
+        # R_th.loc[i] = [temperature, dldp["dλ/dP_dis"].loc[float64(temperature)] / dldt_zero]
+    R_th.to_csv(
+        dirpath + f"OSA/figures/" + f"{waferid}-{wavelength}nm-{coordinates}-R_th.csv"
+    )
+
+    model = linear_model.LinearRegression()
+    X = R_th["Temperature, °C"].values.reshape(-1, 1)
+    y = R_th["R_th, K/mW"]
+    model.fit(X, y)
+
+    ax4 = fig.add_subplot(224)
+    ax4.scatter(
+        R_th["Temperature, °C"],
+        R_th["R_th, K/mW"],
+        alpha=0.2,
+    )
+    ax4.plot(
+        np.linspace(temperatures[0], temperatures[-1], 100),
+        model.predict(
+            np.linspace(temperatures[0], temperatures[-1], 100).reshape(-1, 1)
+        ),
+        "-.",
+        alpha=0.6,
+        label=f"fit R_th",
+    )
+    # Adding title
+    # plt.title(f"{waferid}-{wavelength}nm-{coordinates}")
+    # adding grid
+    ax4.grid(which="both")  # adding grid
+    ax4.minorticks_on()
+    # Adding labels
+    ax4.set_xlabel("Temperature, °C")
+    ax4.set_ylabel("R_th, K/mW")
+    # Adding legend
+    ax4.legend(loc=0, prop={"size": 12})
+    ax4.set_ylim(bottom=0)
+
     filepath = (
         dirpath + f"OSA/figures/" + f"{waferid}-{wavelength}nm-{coordinates}-lineplot"
     )
@@ -249,10 +358,17 @@ def analyse(dirpath):
     if not os.path.exists(dirpath + f"OSA/figures/"):
         os.makedirs(dirpath + f"OSA/figures/")
 
-    plt.savefig(filepath + ".png")
+    plt.savefig(filepath + ".png", dpi=300)
     plt.close()
-    df_Pdis_T_int.to_csv(
-        dirpath + f"OSA/figures/" + f"{waferid}-{wavelength}nm-{coordinates}.csv"
+    dldp.to_csv(
+        dirpath
+        + f"OSA/figures/"
+        + f"{waferid}-{wavelength}nm-{coordinates}-dλdP_dis_fit.csv"
+    )
+    dldt.to_csv(
+        dirpath
+        + f"OSA/figures/"
+        + f"{waferid}-{wavelength}nm-{coordinates}-dλdT_fit.csv"
     )
 
     # 9. TODO plot heatmaps (T, lambda, Pdis and Pdis, lambda, T)
