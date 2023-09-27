@@ -183,10 +183,10 @@ def analyse(dirpath):
         + f"OSA/figures/"
         + f"{waferid}-{wavelength}nm-{coordinates}-withNaN.csv"
     )
-    df_Pdis_T = df_Pdis_T.interpolate(method="linear", limit_area="inside", axis=0)
+    df_Pdis_T_int = df_Pdis_T.interpolate(method="linear", limit_area="inside", axis=0)
 
     # 7. transpose the data to T, lambdas at diff Pdis
-    # df_T_Pdis = df_Pdis_T.T
+    # df_T_Pdis = df_Pdis_T_int.T
 
     # 8. plot lineplots
     # Creating figure
@@ -194,13 +194,18 @@ def analyse(dirpath):
     plt.suptitle(f"{waferid}-{wavelength}nm-{coordinates}")
     # Plotting dataset
     ax = fig.add_subplot(121)
-    for col in df_Pdis_T.columns:
+    for col in df_Pdis_T_int.columns:
         ax.plot(
-            df_Pdis_T.index,
-            df_Pdis_T[col],
+            df_Pdis_T_int.index,
+            df_Pdis_T_int[col],
             "-",
             alpha=0.5,
             label=f"{col} °C",
+        )
+        ax.scatter(
+            df_Pdis_T.index,
+            df_Pdis_T[col],
+            alpha=0.2,
         )
     # Adding title
     # adding grid
@@ -213,13 +218,18 @@ def analyse(dirpath):
     ax.legend(loc=0, prop={"size": 4})
 
     ax2 = fig.add_subplot(122)
-    for col in df_Pdis_T.T.columns:
+    for col in df_Pdis_T_int.T.columns:
         ax2.plot(
-            df_Pdis_T.T.index,
-            df_Pdis_T.T[col],
+            df_Pdis_T_int.T.index,
+            df_Pdis_T_int.T[col],
             "-",
             alpha=0.5,
             # label=f"Dissipated power {col} mW",
+        )
+        ax2.scatter(
+            df_Pdis_T.T.index,
+            df_Pdis_T.T[col],
+            alpha=0.2,
         )
     # Adding title
     # plt.title(f"{waferid}-{wavelength}nm-{coordinates}")
@@ -241,13 +251,16 @@ def analyse(dirpath):
 
     plt.savefig(filepath + ".png")
     plt.close()
-    df_Pdis_T.to_csv(
+    df_Pdis_T_int.to_csv(
         dirpath + f"OSA/figures/" + f"{waferid}-{wavelength}nm-{coordinates}.csv"
     )
 
     # 9. TODO plot heatmaps (T, lambda, Pdis and Pdis, lambda, T)
-    # heatdf = df_Pdis_T.pivot(columns="")
-    # 10. calculate dT/dPdis
+    # heatdf = df_Pdis_T_int.pivot(columns="")
+    # 10. calculate dλ/dT at Pdis==0
+    #
+
+    # 11. calculate dT/dPdis
 
 
 for i, directory in enumerate(sys.argv[1:]):
