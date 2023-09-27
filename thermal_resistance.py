@@ -183,7 +183,7 @@ def analyse(dirpath):
         + f"OSA/figures/"
         + f"{waferid}-{wavelength}nm-{coordinates}-withNaN.csv"
     )
-    df_Pdis_T_int = df_Pdis_T.interpolate(method="linear", limit_area="inside", axis=0)
+    df_Pdis_T_int = df_Pdis_T.interpolate(method="values", limit_area="inside", axis=0)
 
     # 7. transpose the data to T, lambdas at diff Pdis
     # df_T_Pdis = df_Pdis_T_int.T
@@ -266,5 +266,4 @@ def analyse(dirpath):
 for i, directory in enumerate(sys.argv[1:]):
     num = len(sys.argv[1:])
     print(f"[{i+1}/{num}] {directory}")
-    df = analyse(directory)
     analyse(directory)
