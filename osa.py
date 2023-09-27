@@ -34,13 +34,14 @@ def measure_osa(
     Keysight_8163B_address=None,
     YOKOGAWA_AQ6370D_address=None,
     ATT_A160CMI_address=None,
-    current_list=None,
-    beyond_rollover_stop_cond=None,
-    current_limit1=None,
-    current_limit2=None,
-    temperature_limit=None,
-    osa_span=None,
-    osa_increment=None,
+    current_increment_LIV=0.01,
+    max_current=50,
+    beyond_rollover_stop_cond=0.9,
+    current_limit1=4,
+    current_limit2=10,
+    temperature_limit=110,
+    osa_span=30,
+    current_increment_OSA=0.3,
 ):
     if YOKOGAWA_AQ6370D:
         YOKOGAWA_AQ6370D_toggle = True
@@ -66,7 +67,8 @@ def measure_osa(
 
     # make a list of currents for spectra measurements
     osa_current_list = [
-        i / 1000000 for i in range(0, int(max_current * 1000), osa_increment * 10)
+        i / 10**7
+        for i in range(0, int(max_current * 10**4), int(current_increment_OSA * 100))
     ]
     print(f"to {osa_current_list[-1]*1000} mA")
 

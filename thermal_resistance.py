@@ -97,7 +97,9 @@ def analyse(dirpath):
         # itterate by current
         for current, column in zip(currents, columns):
             # get Pdis
-            row = livdf.loc[round(current * 100, 2)]
+            row = livdf.loc[
+                round(current / settings["current_increment_LIV"], 2)
+            ]  # TODO ЧЗХ
             pdis = float(
                 row["Current, mA"] * row["Voltage, V"] - row["Output power, mW"]
             )  # mW
@@ -141,7 +143,8 @@ def analyse(dirpath):
                 f"{waferid}-{wavelength}nm-{coordinates}, {temperature} °C, {current} mA"
             )
             # adding grid
-            ax.grid()
+            ax.grid(which="both")  # adding grid
+            ax.minorticks_on()
             # Adding labels
             ax.set_xlabel("Wavelength, nm")
             ax.set_ylabel("Intensity, dBm")
@@ -201,7 +204,8 @@ def analyse(dirpath):
         )
     # Adding title
     # adding grid
-    ax.grid()
+    ax.grid(which="both")  # adding grid
+    ax.minorticks_on()
     # Adding labels
     ax.set_xlabel("Dissipated power, mW")
     ax.set_ylabel("Peak wavelength, nm")
@@ -220,7 +224,8 @@ def analyse(dirpath):
     # Adding title
     # plt.title(f"{waferid}-{wavelength}nm-{coordinates}")
     # adding grid
-    ax2.grid()
+    ax2.grid(which="both")  # adding grid
+    ax2.minorticks_on()
     # Adding labels
     ax2.set_xlabel("Temperature, °C")
     ax2.set_ylabel("Peak wavelength, nm")

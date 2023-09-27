@@ -34,11 +34,12 @@ settings = {
     "YOKOGAWA_AQ6370D_address": "TCPIP::169.254.5.10::INSTR",
     "ATT_A160CMI_address": "",
     # list of current to measure (from 0 to 50 mA, 0.01 mA steps)
-    "current_list": (i / 1000000 for i in range(0, 50000, 10)),
+    "current_increment_LIV": 0.01,  # mA
+    "max_current": 50,  # mA
     "beyond_rollover_stop_cond": 0.9,  # stop if power lower then 90% of max output power
     "current_limit1": 4,  # mA, stop measuremet if current above limit1 (mA) and output power less then 0.01 mW
     "current_limit2": 10,  # mA, stop measuremet if current above limit2 (mA) and maximum output power less then 0.5 mW
-    "temperature_limit": 110,
-    "osa_span": 20,
-    "osa_increment": 0.3,
+    "temperature_limit": 110,  # °C
+    "osa_span": 30,  # nm
+    "current_increment_OSA": 0.3,  # mA
 }

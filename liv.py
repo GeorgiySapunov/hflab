@@ -35,14 +35,22 @@ def measure_liv(
     Keysight_8163B_address=None,
     YOKOGAWA_AQ6370D_address=None,
     ATT_A160CMI_address=None,
-    current_list=None,
-    beyond_rollover_stop_cond=None,
-    current_limit1=None,
-    current_limit2=None,
-    temperature_limit=None,
-    osa_span=None,
-    osa_increment=None,
+    current_increment_LIV=0.01,
+    max_current=50,
+    beyond_rollover_stop_cond=0.9,
+    current_limit1=4,
+    current_limit2=10,
+    temperature_limit=110,
+    osa_span=30,
+    current_increment_OSA=0.3,
 ):
+    current_list = (
+        (
+            i / 10**7
+            for i in range(0, max_current * 10**4, int(current_increment_LIV * 100))
+        ),
+    )
+
     pm100_toggle = False
     keysight_8163B_toggle = False
     if PM100USB:
