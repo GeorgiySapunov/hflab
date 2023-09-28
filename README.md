@@ -18,7 +18,7 @@ contains a dictionary with visa addresses and settings.
 following arguments are needed: Equipment_choice WaferID Wavelength(nm) Coordinates Temperature(°C)
 e.g. run
 ```zsh
-python measure.py k2 gs15 1550 00C9 25'
+python measure.py k2 gs15 1550 00C9 25
 ```
  > **_NOTE:_** Character '-' is not allowed! It breaks filename parsing.
 
@@ -65,9 +65,9 @@ or
 python thermal_resistance.py data/test-1550nm/*
 ```
 
-# Needed python libraries
+# Required python libraries
 ```zsh
-pip install numpy scikit-rf pandas scipy scikit-learn matplotlib pyvisa pyvisa-py pyusb pyserial psutil zeroconf
+pip install numpy scikit-rf pandas scipy scikit-learn matplotlib seaborn pyvisa pyvisa-py pyusb pyserial psutil zeroconf
 ```
 ### Install from requirements.txt
 ```zsh
@@ -90,7 +90,7 @@ env\Scripts\Activate.Ps1
 If you are told your version of pip is out of date, you might as well update it
 with
 ```zsh
-python -m pip install –upgrade pip
+python -m pip install --upgrade pip
 
 ```
 Once you have that installed, you will need to install pyvisa. Under Windows,

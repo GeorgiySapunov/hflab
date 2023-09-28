@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
+import seaborn as sns
 from scipy.signal import find_peaks as fp
 from sklearn import linear_model
 
@@ -43,7 +44,7 @@ def analyse(dirpath):
 
     df_Pdis_T = (
         pd.DataFrame(columns=[*temperatures])
-        # .set_index("Dissipated power, mW") # TODO del
+        .rename_axis("Dissipated power, mW", axis=0)
         .rename_axis("Temperature, °C", axis=1)
     )
 
@@ -92,6 +93,8 @@ def analyse(dirpath):
         currents = [
             float(col.split()[2]) for col in columns if col.startswith("Intensity at")
         ]
+        if i == 0:
+            larg_current = livdf["Current, mA"].iloc[-1]
         # adjust if Wavelength in meters
         if "Wavelength, nm" not in osdf.columns.values.tolist():
             osdf["Wavelength, nm"] = osdf["Wavelength, m"] * 10**9
@@ -302,7 +305,7 @@ def analyse(dirpath):
         ),
         "-.",
         alpha=0.6,
-        label=f"fit dλ/dT(0)={dldt_zero}, slope={model.coef_[0]:.6f}, intercept={model.intercept_:.6f}, ",
+        label=f"fit slope={model.coef_[0]:.6f}, intercept(dλ/dT(0))={model.intercept_:.6f}, ",
     )
     # Adding title
     plt.title("dλ/dT(P_dis)")
@@ -327,10 +330,10 @@ def analyse(dirpath):
     )
 
     # linear approximation of R_th(T)
-    model = linear_model.LinearRegression()
+    R_th_model = linear_model.LinearRegression()
     X = R_th["Temperature, °C"].values.reshape(-1, 1)
     y = R_th["R_th, K/mW"]
-    model.fit(X, y)
+    R_th_model.fit(X, y)
 
     ax4 = fig.add_subplot(224)  # R_th(T)
     ax4.scatter(
@@ -340,7 +343,7 @@ def analyse(dirpath):
     )
     ax4.plot(
         np.linspace(temperatures[0], temperatures[-1], 100),
-        model.predict(
+        R_th_model.predict(
             np.linspace(temperatures[0], temperatures[-1], 100).reshape(-1, 1)
         ),
         "-.",
@@ -367,7 +370,7 @@ def analyse(dirpath):
     if not os.path.exists(dirpath + f"OSA/figures/"):
         os.makedirs(dirpath + f"OSA/figures/")
 
-    plt.savefig(filepath + ".png", 300)
+    plt.savefig(filepath + ".png", dpi=300)
     plt.close()
     dldp.to_csv(
         dirpath
@@ -379,6 +382,80 @@ def analyse(dirpath):
         + f"OSA/figures/"
         + f"{waferid}-{wavelength}nm-{coordinates}-dλdT_fit.csv"
     )
+
+    # 9. plot heatmaps
+    T_act = (
+        pd.DataFrame(columns=[*temperatures])
+        .rename_axis("Current, mA", axis=0)
+        .rename_axis("Temperature, °C", axis=1)
+    )
+    P_out = (
+        pd.DataFrame(columns=[*temperatures])
+        .rename_axis("Current, mA", axis=0)
+        .rename_axis("Temperature, °C", axis=1)
+    )
+    mask = (
+        pd.DataFrame(columns=[*temperatures])
+        .rename_axis("Current, mA", axis=0)
+        .rename_axis("Output power, mW", axis=1)
+    )
+    curr_cell = 0.5  # mA
+    current_axis_values = [
+        i * curr_cell for i in range(0, int(larg_current / curr_cell + 1), 1)
+    ]
+    for temperature in temperatures:
+        livfile = dict_of_filenames_liv[temperature]
+        livdf = pd.read_csv(dirpath + "LIV/" + livfile, index_col=0)
+        currents = [
+            current
+            for current in current_axis_values
+            if int(current / settings["current_increment_LIV"])
+            in livdf.index.values.tolist()
+        ]
+        for current in currents:
+            row = livdf.loc[round(current / settings["current_increment_LIV"], 2)]
+            if (row["Current, mA"] * row["Voltage, V"] - row["Output power, mW"]) > 0:
+                pdis = float(
+                    row["Current, mA"] * row["Voltage, V"] - row["Output power, mW"]
+                )  # mW
+            else:
+                pdis = float(row["Current, mA"] * row["Voltage, V"])  # mW
+            deltaT = float(
+                R_th["R_th, K/mW"][R_th["Temperature, °C"] == temperature] * pdis
+            )
+            T_act.at[current, temperature] = deltaT
+            P_out.at[current, temperature] = float(row["Output power, mW"])
+            mask.at[current, temperature] = False
+            T_act.sort_index(ascending=False, inplace=True)
+            P_out.sort_index(ascending=False, inplace=True)
+            mask.sort_index(ascending=False, inplace=True)
+
+    T_act.to_csv(
+        dirpath + f"OSA/figures/" + f"{waferid}-{wavelength}nm-{coordinates}-T_act.csv"
+    )
+    P_out.to_csv(
+        dirpath + f"OSA/figures/" + f"{waferid}-{wavelength}nm-{coordinates}-P_out.csv"
+    )
+
+    T_act = T_act.fillna(0.0)
+    P_out = P_out.fillna(0.0)
+    mask = mask.fillna(True)
+
+    fig = plt.figure(figsize=(20, 10))
+    fig.suptitle(f"{waferid}-{wavelength}nm-{coordinates}")
+    ax1 = fig.add_subplot(121)
+    sns.heatmap(T_act, annot=True, fmt="3.2f", ax=ax1, mask=mask)
+    ax1.set_title("ΔT of active area, °C")
+    ax2 = fig.add_subplot(122)
+    sns.heatmap(P_out, annot=True, fmt="3.2f", ax=ax2, mask=mask)
+    ax2.set_title("Output power, mW")
+
+    filepath = (
+        dirpath
+        + f"OSA/figures/"
+        + f"{waferid}-{wavelength}nm-{coordinates}-T_active_area"
+    )
+    plt.savefig(filepath + ".png", dpi=300)
 
 
 # run analyse function to every directory

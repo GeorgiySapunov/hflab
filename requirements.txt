@@ -19,10 +19,11 @@ pyusb==1.2.1
 PyVISA==1.13.0
 PyVISA-py==0.7.0
 scikit-learn==1.3.1
-scikit-rf==0.29.0
-scipy==1.11.2
+scikit-rf==0.29.1
+scipy==1.11.3
+seaborn==0.12.2
 six==1.16.0
 threadpoolctl==3.2.0
 typing_extensions==4.8.0
 tzdata==2023.3
-zeroconf==0.112.0
+zeroconf==0.115.0
