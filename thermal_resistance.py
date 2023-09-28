@@ -176,8 +176,8 @@ def analyse(dirpath):
             if not os.path.exists(dirpath + f"OSA/figures/temperature/{temperature}°C"):
                 os.makedirs(dirpath + f"OSA/figures/temperature/{temperature}°C")
 
-            plt.savefig(filepath_t + ".png", dpi=300)
-            plt.savefig(filepath_i + ".png", dpi=300)
+            plt.savefig(filepath_t + ".png", dpi=settings["spectra_dpi"])
+            plt.savefig(filepath_i + ".png", dpi=settings["spectra_dpi"])
             plt.close()
 
     # 6. sort and interpolate
@@ -289,7 +289,7 @@ def analyse(dirpath):
     model.coef_[0]
     dldt_zero = model.intercept_  # dλ/dT at 0 mW dissipated power
 
-    ax3 = fig.add_subplot(223)  # dλ/dT at different dissipated power
+    ax3 = fig.add_subplot(223)  # dλ/dT(P_dis)
     ax3.scatter(
         dldt["Dissipated power, mW"],
         dldt["dλ/dT"],
@@ -302,10 +302,10 @@ def analyse(dirpath):
         ),
         "-.",
         alpha=0.6,
-        label=f"fit dλ/dT, slope={model.coef_[0]:.6f}, intercept={model.intercept_:.6f}",
+        label=f"fit dλ/dT(0)={dldt_zero}, slope={model.coef_[0]:.6f}, intercept={model.intercept_:.6f}, ",
     )
     # Adding title
-    plt.title("dλ/dT at different dissipated power")
+    plt.title("dλ/dT(P_dis)")
     # adding grid
     ax3.grid(which="both")  # adding grid
     ax3.minorticks_on()
@@ -313,7 +313,7 @@ def analyse(dirpath):
     ax3.set_xlabel("Dissipated power, mW")
     ax3.set_ylabel("dλ/dT")
     # Adding legend
-    ax3.legend(loc=0, prop={"size": 12})
+    ax3.legend(loc=0, prop={"size": 10})
     ax3.set_ylim(bottom=0)
 
     # make a thermal resistance DataFrame
@@ -367,7 +367,7 @@ def analyse(dirpath):
     if not os.path.exists(dirpath + f"OSA/figures/"):
         os.makedirs(dirpath + f"OSA/figures/")
 
-    plt.savefig(filepath + ".png", dpi=300)
+    plt.savefig(filepath + ".png", 300)
     plt.close()
     dldp.to_csv(
         dirpath
@@ -386,3 +386,4 @@ for i, directory in enumerate(sys.argv[1:]):
     num = len(sys.argv[1:])
     print(f"[{i+1}/{num}] {directory}")
     analyse(directory)
+    print("done")

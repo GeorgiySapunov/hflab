@@ -60,14 +60,14 @@ def main():
         print("Equipment_choice WaferID Wavelength(nm) Coordinates Temperature(°C)")
         print("e.g. run 'python measure.py k2 gs15 1550 00C9 25'")
         print()
-        print("for equipment choise use:")
+        print("for equipment choice use:")
         print("t    for Thorlabs PM100USB Power and energy meter")
         print("k1   for Keysight 8163B Lightwave Multimeter port 1")
         print("k2   for Keysight 8163B Lightwave Multimeter port 2")
         print("y    for YOKOGAWA AQ6370D Optical Spectrum Analyzer")
         print()
         print(
-            "for multiple temperature you need to specify start, stop and step tempertature values:"
+            "for multiple temperature you need to specify start, stop and step temperature values:"
         )
         print(
             "Equipment_choice WaferID Wavelength(nm) Coordinates Start_Temperature(°C) Stop_Temperature(°C) Temperature_Increment(°C)"
@@ -190,6 +190,7 @@ def main():
                     # show figure
                     image = mpimg.imread(filepath + "-all.png")
                     plt.imshow(image)
+                    plt.axis("off")
                     plt.show()
 
         elif osa:

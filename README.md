@@ -1,22 +1,46 @@
 1. Scripts for LIV and optical spectra measurements using following equipment:
-- Keysight B2901A Precision Source/Measure Unit
-- Thorlabs PM100USB Power and energy meter
-- Keysight 8163B Lightwave Multimeter
-- YOKOGAWA AQ6370D Optical Spectrum Analyzer
+    - Keysight B2901A Precision Source/Measure Unit
+    - Thorlabs PM100USB Power and energy meter
+    - Keysight 8163B Lightwave Multimeter
+    - YOKOGAWA AQ6370D Optical Spectrum Analyzer
 2. Script to approximate small signal modulation signal (S-parameters) at
    different currents stored in multiple .s2p files
 3. Script to calculate and plot thermal resistance of a VCSEL
 
 # How to use:
-- *To measure LIV* run
+## *To measure LIV* run
 ```zsh
 python measure.py
 ```
 You will get a small instruction on what arguments to provide. settings.py file
 contains a dictionary with visa addresses and settings.
 
-- *To approximate S-parameters* run ``` python ssm_analysis.py *directories with
-.s2p files (or with PNA directory with .s2p files)*```
+following arguments are needed: Equipment_choice WaferID Wavelength(nm) Coordinates Temperature(°C)
+e.g. run
+```zsh
+python measure.py k2 gs15 1550 00C9 25'
+```
+ > **_NOTE:_** Character '-' is not allowed! It breaks filename parsing.
+
+for equipment choice use:
+
+- t    for Thorlabs PM100USB Power and energy meter
+- k1   for Keysight 8163B Lightwave Multimeter port 1
+- k2   for Keysight 8163B Lightwave Multimeter port 2
+- y    for YOKOGAWA AQ6370D Optical Spectrum Analyzer
+
+<!-- for multiple temperature you need to specify start, stop and step temperature values: Equipment_choice WaferID Wavelength(nm) Coordinates Start_Temperature(°C) Stop_Temperature(°C) Temperature_Increment(°C) -->
+
+<!-- e.g. run -->
+<!-- ```zsh -->
+<!-- python measure.py t gs15 1550 00C9 25 85 40 -->
+<!-- ``` -->
+<!-- in this case you will get LIVs for 25, 65 and 85 degrees -->
+
+## *To approximate S-parameters* run 
+```zsh
+python ssm_analysis.py *directories with .s2p files (or with PNA directory with .s2p files)*
+```
 for example: 
 ```zsh
 python smm_analysis.py data/test-1550nm/0000/PNA/
@@ -25,11 +49,14 @@ or
 ```zsh
 python smm_analysis.py data/test-1550nm/*
 ```
-Filenames should be {WaferID}-{Wavelength}-{Coordinates}-{Current}mA.s2p, e.g.
+Filenames should be \{WaferID\}-\{Wavelength\}-\{Coordinates\}-\{Current\}mA.s2p, e.g.
 Sample1-850-0022-1.0mA.s2p
 
-- *To calculate thermal resistance* run ```python thermal_resistance.py
-*directories with LIV and OSA directories inside*``` 
+## *To calculate thermal resistance* run 
+```zsh 
+python thermal_resistance.py *directories with LIV and OSA directories inside*
+``` 
+for example:
 ```zsh
 python thermal_resistance.py data/test-1550nm/0000/
 ```
@@ -56,12 +83,8 @@ python -m venv env
 source env\bin\activate
 ```
 ### Activate an environment (Windows)
-```zsh
+```powershell
 env\Scripts\Activate.Ps1
-```
-### Deactivate an environment
-```zsh
-deactivate
 ```
 # note: PyVISA installation
 If you are told your version of pip is out of date, you might as well update it

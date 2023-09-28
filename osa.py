@@ -42,6 +42,7 @@ def measure_osa(
     temperature_limit=110,
     osa_span=30,
     current_increment_OSA=0.3,
+    spectra_dpi=100,
 ):
     if YOKOGAWA_AQ6370D:
         YOKOGAWA_AQ6370D_toggle = True
