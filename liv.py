@@ -369,10 +369,10 @@ def measure_liv(
 
     # save figures
     buildplt_all()
-    plt.savefig(filepath + "-all.png")  # save figure
+    plt.savefig(filepath + "-all.png", dpi=300)  # save figure
     i_threshold, i_rollover = buildplt_tosave()
     plt.savefig(
-        filepath + f"_Ith={i_threshold:.2f}_Iro={i_rollover:.2f}.png"
+        filepath + f"_Ith={i_threshold:.2f}_Iro={i_rollover:.2f}.png", dpi=300
     )  # save figure
     # plt.show()
     plt.close("all")

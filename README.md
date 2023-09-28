@@ -5,41 +5,77 @@
 - YOKOGAWA AQ6370D Optical Spectrum Analyzer
 2. Script to approximate small signal modulation signal (S-parameters) at
    different currents stored in multiple .s2p files
-3. Script to calculate and plot thermal resistance of a VCSEL # TODO
+3. Script to calculate and plot thermal resistance of a VCSEL
 
 # How to use:
+- *To measure LIV* run
+```zsh
+python measure.py
+```
+You will get a small instruction on what arguments to provide. settings.py file
+contains a dictionary with visa addresses and settings.
 
-- To measure LIV run ```python measure.py```. You will get a small instruction on
-what arguments to provide. settings.py file contains a dictionary with visa
-addresses and settings.
+- *To approximate S-parameters* run ``` python ssm_analysis.py *directories with
+.s2p files (or with PNA directory with .s2p files)*```
+for example: 
+```zsh
+python smm_analysis.py data/test-1550nm/0000/PNA/
+```
+or 
+```zsh
+python smm_analysis.py data/test-1550nm/*
+```
+Filenames should be {WaferID}-{Wavelength}-{Coordinates}-{Current}mA.s2p, e.g.
+Sample1-850-0022-1.0mA.s2p
 
-- To approximate S-parameters run ```python ssm_analysis.py *directories with
-.s2p files (or with PNA directory with .s2p files)*``` (e.g. ```python
-smm_analysis.py data/test-1550nm/0000/PNA/``` or ```python smm_analysis.py
-data/test-1550nm/*```)
-
-- To calculate thermal resistance run ```python thermal_resistance.py
-*directories with LIV and OSA directories inside*``` (e.g. ```python
-thermal_resistance.py data/test-1550nm/0000/``` or ```python
-thermal_resistance.py data/test-1550nm/*```)
-
+- *To calculate thermal resistance* run ```python thermal_resistance.py
+*directories with LIV and OSA directories inside*``` 
+```zsh
+python thermal_resistance.py data/test-1550nm/0000/
+```
+or 
+```zsh
+python thermal_resistance.py data/test-1550nm/*
+```
 
 # Needed python libraries
-
-    pip install numpy scikit-rf pandas scipy scikit-learn matplotlib pyvisa pyvisa-py pyusb pyserial psutil zeroconf
-
+```zsh
+pip install numpy scikit-rf pandas scipy scikit-learn matplotlib pyvisa pyvisa-py pyusb pyserial psutil zeroconf
+```
+### Install from requirements.txt
+```zsh
+pip install -r requirements.txt
+```
+### Make virtual environment
+```zsh
+python -m venv env
+```
+(note: "env" is the name of a directory with a virtual environment)
+### Activate an environment (Unix)
+```zsh
+source env\bin\activate
+```
+### Activate an environment (Windows)
+```zsh
+env\Scripts\Activate.Ps1
+```
+### Deactivate an environment
+```zsh
+deactivate
+```
 # note: PyVISA installation
-
 If you are told your version of pip is out of date, you might as well update it
 with
+```zsh
+python -m pip install –upgrade pip
 
-    python -m pip install –upgrade pip
-
+```
 Once you have that installed, you will need to install pyvisa. Under Windows,
 that is as simple as running
+```zsh
+pip install pyvisa
 
-    pip install pyvisa
-
+```
 Finally, as pyvisa is really only a “wrapper” for a VISA layer, you will need to
 install a supported VISA layer for it to talk to. If you are running Windows,
 realistically, you should use the National Instruments NI-VISA package. It’s a
@@ -53,11 +89,10 @@ On Linux, however, you will also need to install pyvisa-py which provides a
 Python-based VISA layer, as well as pyusb (for USB-TMC instruments) and pyserial
 (for Serial connected instruments). This can be done by using the following
 command (both with and without sudo)
-
-    pip install pyvisa-py pyusb pyserial
-    
-    pip install psutil zeroconf
-
+```zsh
+pip install pyvisa-py pyusb pyserial
+pip install psutil zeroconf
+```
 1. https://goughlui.com/2021/03/28/tutorial-introduction-to-scpi-automation-of-test-equipment-with-pyvisa/
 2. https://youtu.be/1HQxnz3P9P4
 3. https://github.com/instrumentkit/InstrumentKit
