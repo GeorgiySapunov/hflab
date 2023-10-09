@@ -65,7 +65,7 @@ def one_file_approximation(directory, file_name, probe_port, freqlimit):
         np.hstack([f, f]),
         S11_Both,
         # p0=[150, 150, 30, 150],
-        bounds=(0, [500, 500, 5000, 5000]),
+        bounds=(0, [1000, 1000, 5000, 5000]),
         maxfev=100000,
     )
     R_m, R_j, C_p, C_m = poptBoth_S11
@@ -136,7 +136,7 @@ def one_file_approximation(directory, file_name, probe_port, freqlimit):
         f,
         S21_Magnitude_subpd,
         # p0=[150, 150, 30, 150, 0],
-        bounds=([0, 0, 0, -np.inf], [100, 100, np.inf, np.inf]),
+        bounds=([0, 0, 0, -np.inf], [np.inf, np.inf, np.inf, np.inf]),
         maxfev=100000,
     )
     f_r, f_p, gamma, c = popt_S21
@@ -154,6 +154,8 @@ def one_file_approximation(directory, file_name, probe_port, freqlimit):
     # |_|   |_|\__, |\__,_|_|  \___||___/
     #          |___/
     fig = plt.figure(figsize=(20, 10))
+
+    fig.suptitle(file_name[:-4])
 
     ax1_s11re = fig.add_subplot(221)
     ax1_s11re.plot(f * 10**-9, vcsel_df["s11_re"], "k.", label="Experiment S11 Real")

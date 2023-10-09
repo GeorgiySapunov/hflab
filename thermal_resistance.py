@@ -463,4 +463,3 @@ for i, directory in enumerate(sys.argv[1:]):
     num = len(sys.argv[1:])
     print(f"[{i+1}/{num}] {directory}")
     analyse(directory)
-    print("done")

@@ -3,7 +3,7 @@
 # - Keysight B2901A Precision Source/Measure Unit
 # - Thorlabs PM100USB Power and energy meter
 # - Keysight 8163B Lightwave Multimeter
-# - YOKOGAWA AQ6370D Optical Spectrum Analyzer TODO
+# - YOKOGAWA AQ6370D Optical Spectrum Analyzer
 # - Advanced Temperature Test Systems Chuck System A160 CMI TODO
 
 import sys
