@@ -25,7 +25,7 @@ def main():
     # if python got less then or more then 6 parameters
     if len(sys.argv) not in (6, 8):
         # initiate pyvisa
-        rm = pyvisa.ResourceManager("@py")
+        rm = pyvisa.ResourceManager()
         # rm = pyvisa.ResourceManager('@py') # for pyvisa-py
         print("List of resources:")
         print(rm.list_resources())

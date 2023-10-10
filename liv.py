@@ -45,12 +45,7 @@ def measure_liv(
     current_increment_OSA=0.3,
     spectra_dpi=100,
 ):
-    current_list = (
-        (
-            i / 10**7
-            for i in range(0, max_current * 10**4, int(current_increment_LIV * 100))
-        ),
-    )
+    current_list = [i / 10**5 for i in range(0, max_current * 10**4, int(current_increment_LIV * 100))]
 
     pm100_toggle = False
     keysight_8163B_toggle = False
@@ -132,8 +127,8 @@ def measure_liv(
         return xmax
 
     def annotate_max_ef(x, y, ax=None):
-        xmax = x[np.argmax(y)]
-        ymax = y.max()
+        xmax = x[np.argmax(y[30:])+30] # TODO
+        ymax = y[30:].max() # TODO
         text = f"I={xmax:.2f} mA, efficiency={ymax:.2f}, %"
         if not ax:
             ax = plt.gca()

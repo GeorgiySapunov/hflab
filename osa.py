@@ -68,8 +68,8 @@ def measure_osa(
 
     # make a list of currents for spectra measurements
     osa_current_list = [
-        i / 10**7
-        for i in range(0, int(max_current * 10**4), int(current_increment_OSA * 100))
+        i / 10**5
+        for i in range(0, int(max_current * 10**2)+1, int(current_increment_OSA * 100))
     ]
     print(f"to {osa_current_list[-1]*1000} mA")
 
