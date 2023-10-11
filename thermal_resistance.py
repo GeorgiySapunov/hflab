@@ -26,7 +26,10 @@ def analyse(dirpath):
     r = re.compile(string_for_re)
     files = walk[0][2]
     matched_os_files = list(filter(r.match, files))
-    waferid_wavelength, coordinates = os.path.normpath(dirpath).split("/")[-2:]
+    if os.name == "posix":
+        waferid_wavelength, coordinates = os.path.normpath(dirpath).split("/")[-2:]
+    elif os.name == "nt":  # TODO test it
+        waferid_wavelength, coordinates = os.path.normpath(dirpath).split("\\")[-2:]
     waferid, wavelength_withnm = waferid_wavelength.split("-")
     wavelength = wavelength_withnm[:-2]
 
@@ -351,7 +354,7 @@ def analyse(dirpath):
         label=f"fit R_th",
     )
     # Adding title
-    plt.title("R_th(T)")
+    plt.title("R_th(T)=dT/dP_dis=(dλ/dP_dis)/(dλ/dT)")
     # adding grid
     ax4.grid(which="both")  # adding grid
     ax4.minorticks_on()

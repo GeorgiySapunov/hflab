@@ -45,7 +45,10 @@ def measure_liv(
     current_increment_OSA=0.3,
     spectra_dpi=100,
 ):
-    current_list = [i / 10**5 for i in range(0, max_current * 10**4, int(current_increment_LIV * 100))]
+    current_list = [
+        i / 10**5
+        for i in range(0, max_current * 10**4, int(current_increment_LIV * 100))
+    ]
 
     pm100_toggle = False
     keysight_8163B_toggle = False
@@ -126,9 +129,10 @@ def measure_liv(
         ax.annotate(text, xy=(xmax, ymax), xytext=(0.2, 0.99), **kw)
         return xmax
 
-    def annotate_max_ef(x, y, ax=None):
-        xmax = x[np.argmax(y[30:])+30] # TODO
-        ymax = y[30:].max() # TODO
+    def annotate_max_ef(x, y, threshold=0, ax=None):
+        thresholdx = int(threshold / current_increment_LIV)
+        xmax = x[np.argmax(y[thresholdx]) + thresholdx]  # TODO
+        ymax = y[thresholdx:].max()  # TODO
         text = f"I={xmax:.2f} mA, efficiency={ymax:.2f}, %"
         if not ax:
             ax = plt.gca()
@@ -145,7 +149,7 @@ def measure_liv(
         ax.annotate(text, xy=(xmax, ymax), xytext=(0.4, 0.99), **kw)
         return xmax
 
-    def annotate_threshhold(x, y, ax=None):  # TODO
+    def annotate_threshold(x, y, ax=None):  # TODO
         first_der = np.gradient(y, x)
         second_der = np.gradient(first_der, x)
         # print(second_der)
@@ -217,10 +221,10 @@ def measure_liv(
     ax32.minorticks_on()
 
     # Setting Y limits
-    # ax1.set_ylim(0, 40) # Power
-    # ax12.set_ylim(0, 10) # Voltage
-    # ax2.set_ylim(0, 40) # Power
-    # ax22.set_ylim(0, 10) # Voltage
+    ax1.set_ylim(left=0)  # Power
+    ax12.set_ylim(left=0)  # Voltage
+    ax2.set_ylim(left=0)  # Power
+    ax22.set_ylim(left=0)  # Voltage
     ax32.set_ylim(0, 100)  # efficiency
 
     # functions to build graphs
@@ -243,12 +247,13 @@ def measure_liv(
         ax3.plot(i, p, "-b", label="Power consumption, mW")
         ax32.plot(i, e, "-r", label="Efficiency, %")
         ax3.legend(loc=0)
+        ax32.legend(loc=0)
         # annotate maximum output power
         annotate_max_L(seti, l, ax=ax1)
         annotate_max_L(i, l, ax=ax2)
-        annotate_threshhold(seti, l, ax=ax1)
-        annotate_threshhold(i, l, ax=ax2)
-        annotate_max_ef(i, e, ax=ax32)
+        annotate_threshold(seti, l, ax=ax1)
+        threshold = annotate_threshold(i, l, ax=ax2)
+        annotate_max_ef(i, e, threshold=threshold, ax=ax32)
 
     def buildplt_tosave(dataframe=iv):
         # Creating figure
@@ -270,8 +275,8 @@ def measure_liv(
         )  # Adding title
 
         # Adding legend
-        # ax.legend(loc=0)
-        # ax2.legend(loc=0)
+        ax.legend(loc=0)
+        ax2.legend(loc=0)
 
         ax.grid(which="both")  # adding grid
 
@@ -281,8 +286,8 @@ def measure_liv(
         ax2.set_ylabel("Voltage, V", color="red")
 
         # Setting Y limits
-        # ax.set_ylim(0, 40) # Power
-        # ax2.set_ylim(0, 10) # Voltage
+        ax.set_ylim(left=0)  # Power
+        ax2.set_ylim(left=0)  # Voltage
 
         # select columns in the Data Frame
         seti = dataframe["Current set, mA"]
@@ -301,7 +306,7 @@ def measure_liv(
 
         # annotate maximum output power
         i_rollover = annotate_max_L(i, l, ax=ax)
-        i_threshold = annotate_threshhold(i, l, ax=ax)
+        i_threshold = annotate_threshold(i, l, ax=ax)
         return i_threshold, i_rollover
 
     #                 (_)       | |
