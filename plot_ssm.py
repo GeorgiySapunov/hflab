@@ -130,63 +130,63 @@ for i, directory in enumerate(sys.argv[1:]):
     ax1_rm.plot(
         df["Current, mA"],
         df["R_m, Om"],
-        marker="o",
+        # marker="o",
         label=name_from_dir.split("-")[-1],
         alpha=0.5,
     )
     ax2_rj.plot(
         df["Current, mA"],
         df["R_j, Om"],
-        marker="o",
+        # marker="o",
         label=name_from_dir.split("-")[-1],
         alpha=0.5,
     )
     ax3_cp.plot(
         df["Current, mA"],
         df["C_p, fF"],
-        marker="o",
+        # marker="o",
         label=name_from_dir.split("-")[-1],
         alpha=0.5,
     )
     ax4_cm.plot(
         df["Current, mA"],
         df["C_m, fF"],
-        marker="o",
+        # marker="o",
         label=name_from_dir.split("-")[-1],
         alpha=0.5,
     )
     ax5_fr.plot(
         df["Current, mA"],
         df["f_r, GHz"],
-        marker="o",
+        # marker="o",
         label=name_from_dir.split("-")[-1],
         alpha=0.5,
     )
     ax6_fp.plot(
         df["Current, mA"],
         df["f_p, GHz"],
-        marker="o",
+        # marker="o",
         label=name_from_dir.split("-")[-1],
         alpha=0.5,
     )
     ax7_gamma.plot(
         df["Current, mA"],
         df["gamma"],
-        marker="o",
+        # marker="o",
         label=name_from_dir.split("-")[-1],
         alpha=0.5,
     )
     ax8_c.plot(
         df["Current, mA"],
         df["c"],
-        marker="o",
+        # marker="o",
         label=name_from_dir.split("-")[-1],
         alpha=0.5,
     )
     ax9_f3db.plot(
         df["Current, mA"],
         df["f_3dB, GHz"],
-        marker="o",
+        # marker="o",
         label=name_from_dir.split("-")[-1],
         alpha=0.5,
     )

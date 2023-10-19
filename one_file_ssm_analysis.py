@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from sklearn.metrics import mean_squared_error
 
+from pysmithplot_fork.smithplot import SmithAxes
+
 
 def one_file_approximation(directory, file_name, probe_port, freqlimit):
     full_path = directory + "/" + file_name
@@ -32,6 +34,23 @@ def one_file_approximation(directory, file_name, probe_port, freqlimit):
     vcsel_df["s21_im"] = vcsel_df[f"s {optical_port}{probe_port}"].values.imag
     f = vcsel_df.index.values
     pd_df.index = pd_df.index.values * 10**9  # fixing index in photodiodes .s2p file
+
+    # Split the measurements into a real and imaginary part
+    S21_Real = vcsel_df["s21_re"]
+    S21_Imag = vcsel_df["s21_im"]
+    S21_Magnitude = 10 * np.log10(S21_Real**2 + S21_Imag**2)
+
+    # substracting photodiode S21
+    pd_df["pd_s21_re"] = pd_df["s 21"].values.real
+    pd_df["pd_s21_im"] = pd_df["s 21"].values.imag
+    vcsel_df = vcsel_df.join(pd_df[["pd_s21_re", "pd_s21_im"]], how="outer")
+    vcsel_df["pd_s21_re"] = vcsel_df["pd_s21_re"].interpolate()
+    vcsel_df["pd_s21_im"] = vcsel_df["pd_s21_im"].interpolate()
+    vcsel_df = vcsel_df.dropna()
+    pd_Real = vcsel_df["pd_s21_re"]
+    pd_Imag = vcsel_df["pd_s21_im"]
+    pd_Magnitude = 10 * np.log10(pd_Real**2 + pd_Imag**2)
+    S21_Magnitude_to_fit = S21_Magnitude - pd_Magnitude
 
     #  ____  _ _
     # / ___|/ / |
@@ -86,7 +105,7 @@ def one_file_approximation(directory, file_name, probe_port, freqlimit):
         return Z
 
     z = Z(S11_Fit)
-    zmag = np.log(np.sqrt(np.real(z) ** 2 + np.imag(z) ** 2))
+    zmag = np.log10(np.sqrt(np.real(z) ** 2 + np.imag(z) ** 2))
 
     # Normalised low pass magnitude
     # TODO
@@ -101,40 +120,21 @@ def one_file_approximation(directory, file_name, probe_port, freqlimit):
         f = f * 10**-9
         f_r = f_r
         f_p = f_p
-        h2 = c + 20 * np.log(
-            np.sqrt(
-                f_r**4
-                / (
-                    ((f_r**2 - f**2) ** 2 + (f * gamma / (2 * np.pi)) ** 2)
-                    * (1 + (f / f_p) ** 2)
-                )
+        h2 = c + 10 * np.log10(
+            f_r**4
+            / (
+                ((f_r**2 - f**2) ** 2 + (f * gamma / (2 * np.pi)) ** 2)
+                * (1 + (f / f_p) ** 2)
             )
         )
         return h2
-
-    # Split the measurements into a real and imaginary part
-    S21_Real = vcsel_df["s21_re"]
-    S21_Imag = vcsel_df["s21_im"]
-    S21_Magnitude = 10 * np.log(S21_Real**2 + S21_Imag**2)
-
-    # substracting photodiode S21
-    pd_df["pd_s21_re"] = pd_df["s 21"].values.real
-    pd_df["pd_s21_im"] = pd_df["s 21"].values.imag
-    vcsel_df = vcsel_df.join(pd_df[["pd_s21_re", "pd_s21_im"]], how="outer")
-    vcsel_df["pd_s21_re"] = vcsel_df["pd_s21_re"].interpolate()
-    vcsel_df["pd_s21_im"] = vcsel_df["pd_s21_im"].interpolate()
-    vcsel_df = vcsel_df.dropna()
-    pd_Real = vcsel_df["pd_s21_re"]
-    pd_Imag = vcsel_df["pd_s21_im"]
-    pd_Magnitude = 10 * np.log(pd_Real**2 + pd_Imag**2)
-    S21_Magnitude_subpd = S21_Magnitude - pd_Magnitude
 
     # Find the best-fit solution for S21
     # f_r, f_p, gamma, c
     popt_S21, pcovBoth = curve_fit(
         s21_func,
         f,
-        S21_Magnitude_subpd,
+        S21_Magnitude_to_fit,
         # p0=[150, 150, 30, 150, 0],
         bounds=([0, 0, 0, -np.inf], [np.inf, np.inf, np.inf, np.inf]),
         maxfev=100000,
@@ -143,7 +143,7 @@ def one_file_approximation(directory, file_name, probe_port, freqlimit):
 
     # Compute the best-fit solution and mean squered error for S21
     S21_Fit = s21_func(f, *popt_S21)
-    S21_Fit_MSE = mean_squared_error(S21_Magnitude_subpd, S21_Fit)
+    S21_Fit_MSE = mean_squared_error(S21_Magnitude_to_fit, S21_Fit)
     # print(f"S21_Fit_MSE={S21_Fit_MSE}")
     f3dB = f[np.where(S21_Fit < c - 3)[0][0]] * 10**-9  # GHz
 
@@ -153,22 +153,24 @@ def one_file_approximation(directory, file_name, probe_port, freqlimit):
     # |  _| | | (_| | |_| | | |  __/\__ \
     # |_|   |_|\__, |\__,_|_|  \___||___/
     #          |___/
-    fig = plt.figure(figsize=(20, 10))
+    fig = plt.figure(figsize=(28, 14))
 
-    fig.suptitle(file_name[:-4])
+    fig.suptitle(file_name)
 
     ax1_s11re = fig.add_subplot(221)
     ax1_s11re.plot(f * 10**-9, vcsel_df["s11_re"], "k.", label="Experiment S11 Real")
     ax1_s11re.plot(
         f * 10**-9,
         np.real(S11_Fit),
-        label=f"Best fit S11 Real R_m={poptBoth_S11[0]:.2f}, R_j={poptBoth_S11[1]:.2f}, C_p={poptBoth_S11[2]:.2f}, C_m={poptBoth_S11[3]:.2f}",
+        "g-.",
+        label=f"Best fit S11\nReal R_m={poptBoth_S11[0]:.2f}, R_j={poptBoth_S11[1]:.2f}, C_p={poptBoth_S11[2]:.2f}, C_m={poptBoth_S11[3]:.2f}",
     )
     ax1_s11re.set_ylabel("Re(S11), dB")
     ax1_s11re.set_xlabel("Frequency, GHz")
     ax1_s11re.legend()
     ax1_s11re.grid(which="both")
     ax1_s11re.minorticks_on()
+    ax1_s11re.set_ylim([-1, 1])
 
     ax2_s11im = fig.add_subplot(222)
     ax2_s11im.plot(
@@ -180,32 +182,71 @@ def one_file_approximation(directory, file_name, probe_port, freqlimit):
     ax2_s11im.plot(
         f * 10**-9,
         np.imag(S11_Fit),
-        label=f"Best fit S11 Imaginary R_m={poptBoth_S11[0]:.2f}, R_j={poptBoth_S11[1]:.2f}, C_p={poptBoth_S11[2]:.2f}, C_m={poptBoth_S11[3]:.2f}",
+        "g-.",
+        label=f"Best fit S11\nImaginary R_m={poptBoth_S11[0]:.2f}, R_j={poptBoth_S11[1]:.2f}, C_p={poptBoth_S11[2]:.2f}, C_m={poptBoth_S11[3]:.2f}",
     )
     ax2_s11im.set_ylabel("Im(S11), dB")
     ax2_s11im.set_xlabel("Frequency, GHz")
     ax2_s11im.legend()
     ax2_s11im.grid(which="both")
     ax2_s11im.minorticks_on()
+    ax2_s11im.set_ylim([-1, 1])
+
+    # plot the S11 Smith Chart TODO
+    ax3_s11_smith = fig.add_subplot(
+        223,
+        projection="smith",
+    )
+    # ax3_s11_smith.update_scParams(axes_impedance=50)
+    ax3_s11_smith.plot(
+        vcsel_df["s11_re"],
+        np.real(vcsel_df["s11_im"]),
+        "k",
+        label="S11 measured",
+    )
+    ax3_s11_smith.plot(
+        np.real(S11_Fit),
+        np.imag(S11_Fit),
+        "g",
+        label="S11 fit",
+    )
+    ax3_s11_smith.set_title("S11 Smith chart")
+    # ax3_s11_smith.set_ylabel("Im(S11)")
+    # ax3_s11_smith.set_xlabel("Re(S11)")
+    # ax3_s11_smith.legend()
+    # ax3_s11_smith.grid(which="both")
+    # ax3_s11_smith.minorticks_on()
+    # ax3_s11_smith.set_ylim([-1, 1])
+    # ax3_s11_smith.set_xlim([-1, 1])
 
     # plot the S21 results
-    ax3_s21 = fig.add_subplot(212)
+    ax4_s21 = fig.add_subplot(224)
     # plt.plot(f * 10**-9, S21_Magnitude, "k.", label="Experiment S21 (need to substrack the pd)")
-    ax3_s21.plot(f * 10**-9, S21_Magnitude_subpd, "b.", label="Experimental S21")
-    # plt.plot(f * 10**-9, pd_Magnitude, "y", label="PD")
-    ax3_s21.plot(
+    ax4_s21.plot(
         f * 10**-9,
-        S21_Fit,
-        label=f"Best fit S21 f_r={popt_S21[0]:.2f} GHz, f_p={popt_S21[1]:.2f} GHz, gamma={popt_S21[2]:.2f}, c={popt_S21[3]:.2f}, MSE={S21_Fit_MSE:.2f}, f3dB={f3dB:.2f}",
+        S21_Magnitude_to_fit - c,
+        "k",
+        label="Experimental S21",
     )
-    ax3_s21.set_ylabel("Magintude(S21), dB")
-    ax3_s21.set_xlabel("Frequency, GHz")
-    ax3_s21.set_xlim([0, min(freqlimit, 40)])
-    ax3_s21.legend()
-    ax3_s21.grid(which="both")
-    ax3_s21.minorticks_on()
-    ax3_s21.axhline(y=c - 3, color="r", linestyle="-")
-    ax3_s21.axvline(x=f3dB, color="r", linestyle="-")
+    # plt.plot(f * 10**-9, pd_Magnitude, "y", label="PD")
+    ax4_s21.plot(
+        f * 10**-9,
+        S21_Fit - c,
+        "b-.",
+        label=f"Best fit S21\nf_r={popt_S21[0]:.2f} GHz, f_p={popt_S21[1]:.2f} GHz, gamma={popt_S21[2]:.2f}, c={popt_S21[3]:.2f}, MSE={S21_Fit_MSE:.2f}, f3dB={f3dB:.2f}",
+    )
+    ax4_s21.set_title("S21")
+    ax4_s21.set_ylabel("Magintude(S21), dB")
+    ax4_s21.set_xlabel("Frequency, GHz")
+    ax4_s21.set_xlim([0, min(freqlimit, 40)])
+    ax4_s21.set_ylim([-40, 5])
+    ax4_s21.legend()
+    ax4_s21.grid(which="both")
+    ax4_s21.minorticks_on()
+    ax4_s21.axhline(y=-3, color="y", linestyle="-")
+    ax4_s21.axvline(x=f3dB, color="y", linestyle="-")
+    ax4_s21.axvline(x=popt_S21[1], color="b", linestyle="-.")
+    ax4_s21.axvline(x=popt_S21[0], color="g", linestyle="-.")
 
     # plt.tight_layout()
     # plt.show()

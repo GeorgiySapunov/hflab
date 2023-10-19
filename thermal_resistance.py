@@ -51,6 +51,12 @@ def analyse(dirpath):
         .rename_axis("Temperature, °C", axis=1)
     )
 
+    df_I_T = (
+        pd.DataFrame(columns=[*temperatures])
+        .rename_axis("Current, mA", axis=0)
+        .rename_axis("Temperature, °C", axis=1)
+    )
+
     dict_of_filenames_liv = {}
     dict_of_filenames_os = {}
 
@@ -127,6 +133,7 @@ def analyse(dirpath):
 
             # 4. fill Pdis, temperature, lambda df
             df_Pdis_T.at[pdis, temperature] = wl_peak
+            df_I_T.at[current, temperature] = wl_peak
 
             # 5. make spectra plots and save .png
             # Make spectra figures
@@ -160,11 +167,12 @@ def analyse(dirpath):
             ax.set_ylabel("Intensity, dBm")
             # Adding legend
             # ax.legend(loc=0, prop={"size": 4})
+            ax.legend(loc=1)
             # Setting limits (xlim1 and xlim2 will be also used in saved csv)
             # xlim1 = 930
             # xlim2 = 955
             # ax.set_xlim(xlim1, xlim2)
-            ax.set_ylim(-80, -10)
+            ax.set_ylim(-80, 0)
 
             filepath_t = (
                 dirpath
@@ -200,9 +208,75 @@ def analyse(dirpath):
     )
     df_Pdis_T_int_drop = df_Pdis_T_int.dropna()  # delete rows with empty cells
 
+    df_I_T.to_csv(
+        dirpath
+        + f"OSA/figures/"
+        + f"{waferid}-{wavelength}nm-{coordinates}-Current-Temperature.csv"
+    )
+
     # 7. fill dλ/dP_dis and dλ/dT
     dldp = pd.DataFrame(columns=["Temperature, °C", "dλ/dP_dis", "intercept"])
     dldt = pd.DataFrame(columns=["Dissipated power, mW", "dλ/dT", "intercept"])
+    dldi = pd.DataFrame(columns=["Temperature, °C", "dλ/dI", "intercept"])
+
+    # 8.1 Current approximation (NEW)
+    fig = plt.figure(figsize=(20, 10))
+    plt.suptitle(f"{waferid}-{wavelength}nm-{coordinates}")
+    ax1 = fig.add_subplot(111)  # λ(I) at different temperatures
+    # Creating figure
+    for col_temp in df_I_T.columns:  # columns are temperatures
+        df_I_T_drop = df_I_T[col_temp].dropna()
+        # linear approximation
+        model = linear_model.LinearRegression()
+        X = df_I_T_drop.index.values.reshape(-1, 1)
+        y = df_I_T_drop  # column [col_temp]
+        model.fit(X, y)
+        slope = model.coef_[0]
+        # save fit parameters to a DataFrame
+        dldi.loc[len(dldi)] = [col_temp, slope, model.intercept_]
+
+        ax1.plot(
+            df_I_T.index,
+            df_I_T[col_temp],
+            "-",
+            alpha=0.8,
+            label=f"{col_temp} °C",
+        )
+        ax1.scatter(
+            df_I_T.index,
+            df_I_T[col_temp],
+            alpha=0.2,
+        )
+        ax1.plot(
+            df_I_T.index,
+            model.predict(df_I_T.index.values.reshape(-1, 1)),
+            "-.",
+            alpha=0.2,
+            label=f"fit {col_temp} °C, dλ/dI={slope:.3f}, intercept={model.intercept_:.3f}",
+        )
+    # Adding title
+    plt.title("λ(I) at different temperatures")
+    # adding grid
+    ax1.grid(which="both")  # adding grid
+    ax1.minorticks_on()
+    # Adding labels
+    ax1.set_xlabel("Current, mA")
+    ax1.set_ylabel("Peak wavelength, nm")
+    # Adding legend
+    ax1.legend(loc=0, prop={"size": 7})
+
+    # save files
+    filepath = (
+        dirpath
+        + f"OSA/figures/"
+        + f"{waferid}-{wavelength}nm-{coordinates}-Lambda-Current"
+    )
+
+    if not os.path.exists(dirpath + f"OSA/figures/"):
+        os.makedirs(dirpath + f"OSA/figures/")
+
+    plt.savefig(filepath + ".png", dpi=300)
+    plt.close()
 
     # 8. plot λ(P_dis), λ(T), dλ\dT(P_dis), R_th(T) lineplots
     # Creating figure

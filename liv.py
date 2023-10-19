@@ -70,7 +70,7 @@ def measure_liv(
             "Voltage, V",
             "Output power, mW",
             "Power consumption, mW",
-            "Efficiency, %",
+            "Power conversion efficiency, %",
         ]
     )
 
@@ -129,11 +129,11 @@ def measure_liv(
         ax.annotate(text, xy=(xmax, ymax), xytext=(0.2, 0.99), **kw)
         return xmax
 
-    def annotate_max_ef(x, y, threshold=0, ax=None):
+    def annotate_max_ef(x, y, threshold=0, ax=None):  # TODO
         thresholdx = int(threshold / current_increment_LIV)
-        xmax = x[np.argmax(y[thresholdx]) + thresholdx]  # TODO
+        xmax = x[np.argmax(y[thresholdx:]) + thresholdx]  # TODO
         ymax = y[thresholdx:].max()  # TODO
-        text = f"I={xmax:.2f} mA, efficiency={ymax:.2f}, %"
+        text = f"I={xmax:.2f} mA, PCE={ymax:.2f}, %"
         if not ax:
             ax = plt.gca()
         bbox_props = dict(boxstyle="square,pad=0.3", fc="w", ec="k", lw=0.72)
@@ -156,9 +156,7 @@ def measure_liv(
         print(second_der.max())
         if second_der.max() >= 10:
             x_threshold = x[np.argmax(second_der >= 10)]  # decision level
-            print(x_threshold)
             y_threshold = y[np.argmax(second_der >= 10)]
-            print(y_threshold)
 
             text = f"I_th={x_threshold:.2f} mA"
             if not ax:
@@ -181,6 +179,7 @@ def measure_liv(
         return x_threshold
 
     fig = plt.figure(figsize=(20, 10))
+    fig.suptitle(f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-{powermeter}")
     ax1 = fig.add_subplot(221)  # subplot for set current
     ax12 = ax1.twinx()
 
@@ -189,6 +188,9 @@ def measure_liv(
 
     ax3 = fig.add_subplot(223)  # subplot for power
     ax32 = ax3.twinx()
+
+    ax4 = fig.add_subplot(224)  # subplot for power
+    ax42 = ax4.twinx()
 
     # Adding legend
     # ax1.legend(loc=0)
@@ -199,19 +201,23 @@ def measure_liv(
     ax1.grid(which="both")  # adding grid
     ax2.grid(which="both")  # adding grid
     ax3.grid(which="both")  # adding grid
+    ax4.grid(which="both")  # adding grid
 
     # Adding labels
     ax1.set_xlabel("Current set, mA")
     ax2.set_xlabel("Current measured, mA")
     ax3.set_xlabel("Current measured, mA")
+    ax4.set_xlabel("Current measured, mA")
 
     ax1.set_ylabel("Output power, mW", color="blue")
     ax2.set_ylabel("Output power, mW", color="blue")
     ax3.set_ylabel("Power, mW")
+    ax4.set_ylabel("dP_out/dI, mW/mA", color="blue")
 
     ax12.set_ylabel("Voltage, V", color="red")
     ax22.set_ylabel("Voltage, V", color="red")
-    ax32.set_ylabel("Efficiency, %", color="red")
+    ax32.set_ylabel("Power conversion efficiency, %", color="red")
+    ax42.set_ylabel("dV/dI, V/mA", color="red")
 
     ax1.minorticks_on()
     ax2.minorticks_on()
@@ -219,13 +225,8 @@ def measure_liv(
     ax22.minorticks_on()
     ax3.minorticks_on()
     ax32.minorticks_on()
-
-    # Setting Y limits
-    ax1.set_ylim(left=0)  # Power
-    ax12.set_ylim(left=0)  # Voltage
-    ax2.set_ylim(left=0)  # Power
-    ax22.set_ylim(left=0)  # Voltage
-    ax32.set_ylim(0, 100)  # efficiency
+    ax4.minorticks_on()
+    ax42.minorticks_on()
 
     # functions to build graphs
     def buildplt_all(dataframe=iv):
@@ -235,25 +236,53 @@ def measure_liv(
         v = dataframe["Voltage, V"]
         l = dataframe["Output power, mW"]
         p = dataframe["Power consumption, mW"]
-        e = dataframe["Efficiency, %"]
+        e = dataframe["Power conversion efficiency, %"]
 
         # Plotting
-        ax1.plot(seti, l, "-", label="Output power, mW")
-        ax2.plot(i, l, "-", label="Output power, mW")
-        ax3.plot(i, l, "-", label="Output power, mW")
+        lns11 = ax1.plot(seti, l, "-", label="Output power, mW")
+        lns21 = ax2.plot(i, l, "-", label="Output power, mW")
+        lns41 = ax4.plot(i, np.gradient(l, i), "-", label="dP_out/dI, mW/mA")
         # Creating Twin axes
-        ax12.plot(seti, v, "-r", label="Voltage, V")
-        ax22.plot(i, v, "-r", label="Voltage, V")
-        ax3.plot(i, p, "-b", label="Power consumption, mW")
-        ax32.plot(i, e, "-r", label="Efficiency, %")
-        ax3.legend(loc=0)
-        ax32.legend(loc=0)
+        lns12 = ax12.plot(seti, v, "-r", label="Voltage, V")
+        lns22 = ax22.plot(i, v, "-r", label="Voltage, V")
+        lns42 = ax42.plot(i, np.gradient(v, i), "-r", label="dV/dI, V/mA")
         # annotate maximum output power
         annotate_max_L(seti, l, ax=ax1)
         annotate_max_L(i, l, ax=ax2)
         annotate_threshold(seti, l, ax=ax1)
         threshold = annotate_threshold(i, l, ax=ax2)
+
+        lns31 = ax3.plot(i, l, "-", label="Output power, mW")
+        lns32 = ax3.plot(i, p, "-b", label="Power consumption, mW")
+        lns33 = ax32.plot(
+            i[threshold:], e[threshold:], "-r", label="Power conversion efficiency, %"
+        )
         annotate_max_ef(i, e, threshold=threshold, ax=ax32)
+
+        # legends
+        lns = lns11 + lns12
+        labs = [l.get_label() for l in lns]
+        ax1.legend(lns, labs, loc=4)
+        lns = lns21 + lns22
+        labs = [l.get_label() for l in lns]
+        ax2.legend(lns, labs, loc=4)
+        lns = lns31 + lns32 + lns33
+        labs = [l.get_label() for l in lns]
+        ax3.legend(lns, labs, loc=7)
+        lns = lns41 + lns42
+        labs = [l.get_label() for l in lns]
+        ax4.legend(lns, labs, loc=4)
+
+        # Setting limits
+        ax1.set_ylim(bottom=0)  # Power
+        ax1.set_xlim(left=0)  # Current set
+        ax12.set_ylim(bottom=0)  # Voltage
+        ax2.set_ylim(bottom=0)  # Power
+        ax2.set_xlim(left=0)  # Current
+        ax22.set_ylim(bottom=0)  # Voltage
+        ax3.set_ylim(bottom=0)  # Voltage
+        ax3.set_xlim(left=0)  # Current
+        ax32.set_ylim(0, 100)  # Power conversion efficiency
 
     def buildplt_tosave(dataframe=iv):
         # Creating figure
@@ -274,20 +303,12 @@ def measure_liv(
             # + powermeter
         )  # Adding title
 
-        # Adding legend
-        ax.legend(loc=0)
-        ax2.legend(loc=0)
-
         ax.grid(which="both")  # adding grid
 
         # Adding labels
         ax.set_xlabel("Current, mA")
         ax.set_ylabel("Output power, mW", color="blue")
         ax2.set_ylabel("Voltage, V", color="red")
-
-        # Setting Y limits
-        ax.set_ylim(left=0)  # Power
-        ax2.set_ylim(left=0)  # Voltage
 
         # select columns in the Data Frame
         seti = dataframe["Current set, mA"]
@@ -297,9 +318,18 @@ def measure_liv(
         l = dataframe["Output power, mW"]
 
         # Plotting dataset_2
-        ax.plot(i, l, "-", label="Output power, mW")
+        lns1 = ax.plot(i, l, "-", label="Output power, mW")
         # Creating Twin axes for dataset_1
-        ax2.plot(i, v, "-r", label="Voltage, V")
+        lns2 = ax2.plot(i, v, "-r", label="Voltage, V")
+
+        # Setting Y limits
+        ax.set_ylim(bottom=0)  # Power
+        ax.set_xlim(left=0)  # Current
+        ax2.set_ylim(bottom=0)  # Voltage
+
+        # Adding legend
+        # ax.legend(loc=0)
+        # ax2.legend(loc=0)
 
         ax.minorticks_on()
         ax2.minorticks_on()
@@ -307,6 +337,10 @@ def measure_liv(
         # annotate maximum output power
         i_rollover = annotate_max_L(i, l, ax=ax)
         i_threshold = annotate_threshold(i, l, ax=ax)
+        # legend
+        lns = lns1 + lns2
+        labs = [l.get_label() for l in lns]
+        ax.legend(lns, labs, loc=4)
         return i_threshold, i_rollover
 
     #                 (_)       | |
@@ -337,7 +371,7 @@ def measure_liv(
         if output_power > max_output_power:  # track max power
             max_output_power = output_power
 
-        # add current, measured current, voltage, output power, power consumption, efficiency to the DataFrame
+        # add current, measured current, voltage, output power, power consumption, power conversion efficiency to the DataFrame
         iv.loc[len(iv)] = [
             i * 1000,
             current * 1000,
@@ -360,7 +394,9 @@ def measure_liv(
             print(
                 f"{i*1000:3.2f} mA: {current*1000:10.5f} mA, {voltage:8.5f} V, {output_power:8.5f} mW, {output_power/(voltage*current*10):8.2f} %"
             )
-            iv.iloc[-1]["Efficiency, %"] = output_power / (voltage * current * 10)
+            iv.iloc[-1]["Power conversion efficiency, %"] = output_power / (
+                voltage * current * 10
+            )
 
         # breaking conditions
         if i > current_limit1 / 1000:  # if current is more then limit1 mA
@@ -384,6 +420,7 @@ def measure_liv(
 
     # Measurement is stopped by the :OUTP OFF command.
     Keysight_B2901A.write(":OUTP OFF")
+    Keysight_B2901A.write(f":SOUR:CURR 0.001")
 
     timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
     filepath = (

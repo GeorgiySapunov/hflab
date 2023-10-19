@@ -69,7 +69,9 @@ def measure_osa(
     # make a list of currents for spectra measurements
     osa_current_list = [
         i / 10**5
-        for i in range(0, int(max_current * 10**2)+1, int(current_increment_OSA * 100))
+        for i in range(
+            0, int(max_current * 10**2) + 1, int(current_increment_OSA * 100)
+        )
     ]
     print(f"to {osa_current_list[-1]*1000} mA")
 
@@ -155,6 +157,7 @@ def measure_osa(
 
     # Measurement is stopped by the :OUTP OFF command.
     Keysight_B2901A.write(":OUTP OFF")
+    Keysight_B2901A.write(f":SOUR:CURR 0.001")
 
     timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
     if not os.path.exists(dirpath + "OSA"):  # make directories

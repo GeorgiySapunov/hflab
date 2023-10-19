@@ -1,8 +1,10 @@
 env/
 venv/
+.venv/
 data/
 reports/
 __pycache__/
+shell.nix
 
 resources/Michalzik-2013-VCSEL Fundamentals.pdf
 resources/Li_Hui.pdf
