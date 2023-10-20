@@ -153,10 +153,10 @@ def measure_liv(
         first_der = np.gradient(y, x)
         second_der = np.gradient(first_der, x)
         # print(second_der)
-        print(second_der.max())
-        if second_der.max() >= 10:
-            x_threshold = x[np.argmax(second_der >= 10)]  # decision level
-            y_threshold = y[np.argmax(second_der >= 10)]
+        print(f"max second der = {second_der.max()}")
+        if second_der.max() >= 7:
+            x_threshold = x[np.argmax(second_der >= 7)]  # decision level
+            y_threshold = y[np.argmax(second_der >= 7)]
 
             text = f"I_th={x_threshold:.2f} mA"
             if not ax:
@@ -178,7 +178,7 @@ def measure_liv(
             x_threshold = 0.0
         return x_threshold
 
-    fig = plt.figure(figsize=(20, 10))
+    fig = plt.figure(figsize=(25, 10))
     fig.suptitle(f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-{powermeter}")
     ax1 = fig.add_subplot(221)  # subplot for set current
     ax12 = ax1.twinx()
@@ -245,19 +245,41 @@ def measure_liv(
         # Creating Twin axes
         lns12 = ax12.plot(seti, v, "-r", label="Voltage, V")
         lns22 = ax22.plot(i, v, "-r", label="Voltage, V")
-        lns42 = ax42.plot(i, np.gradient(v, i), "-r", label="dV/dI, V/mA")
+
         # annotate maximum output power
         annotate_max_L(seti, l, ax=ax1)
         annotate_max_L(i, l, ax=ax2)
         annotate_threshold(seti, l, ax=ax1)
         threshold = annotate_threshold(i, l, ax=ax2)
+        print(f"threshold {threshold}")
 
+        lns42 = ax42.plot(
+            i.loc[i >= threshold],
+            np.gradient(v.loc[i >= threshold], i.loc[i >= threshold]),
+            "-r",
+            label="dV/dI, V/mA",
+        )
         lns31 = ax3.plot(i, l, "-", label="Output power, mW")
         lns32 = ax3.plot(i, p, "-b", label="Power consumption, mW")
         lns33 = ax32.plot(
-            i[threshold:], e[threshold:], "-r", label="Power conversion efficiency, %"
+            i.loc[i >= threshold],
+            e.loc[i >= threshold],
+            "-r",
+            label="Power conversion efficiency, %",
         )
         annotate_max_ef(i, e, threshold=threshold, ax=ax32)
+
+        # Setting limits
+        ax1.set_ylim(bottom=0)  # Power
+        ax1.set_xlim(left=0)  # Current set
+        ax12.set_ylim(bottom=0)  # Voltage
+        ax2.set_ylim(bottom=0)  # Power
+        ax2.set_xlim(left=0)  # Current
+        ax22.set_ylim(bottom=0)  # Voltage
+        ax3.set_ylim(bottom=0)  # Voltage
+        ax3.set_xlim(left=0)  # Current
+        ax32.set_ylim(0, 100)  # Power conversion efficiency
+        ax4.set_xlim(left=0)  # Current
 
         # legends
         lns = lns11 + lns12
@@ -271,18 +293,7 @@ def measure_liv(
         ax3.legend(lns, labs, loc=7)
         lns = lns41 + lns42
         labs = [l.get_label() for l in lns]
-        ax4.legend(lns, labs, loc=4)
-
-        # Setting limits
-        ax1.set_ylim(bottom=0)  # Power
-        ax1.set_xlim(left=0)  # Current set
-        ax12.set_ylim(bottom=0)  # Voltage
-        ax2.set_ylim(bottom=0)  # Power
-        ax2.set_xlim(left=0)  # Current
-        ax22.set_ylim(bottom=0)  # Voltage
-        ax3.set_ylim(bottom=0)  # Voltage
-        ax3.set_xlim(left=0)  # Current
-        ax32.set_ylim(0, 100)  # Power conversion efficiency
+        ax4.legend(lns, labs, loc=0)
 
     def buildplt_tosave(dataframe=iv):
         # Creating figure
