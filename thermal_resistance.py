@@ -138,7 +138,7 @@ def analyse(dirpath):
             # 5. make spectra plots and save .png
             # Make spectra figures
             # Creating figure
-            fig = plt.figure(figsize=(20, 10))
+            fig = plt.figure(figsize=(11.69, 8.27))
             # Plotting dataset
             ax = fig.add_subplot(111)
             # spectrum line
@@ -220,7 +220,7 @@ def analyse(dirpath):
     dldi = pd.DataFrame(columns=["Temperature, °C", "dλ/dI", "intercept"])
 
     # 8.1 Current approximation (NEW)
-    fig = plt.figure(figsize=(20, 10))
+    fig = plt.figure(figsize=(11.69, 8.27))
     plt.suptitle(f"{waferid}-{wavelength}nm-{coordinates}")
     ax1 = fig.add_subplot(111)  # λ(I) at different temperatures
     # Creating figure
@@ -280,7 +280,7 @@ def analyse(dirpath):
 
     # 8. plot λ(P_dis), λ(T), dλ\dT(P_dis), R_th(T) lineplots
     # Creating figure
-    fig = plt.figure(figsize=(20, 10))
+    fig = plt.figure(figsize=(11.69, 8.27))
     plt.suptitle(f"{waferid}-{wavelength}nm-{coordinates}")
     # Plotting dataset
     ax1 = fig.add_subplot(221)  # λ(P_dis) at different temperatures
@@ -518,7 +518,7 @@ def analyse(dirpath):
     P_out = P_out.fillna(0.0)
     mask = mask.fillna(True)
 
-    fig = plt.figure(figsize=(20, 10))
+    fig = plt.figure(figsize=(11.69, 8.27))
     fig.suptitle(f"{waferid}-{wavelength}nm-{coordinates}")
     ax1 = fig.add_subplot(121)
     sns.heatmap(T_act, annot=True, fmt="3.2f", ax=ax1, mask=mask)

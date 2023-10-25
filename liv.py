@@ -178,7 +178,7 @@ def measure_liv(
             x_threshold = 0.0
         return x_threshold
 
-    fig = plt.figure(figsize=(25, 10))
+    fig = plt.figure(figsize=(11.69, 8.27))
     fig.suptitle(f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-{powermeter}")
     ax1 = fig.add_subplot(221)  # subplot for set current
     ax12 = ax1.twinx()
@@ -297,7 +297,7 @@ def measure_liv(
 
     def buildplt_tosave(dataframe=iv):
         # Creating figure
-        fig = plt.figure(figsize=(20, 10))
+        fig = plt.figure(figsize=(11.69, 8.27))
         ax = fig.add_subplot(111)
         ax2 = ax.twinx()
 
