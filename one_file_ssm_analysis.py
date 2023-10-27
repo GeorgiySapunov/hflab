@@ -29,6 +29,7 @@ def one_file_approximation(
     s21mag=None,
     s21deg=None,
     S21_MSE_threshold=3,
+    fp_fixed=True,
 ):
     if file_name is not None:
         full_path = directory + "/" + file_name
@@ -152,16 +153,29 @@ def one_file_approximation(
     S11_Fit_MSE_imag = mean_squared_error(S11_Imag, np.imag(S11_Fit))
     # print(f"S11_Fit_MSE_imag={S11_Fit_MSE_imag}")
 
-    # equivalent impedance (Hui Li thesis p.66)
-    def Z(s11, z0=50):
-        Z = z0 * (1 + s11) / (1 - s11)
-        return Z
+    # # equivalent impedance (Hui Li thesis p.66)
+    # def Z(s11, z0=50):
+    #     Z = z0 * (1 + s11) / (1 - s11)
+    #     return Z
 
-    z = Z(S11_Fit)
-    zmag = np.log10(np.sqrt(np.real(z) ** 2 + np.imag(z) ** 2))
+    # z = Z(S11_Fit)
+    # zmag = np.log10(np.sqrt(np.real(z) ** 2 + np.imag(z) ** 2))
 
     # Normalised low pass magnitude
-    # TODO
+    # https://electronicbase.net/low-pass-filter-calculator/
+    # https://electronics.stackexchange.com/questions/152159/deriving-2nd-order-passive-low-pass-filter-cutoff-frequency
+    A = 50 * R_m * C_p * C_m * 10**-30
+    B = 50 * C_p * 10**-15 + 50 * C_m * 10**-15 + R_m * C_m * 10**-15
+    w = 2 * np.pi * f
+    H_f = 1 / np.sqrt((w**4) * (A**2) + (w**2) * (B**2 - 2 * A) + 1)
+    H_f_dB = 20 * np.log10(H_f)
+    w_par_3dB = np.sqrt(
+        1 / A
+        - (B**2) / (2 * (A**2))
+        + (np.sqrt(8 * (A**2) - 4 * A * (B**2) + B**4) / (2 * (A**2)))
+    )
+    f_par_Hz = w_par_3dB / (2 * np.pi)
+    f_par_GHz = f_par_Hz * 10**-9  # GHz
 
     #  ____ ____  _
     # / ___|___ \/ |
@@ -210,7 +224,7 @@ def one_file_approximation(
         # print(f"S21_Fit_MSE={S21_Fit_MSE}")
         check_f3dB = np.where(S21_Fit < c - 3)[0]
         if check_f3dB.any():
-            f3dB = f[np.where(S21_Fit < c - 3)[0][0]] * 10**-9  # GHz TODO
+            f3dB = f[np.where(S21_Fit < c - 3)[0][0]] * 10**-9  # GHz
         else:
             f3dB = 0
         if S21_Fit_MSE > S21_MSE_threshold:
@@ -224,10 +238,83 @@ def one_file_approximation(
             # """
             # )
         if S21_Fit_MSE > S21_MSE_threshold and s21_freqlimit >= 5:
-            s21_freqlimit = s21_freqlimit - 1
+            s21_freqlimit -= 1
 
     if S21_Fit_MSE > S21_MSE_threshold:
         print(f"Failed to fit S21")
+    # if S21_Fit_MSE < 5:
+    #     f_r, f_p, gamma, c, f3dB = None, None, None, None, None
+
+    # fit with fp fixed at f_par_Hz
+    if fp_fixed:
+
+        def s21_func2(f, f_r, gamma, c):
+            f_p = f_par_Hz
+            f = f * 10**-9
+            f_r = f_r
+            f_p = f_p
+            h2 = c + 10 * np.log10(
+                f_r**4
+                / (
+                    ((f_r**2 - f**2) ** 2 + (f * gamma / (2 * np.pi)) ** 2)
+                    * (1 + (f / f_p) ** 2)
+                )
+            )
+            return h2
+
+        S21_Fit_MSE2 = np.inf
+        s21_freqlimit2 = freqlimit
+        new_f2 = np.array(f)
+        new_S21_Magnitude_to_fit2 = np.array(S21_Magnitude_to_fit)
+        while S21_Fit_MSE2 > S21_MSE_threshold and s21_freqlimit2 >= 5:
+            new_S21_Magnitude_to_fit2 = new_S21_Magnitude_to_fit2[
+                new_f2 <= s21_freqlimit2 * 10**9
+            ]
+            new_f2 = new_f2[new_f2 <= s21_freqlimit2 * 10**9]
+
+            # Find the best-fit solution for S21
+            # f_r, f_p, gamma, c
+            popt_S21_2, pcovBoth_2 = curve_fit(
+                s21_func2,
+                new_f2,
+                new_S21_Magnitude_to_fit2,
+                # p0=[150, 150, 30, 150, 0],
+                bounds=([0, 0, -np.inf], [np.inf, np.inf, np.inf]),
+                maxfev=100000,
+            )
+            f_r2, gamma2, c2 = popt_S21_2
+
+            # Compute the best-fit solution and mean squered error for S21
+            S21_Fit2 = s21_func2(new_f2, *popt_S21_2)
+            S21_Fit_MSE2 = mean_squared_error(new_S21_Magnitude_to_fit2, S21_Fit2)
+            # print(f"S21_Fit_MSE={S21_Fit_MSE}")
+            check_f3dB2 = np.where(S21_Fit2 < c2 - 3)[0]
+            if check_f3dB2.any():
+                f3dB2 = f[np.where(S21_Fit2 < c2 - 3)[0][0]] * 10**-9  # GHz
+            else:
+                f3dB2 = 0
+            if S21_Fit_MSE2 > S21_MSE_threshold:
+                print(
+                    f"""f_par fixed at {f_par_GHz:.2f} GHz, s21_freqlimit={s21_freqlimit2} GHz """
+                )
+                # print(
+                #     f"""
+                # Trying to fit S21, MSE is too large.
+                # s21_freqlimit={s21_freqlimit} GHz
+                # MSE={S21_Fit_MSE:.2f}
+                # f_r={popt_S21[0]:.2f} GHz, f_p={popt_S21[1]:.2f} GHz, ɣ={popt_S21[2]:.2f}, c={popt_S21[3]:.2f}, f3dB={f3dB:.2f}
+                # """
+                # )
+            if S21_Fit_MSE2 > S21_MSE_threshold and s21_freqlimit2 >= 5:
+                s21_freqlimit2 -= 1
+
+        if S21_Fit_MSE2 > S21_MSE_threshold:
+            print(f"Failed to fit S21 with f_par fixed at {f_par_GHz:.2f} GHz")
+        # if S21_Fit_MSE2 < 5:
+        #     f_r2, gamma2, c2, f3dB2 = None, None, None, None
+    else:
+        f_r2, gamma2, c2, f3dB2 = None, None, None, None
+
     #  _____ _
     # |  ___(_) __ _ _   _ _ __ ___  ___
     # | |_  | |/ _` | | | | '__/ _ \/ __|
@@ -238,7 +325,7 @@ def one_file_approximation(
 
     fig.suptitle(file_name)
 
-    ax1_s11re = fig.add_subplot(221)
+    ax1_s11re = fig.add_subplot(321)
     ax1_s11re.plot(f * 10**-9, S11_Real, "k.", label="Experiment S11 Real", alpha=0.6)
     ax1_s11re.plot(
         f * 10**-9,
@@ -254,7 +341,7 @@ def one_file_approximation(
     ax1_s11re.minorticks_on()
     ax1_s11re.set_ylim([-1, 1])
 
-    ax2_s11im = fig.add_subplot(222)
+    ax2_s11im = fig.add_subplot(322)
     ax2_s11im.plot(
         f * 10**-9,
         np.real(S11_Imag),
@@ -276,9 +363,9 @@ def one_file_approximation(
     ax2_s11im.minorticks_on()
     ax2_s11im.set_ylim([-1, 1])
 
-    # plot the S11 Smith Chart TODO
+    # plot the S11 Smith Chart
     ax3_s11_smith = fig.add_subplot(
-        223,
+        323,
         projection="smith",
     )
     # ax3_s11_smith.update_scParams(axes_impedance=50)
@@ -301,32 +388,76 @@ def one_file_approximation(
     # ax3_s11_smith.set_ylim([-1, 1])
     # ax3_s11_smith.set_xlim([-1, 1])
 
+    # V_out
+    ax4_vout = fig.add_subplot(324)
+    ax4_vout.plot(f * 10**-9, H_f_dB, "k", label="H_f_dB", alpha=0.6)
+    # ax6_vout.plot(f * 10**-9, H2_f_dB, "r", label="H^2(f)", alpha=0.6)
+
+    ax4_vout.set_title("H_par")
+    ax4_vout.set_ylabel("H_par, dB")
+    ax4_vout.set_xlabel("Frequency, GHz")
+    ax4_vout.set_xlim([0, min(freqlimit, 40)])
+    # ax4_vout.set_ylim([-30, 1])
+    ax4_vout.grid(which="both")
+    ax4_vout.minorticks_on()
+    ax4_vout.axhline(y=-3, color="y", linestyle="-.")
+    # ax4_vout.axvline(
+    #     x=f3dB_vout, color="y", linestyle="-.", label=f"f3dB_Vout={f3dB_vout:.2f}"
+    # )
+    ax4_vout.axvline(
+        x=f_par_GHz, color="r", linestyle=":", label=f"f_par={f_par_GHz:.2f} GHz"
+    )
+    ax4_vout.legend()
+
     # plot the S21 results
-    ax4_s21 = fig.add_subplot(224)
+    ax6_s21 = fig.add_subplot(326)
     # plt.plot(f * 10**-9, S21_Magnitude, "k.", label="Experiment S21 (need to substrack the pd)")
-    ax4_s21.plot(
+    ax6_s21.plot(
         f * 10**-9, S21_Magnitude_to_fit - c, "k", label="Experimental S21", alpha=0.6
     )
     # plt.plot(f * 10**-9, pd_Magnitude, "y", label="PD")
-    ax4_s21.plot(
+    ax6_s21.plot(
         new_f * 10**-9,
         S21_Fit - c,
         "b-.",
-        label=f"Best fit S21\nf_r={popt_S21[0]:.2f} GHz, f_p={popt_S21[1]:.2f} GHz, ɣ={popt_S21[2]:.2f}, c={popt_S21[3]:.2f}, f3dB={f3dB:.2f}\nMSE={S21_Fit_MSE:.2f}, fit to {s21_freqlimit} GHz",
+        label=f"Best fit S21\nf_r={popt_S21[0]:.2f} GHz, f_p={popt_S21[1]:.2f} GHz, ɣ={popt_S21[2]:.2f}, c={popt_S21[3]:.2f}\nMSE={S21_Fit_MSE:.2f}, fit to {s21_freqlimit} GHz",
         alpha=1,
     )
-    ax4_s21.set_title("S21")
-    ax4_s21.set_ylabel("Magintude(S21), dB")
-    ax4_s21.set_xlabel("Frequency, GHz")
-    ax4_s21.set_xlim([0, min(freqlimit, 40)])
-    ax4_s21.set_ylim([-40, 10])
-    ax4_s21.grid(which="both")
-    ax4_s21.minorticks_on()
-    ax4_s21.axhline(y=-3, color="y", linestyle="-.")
-    ax4_s21.axvline(x=f3dB, color="y", linestyle="-.", label="f3dB")
-    ax4_s21.axvline(x=popt_S21[1], color="r", linestyle="-.", label="f_p")
-    ax4_s21.axvline(x=popt_S21[0], color="g", linestyle="-.", label="f_r")
-    ax4_s21.legend()
+    if fp_fixed:
+        ax6_s21.plot(
+            new_f2 * 10**-9,
+            S21_Fit2 - c2,
+            "m:",
+            label=f"S21 fit with f_p={f_par_GHz:.2f} GHz\nf_r={popt_S21_2[0]:.2f} GHz, ɣ={popt_S21_2[1]:.2f}, c={popt_S21_2[2]:.2f}\nMSE={S21_Fit_MSE2:.2f}, fit to {s21_freqlimit2} GHz",
+            alpha=1,
+        )
+    ax6_s21.set_title("S21")
+    ax6_s21.set_ylabel("Magintude(S21), dB")
+    ax6_s21.set_xlabel("Frequency, GHz")
+    ax6_s21.set_xlim([0, min(freqlimit, 40)])
+    ax6_s21.set_ylim([-40, 10])
+    ax6_s21.grid(which="both")
+    ax6_s21.minorticks_on()
+    ax6_s21.axhline(y=-3, color="y", linestyle="-.")
+    ax6_s21.axvline(x=f3dB, color="y", linestyle="-.", label=f"f3dB={f3dB:.2f} GHz")
+    ax6_s21.axvline(x=f3dB2, color="y", linestyle=":", label=f"f3dB2={f3dB2:.2f} GHz")
+    ax6_s21.axvline(
+        x=popt_S21[1], color="r", linestyle="-.", label=f"f_p={popt_S21[1]:.2f} GHz"
+    )
+    ax6_s21.axvline(
+        x=popt_S21[0], color="g", linestyle="-.", label=f"f_r={popt_S21[0]:.2f} GHz"
+    )
+    if fp_fixed:
+        ax6_s21.axvline(
+            x=f_par_GHz, color="r", linestyle=":", label=f"f_p_2={f_par_GHz:.2f} GHz"
+        )
+        ax6_s21.axvline(
+            x=popt_S21_2[0],
+            color="g",
+            linestyle=":",
+            label=f"f_r2={popt_S21_2[0]:.2f} GHz",
+        )
+    ax6_s21.legend(fontsize=8)
 
     # plt.tight_layout()
     # plt.show()
@@ -341,10 +472,22 @@ def one_file_approximation(
     print(
         f"R_m={R_m:.2f}\tR_j={R_j:.2f}\tC_p={C_p:.2f}\tC_m={C_m:.2f}\tf_r={f_r:.2f}\tf_p={f_p:.2f}\tgamma={gamma:.2f}\tc={c:.2f}\tf3dB={f3dB:.2f}\nMSE_S21={S21_Fit_MSE:.2f}, MSE_S11*10^4={S11_Fit_MSE*10**4:.2f}, MSE_imag*10^4={S11_Fit_MSE_imag*10**4:.2f}, MSE_real*10^4={S11_Fit_MSE_real*10**4:.2f}, fit to {freqlimit} GHz"
     )
-    if S21_Fit_MSE < 5:
-        return R_m, R_j, C_p, C_m, f_r, f_p, gamma, c, f3dB
-    else:
-        return R_m, R_j, C_p, C_m, None, None, None, None, None
+    return (
+        R_m,
+        R_j,
+        C_p,
+        C_m,
+        f_r,
+        f_p,
+        gamma,
+        c,
+        f3dB,
+        f_par_GHz,
+        f_r2,
+        gamma2,
+        c2,
+        f3dB2,
+    )
 
 
 # one_file_approximation("data", "745.s2p", 2, 50)

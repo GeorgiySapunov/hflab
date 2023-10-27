@@ -13,9 +13,10 @@ from sklearn.metrics import mean_squared_error
 from one_file_ssm_analysis import one_file_approximation
 
 
-S21_MSE_threshold = 0.1
+S21_MSE_threshold = 5
 probe_port = 2
 freqlimit = 40
+fp_fixed = True
 
 
 # directory, file_name, probe_port, limit
@@ -26,6 +27,7 @@ def analyse(
     probe_port=probe_port,
     freqlimit=freqlimit,
     S21_MSE_threshold=S21_MSE_threshold,
+    fp_fixed=True,
 ):
     if directory[-1] != "/":  # TODO check it
         directory = directory + "/"
@@ -87,18 +89,40 @@ def analyse(
             "gamma",
             "c",
             "f_3dB, GHz",
+            "f_p(fixed), GHz",
+            "f_r(f_p fixed), GHz",
+            "gamma(f_p fixed)",
+            "c(f_p fixed)",
+            "f3dB(f_p fixed), GHz",
         ]
     )
 
     if s2p:
         report_dir = start_directory + "PNA_reports(s2p)/"
         for file in matched_files:
-            R_m, R_j, C_p, C_m, f_r, f_p, gamma, c, f3dB = one_file_approximation(
+            (
+                R_m,
+                R_j,
+                C_p,
+                C_m,
+                f_r,
+                f_p,
+                gamma,
+                c,
+                f3dB,
+                f_par_GHz,
+                f_r2,
+                gamma2,
+                c2,
+                f3dB2,
+            ) = one_file_approximation(
                 directory=directory,
                 report_directory=report_dir,
                 freqlimit=freqlimit,
                 file_name=file,
                 probe_port=probe_port,
+                S21_MSE_threshold=S21_MSE_threshold,
+                fp_fixed=fp_fixed,
             )
 
             file_name_parser = file.split("-")
@@ -107,7 +131,23 @@ def analyse(
             current = float(current.removesuffix(".s2p").removesuffix("mA"))
             print(f"current={current}")
 
-            df.loc[len(df)] = [current, R_m, R_j, C_p, C_m, f_r, f_p, gamma, c, f3dB]
+            df.loc[len(df)] = [
+                current,
+                R_m,
+                R_j,
+                C_p,
+                C_m,
+                f_r,
+                f_p,
+                gamma,
+                c,
+                f3dB,
+                f_par_GHz,
+                f_r2,
+                gamma2,
+                c2,
+                f3dB2,
+            ]
 
         df = df.sort_values("Current, mA")
         df.reset_index(drop=True, inplace=True)
@@ -139,7 +179,22 @@ def analyse(
             print(f"current={current}")
             start = i * points + i
             stop = (i + 1) * points + i
-            R_m, R_j, C_p, C_m, f_r, f_p, gamma, c, f3dB = one_file_approximation(
+            (
+                R_m,
+                R_j,
+                C_p,
+                C_m,
+                f_r,
+                f_p,
+                gamma,
+                c,
+                f3dB,
+                f_par_GHz,
+                f_r2,
+                gamma2,
+                c2,
+                f3dB2,
+            ) = one_file_approximation(
                 directory=directory,
                 report_directory=report_dir,
                 freqlimit=freqlimit,
@@ -155,9 +210,27 @@ def analyse(
                 s11deg_rad=phase_s11[start:stop],
                 s21mag=abs_s21[start:stop],
                 s21deg=phase_s11[start:stop],
+                S21_MSE_threshold=S21_MSE_threshold,
+                fp_fixed=fp_fixed,
             )
 
-            df.loc[len(df)] = [current, R_m, R_j, C_p, C_m, f_r, f_p, gamma, c, f3dB]
+            df.loc[len(df)] = [
+                current,
+                R_m,
+                R_j,
+                C_p,
+                C_m,
+                f_r,
+                f_p,
+                gamma,
+                c,
+                f3dB,
+                f_par_GHz,
+                f_r2,
+                gamma2,
+                c2,
+                f3dB2,
+            ]
 
         df = df.sort_values("Current, mA")
         df.reset_index(drop=True, inplace=True)
@@ -231,7 +304,11 @@ def makefigs(df, directory, s2p=True):
     ax4_cm.minorticks_on()
 
     ax5_gamma = fig.add_subplot(245)
-    ax5_gamma.plot(df["Current, mA"], df["gamma"])
+    ax5_gamma.plot(df["Current, mA"], df["gamma"], label="ɣ")
+    if fp_fixed:
+        ax5_gamma.plot(
+            df["Current, mA"], df["gamma(f_p fixed)"], label="ɣ(f_p fixed)", alpha=0.5
+        )
     ax5_gamma.set_ylabel("ɣ")
     ax5_gamma.set_xlabel("Current, mA")
     # ax5_gamma.set_xlim(left=0)
@@ -239,9 +316,18 @@ def makefigs(df, directory, s2p=True):
     ax5_gamma.set_ylim([0, 300])
     ax5_gamma.grid(which="both")
     ax5_gamma.minorticks_on()
+    if fp_fixed:
+        ax5_gamma.legend()
 
     ax6_fp = fig.add_subplot(246)
-    ax6_fp.plot(df["Current, mA"], df["f_p, GHz"])
+    ax6_fp.plot(df["Current, mA"], df["f_p, GHz"], label="from S21")
+    if fp_fixed:
+        ax6_fp.plot(
+            df["Current, mA"],
+            df["f_p(fixed), GHz"],
+            label="from equivalent circuit",
+            alpha=0.5,
+        )
     ax6_fp.set_ylabel("f_p, GHz")
     ax6_fp.set_xlabel("Current, mA")
     # ax6_fp.set_xlim(left=0)
@@ -249,9 +335,18 @@ def makefigs(df, directory, s2p=True):
     ax6_fp.set_ylim([0, 65])
     ax6_fp.grid(which="both")
     ax6_fp.minorticks_on()
+    if fp_fixed:
+        ax6_fp.legend()
 
     ax7_fr = fig.add_subplot(247)
-    ax7_fr.plot(df["Current, mA"], df["f_r, GHz"])
+    ax7_fr.plot(df["Current, mA"], df["f_r, GHz"], label="f_r")
+    if fp_fixed:
+        ax7_fr.plot(
+            df["Current, mA"],
+            df["f_r(f_p fixed), GHz"],
+            label="f_r(f_p fixed)",
+            alpha=0.5,
+        )
     ax7_fr.set_ylabel("f_r, GHz")
     ax7_fr.set_xlabel("Current, mA")
     # ax7_fr.set_xlim(left=0)
@@ -259,6 +354,8 @@ def makefigs(df, directory, s2p=True):
     ax7_fr.set_ylim([0, 65])
     ax7_fr.grid(which="both")
     ax7_fr.minorticks_on()
+    if fp_fixed:
+        ax7_fr.legend()
 
     # ax8_c = fig.add_subplot(338)
     # ax8_c.plot(df["Current, mA"], df["c"], marker="o")
@@ -271,7 +368,11 @@ def makefigs(df, directory, s2p=True):
     # ax8_c.minorticks_on()
 
     ax9_f3db = fig.add_subplot(248)
-    ax9_f3db.plot(df["Current, mA"], df["f_3dB, GHz"])
+    ax9_f3db.plot(df["Current, mA"], df["f_3dB, GHz"], label="f3dB")
+    if fp_fixed:
+        ax9_f3db.plot(
+            df["Current, mA"], df["f3dB(f_p fixed), GHz"], label="f3dB(f_p fixed)"
+        )
     ax9_f3db.set_ylabel("f_3dB, GHz")
     ax9_f3db.set_xlabel("Current, mA")
     # ax9_f3db.set_xlim(left=0)
@@ -293,13 +394,15 @@ def makefigs(df, directory, s2p=True):
             textcoords="axes fraction",
             arrowprops=arrowprops,
             bbox=bbox_props,
-            ha="left",
+            ha="right",
             va="top",
         )
-        ax.annotate(text, xy=(xmax, ymax), xytext=(0.2, 0.99), **kw)
+        ax.annotate(text, xy=(xmax, ymax), xytext=(0.99, 0.99), **kw)
         return xmax
 
     annotate_max_f3db(df["Current, mA"], df["f_3dB, GHz"], ax=ax9_f3db)
+    if fp_fixed:
+        ax9_f3db.legend(loc=2)
 
     if not os.path.exists(directory):  # make directories
         os.makedirs(directory)
@@ -324,6 +427,7 @@ for i, directory in enumerate(sys.argv[1:]):
         probe_port=probe_port,
         freqlimit=freqlimit,
         S21_MSE_threshold=S21_MSE_threshold,
+        fp_fixed=fp_fixed,
     )
     makefigs(df, report_dir, s2p=True)
     df, dir, report_dir = analyse(
@@ -332,5 +436,6 @@ for i, directory in enumerate(sys.argv[1:]):
         probe_port=probe_port,
         freqlimit=freqlimit,
         S21_MSE_threshold=S21_MSE_threshold,
+        fp_fixed=fp_fixed,
     )
     makefigs(df, report_dir, s2p=False)
