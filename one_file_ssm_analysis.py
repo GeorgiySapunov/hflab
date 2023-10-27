@@ -114,19 +114,25 @@ def one_file_approximation(
     #  ___) | | |
     # |____/|_|_|
     # from Hui Li theses p.65
-    def s11_func(f, R_m, R_j, C_p, C_m):
-        z1 = R_m + 1 / (1 / R_j + 2 * np.pi * 1j * f * C_m * 10**-15)
-        z2 = 1 / (2 * np.pi * f * C_p * 10**-15 * 1j)
-        z = 1 / (1 / z1 + 1 / z2)
-        return (z - 50) / (z + 50)
+    # DOI:10.3390/app12126035
+    def s11_func(f, L, R_p, R_m, R_a, C_p, C_a):
+        Zsm = R_m + ((1 / R_a) + 1j * 2 * np.pi * f * C_a * 10**-15) ** -1
+        Zt = (
+            (1 / (Zsm + 1j * 2 * np.pi * f * L * 10**-12))
+            + (R_p + (1 / (1j * 2 * np.pi * f * C_p * 10**-15))) ** -1
+        ) ** -1
+        # z1 = R_m + 1 / (1 / R_a + 2 * np.pi * 1j * f * C_a * 10**-15)
+        # z2 = 1 / (2 * np.pi * f * C_p * 10**-15 * 1j)
+        # z = 1 / (1 / z1 + 1 / z2)
+        return (Zt - 50) / (Zt + 50)
 
     # stacking S11 data to fit them simultaneously
-    def s11_both_func(f, R_m, R_j, C_p, C_m):
+    def s11_both_func(f, L, R_p, R_m, R_a, C_p, C_a):
         N = len(f)
         f_real = f[: N // 2]
         f_imag = f[N // 2 :]
-        y_real = np.real(s11_func(f_real, R_m, R_j, C_p, C_m))
-        y_imag = np.imag(s11_func(f_imag, R_m, R_j, C_p, C_m))
+        y_real = np.real(s11_func(f_real, L, R_p, R_m, R_a, C_p, C_a))
+        y_imag = np.imag(s11_func(f_imag, L, R_p, R_m, R_a, C_p, C_a))
         return np.hstack([y_real, y_imag])
 
     # Split the measurements into a real and imaginary part
@@ -138,10 +144,10 @@ def one_file_approximation(
         np.hstack([f, f]),
         S11_Both,
         # p0=[150, 150, 30, 150],
-        bounds=(0, [1000, 1000, 5000, 5000]),
+        bounds=(0, [1000, 1000, 1000, 1000, 5000, 5000]),
         maxfev=100000,
     )
-    R_m, R_j, C_p, C_m = poptBoth_S11
+    L, R_p, R_m, R_a, C_p, C_a = poptBoth_S11
 
     # Compute the best-fit solution and check the mean squared error
     S11_Fit = s11_func(f, *poptBoth_S11)
@@ -161,21 +167,48 @@ def one_file_approximation(
     # z = Z(S11_Fit)
     # zmag = np.log10(np.sqrt(np.real(z) ** 2 + np.imag(z) ** 2))
 
-    # Normalised low pass magnitude
-    # https://electronicbase.net/low-pass-filter-calculator/
-    # https://electronics.stackexchange.com/questions/152159/deriving-2nd-order-passive-low-pass-filter-cutoff-frequency
-    A = 50 * R_m * C_p * C_m * 10**-30
-    B = 50 * C_p * 10**-15 + 50 * C_m * 10**-15 + R_m * C_m * 10**-15
-    w = 2 * np.pi * f
-    H_f = 1 / np.sqrt((w**4) * (A**2) + (w**2) * (B**2 - 2 * A) + 1)
-    H_f_dB = 20 * np.log10(H_f)
-    w_par_3dB = np.sqrt(
-        1 / A
-        - (B**2) / (2 * (A**2))
-        + (np.sqrt(8 * (A**2) - 4 * A * (B**2) + B**4) / (2 * (A**2)))
-    )
-    f_par_Hz = w_par_3dB / (2 * np.pi)
-    f_par_GHz = f_par_Hz * 10**-9  # GHz
+    # # Normalised low pass magnitude
+    # # https://electronicbase.net/low-pass-filter-calculator/
+    # # https://electronics.stackexchange.com/questions/152159/deriving-2nd-order-passive-low-pass-filter-cutoff-frequency
+    # A = 50 * R_m * C_p * C_a * 10**-30
+    # B = 50 * C_p * 10**-15 + 50 * C_a * 10**-15 + R_m * C_a * 10**-15
+    # w = 2 * np.pi * f
+    # H_f = 1 / np.sqrt((w**4) * (A**2) + (w**2) * (B**2 - 2 * A) + 1)
+    # H_f_dB = 20 * np.log10(H_f)
+    # w_par_3dB = np.sqrt(
+    #     1 / A
+    #     - (B**2) / (2 * (A**2))
+    #     + (np.sqrt(8 * (A**2) - 4 * A * (B**2) + B**4) / (2 * (A**2)))
+    # )
+    # f_par_Hz = w_par_3dB / (2 * np.pi)
+    # f_par_GHz = f_par_Hz * 10**-9  # GHz
+    def calc_H_ext(f, L, R_p, R_m, R_a, C_p, C_a):
+        Z1 = R_a / (1 + 1j * 2 * np.pi * f * R_a * C_a * 10**-15)
+        Z2 = Z1 + R_m + 1j * 2 * f * L * 10**-12
+        Z3 = 1 / (1j * 2 * np.pi * f * C_p * 10**-15) + R_p
+        Z4 = ((1 / Z2) + (1 / Z3)) ** -1
+        H_ext = (Z1 * Z4 * 50) / (Z2 * (Z4 + 50) * R_a)
+        return H_ext
+
+    def calc_H_ext0(R_p, R_m, R_a):
+        Z1 = R_a
+        Z2 = Z1 + R_m
+        # Z3 = np.inf
+        Z4 = (1 / Z2) ** -1
+        H_ext = (Z1 * Z4 * 50) / (Z2 * (Z4 + 50) * R_a)
+        return H_ext
+
+    f_h = np.linspace(0.01, 60 * 10**9, 6000)
+    H_ext = calc_H_ext(f_h, L, R_p, R_m, R_a, C_p, C_a)
+    H2_ext = np.abs(H_ext) ** 2
+    H2_f_dB = 10 * np.log10(H2_ext)
+
+    H_ext0 = calc_H_ext0(R_p, R_m, R_a)
+    H2_ext0 = np.abs(H_ext0) ** 2
+    H2_f_dB0 = 10 * np.log10(H2_ext0)
+
+    f_par_Hz = f_h[np.where(H2_ext / H2_ext0 < 0.5)[0][0]]
+    f_par_GHz = f_par_Hz * 10**-9
 
     #  ____ ____  _
     # / ___|___ \/ |
@@ -321,7 +354,7 @@ def one_file_approximation(
     # |  _| | | (_| | |_| | | |  __/\__ \
     # |_|   |_|\__, |\__,_|_|  \___||___/
     #          |___/
-    fig = plt.figure(figsize=(1.8 * 11.69, 1.8 * 8.27))
+    fig = plt.figure(figsize=(2.5 * 11.69, 2.5 * 8.27))
 
     fig.suptitle(file_name)
 
@@ -331,7 +364,7 @@ def one_file_approximation(
         f * 10**-9,
         np.real(S11_Fit),
         "b-.",
-        label=f"Best fit S11\nReal R_m={poptBoth_S11[0]:.2f} Om, R_j={poptBoth_S11[1]:.2f} Om, C_p={poptBoth_S11[2]:.2f} fF, C_m={poptBoth_S11[3]:.2f} fF\nMSE*10^4={S11_Fit_MSE*10**4:.2f}, MSE_real*10^4={S11_Fit_MSE_real*10**4:.2f}, fit to {freqlimit} GHz",
+        label=f"Best fit S11\nReal L={L:.2f} pH, R_p={R_p:.2f} Om, R_m={R_m:.2f} Om, R_a={poptBoth_S11[1]:.2f} Om, C_p={poptBoth_S11[2]:.2f} fF, C_a={poptBoth_S11[3]:.2f} fF\nMSE*10^4={S11_Fit_MSE*10**4:.2f}, MSE_real*10^4={S11_Fit_MSE_real*10**4:.2f}, fit to {freqlimit} GHz",
         alpha=1,
     )
     ax1_s11re.set_ylabel("Re(S11)")
@@ -353,7 +386,7 @@ def one_file_approximation(
         f * 10**-9,
         np.imag(S11_Fit),
         "b-.",
-        label=f"Best fit S11\nImaginary R_m={poptBoth_S11[0]:.2f}, R_j={poptBoth_S11[1]:.2f}, C_p={poptBoth_S11[2]:.2f}, C_m={poptBoth_S11[3]:.2f}\nMSE*10^4={S11_Fit_MSE*10**4:.2f}, MSE_imag*10^4={S11_Fit_MSE_imag*10**4:.2f}, fit to {freqlimit} GHz",
+        label=f"Best fit S11\nImaginary L={L:.2f} pH, R_p={R_p:.2f} Om, R_m={R_m:.2f} Om, R_a={poptBoth_S11[1]:.2f} Om, C_p={poptBoth_S11[2]:.2f} fF, C_a={poptBoth_S11[3]:.2f} fF\nMSE*10^4={S11_Fit_MSE*10**4:.2f}, MSE_real*10^4={S11_Fit_MSE_real*10**4:.2f}, fit to {freqlimit} GHz",
         alpha=1,
     )
     ax2_s11im.set_ylabel("Im(S11)")
@@ -388,26 +421,35 @@ def one_file_approximation(
     # ax3_s11_smith.set_ylim([-1, 1])
     # ax3_s11_smith.set_xlim([-1, 1])
 
-    # V_out
-    ax4_vout = fig.add_subplot(324)
-    ax4_vout.plot(f * 10**-9, H_f_dB, "k", label="H_f_dB", alpha=0.6)
+    # H^2(f)
+    ax4_h2 = fig.add_subplot(324)
+    ax4_h2.plot(
+        f_h * 10**-9,
+        H2_f_dB - H2_f_dB0,
+        "k",
+        label="|H(f)|^2-|H(0)|^2, dB",
+        alpha=0.6,
+    )
     # ax6_vout.plot(f * 10**-9, H2_f_dB, "r", label="H^2(f)", alpha=0.6)
 
-    ax4_vout.set_title("H_par")
-    ax4_vout.set_ylabel("H_par, dB")
-    ax4_vout.set_xlabel("Frequency, GHz")
-    ax4_vout.set_xlim([0, min(freqlimit, 40)])
-    # ax4_vout.set_ylim([-30, 1])
-    ax4_vout.grid(which="both")
-    ax4_vout.minorticks_on()
-    ax4_vout.axhline(y=-3, color="y", linestyle="-.")
+    ax4_h2.set_title("Equivalent circuit model |H(f)|^2-|H(0)|^2")
+    ax4_h2.set_ylabel("|H(f)|^2-|H(0)|^2, dB")
+    ax4_h2.set_xlabel("Frequency, GHz")
+    ax4_h2.set_xlim([0, min(freqlimit, 40)])
+    ax4_h2.set_ylim([-10, 1])
+    ax4_h2.grid(which="both")
+    ax4_h2.minorticks_on()
+    ax4_h2.axhline(y=-3, color="y", linestyle="-.")
     # ax4_vout.axvline(
     #     x=f3dB_vout, color="y", linestyle="-.", label=f"f3dB_Vout={f3dB_vout:.2f}"
     # )
-    ax4_vout.axvline(
-        x=f_par_GHz, color="r", linestyle=":", label=f"f_par={f_par_GHz:.2f} GHz"
+    ax4_h2.axvline(
+        x=f_par_GHz,
+        color="r",
+        linestyle=":",
+        label=f"f3dB_parasitic={f_par_GHz:.2f} GHz",
     )
-    ax4_vout.legend()
+    ax4_h2.legend()
 
     # plot the S21 results
     ax6_s21 = fig.add_subplot(326)
@@ -420,7 +462,7 @@ def one_file_approximation(
         new_f * 10**-9,
         S21_Fit - c,
         "b-.",
-        label=f"Best fit S21\nf_r={popt_S21[0]:.2f} GHz, f_p={popt_S21[1]:.2f} GHz, ɣ={popt_S21[2]:.2f}, c={popt_S21[3]:.2f}\nMSE={S21_Fit_MSE:.2f}, fit to {s21_freqlimit} GHz",
+        label=f"Best fit S21\nf_r={f_r:.2f} GHz, f_p={f_p:.2f} GHz, ɣ={gamma:.2f}, c={c:.2f}\nMSE={S21_Fit_MSE:.2f}, fit to {s21_freqlimit} GHz",
         alpha=1,
     )
     if fp_fixed:
@@ -428,7 +470,7 @@ def one_file_approximation(
             new_f2 * 10**-9,
             S21_Fit2 - c2,
             "m:",
-            label=f"S21 fit with f_p={f_par_GHz:.2f} GHz\nf_r={popt_S21_2[0]:.2f} GHz, ɣ={popt_S21_2[1]:.2f}, c={popt_S21_2[2]:.2f}\nMSE={S21_Fit_MSE2:.2f}, fit to {s21_freqlimit2} GHz",
+            label=f"S21 fit with f_p_2={f_par_GHz:.2f} GHz\nf_r={f_r2:.2f} GHz, ɣ={gamma2:.2f}, c={c2:.2f}\nMSE={S21_Fit_MSE2:.2f}, fit to {s21_freqlimit2} GHz",
             alpha=1,
         )
     ax6_s21.set_title("S21")
@@ -441,23 +483,19 @@ def one_file_approximation(
     ax6_s21.axhline(y=-3, color="y", linestyle="-.")
     ax6_s21.axvline(x=f3dB, color="y", linestyle="-.", label=f"f3dB={f3dB:.2f} GHz")
     ax6_s21.axvline(x=f3dB2, color="y", linestyle=":", label=f"f3dB2={f3dB2:.2f} GHz")
-    ax6_s21.axvline(
-        x=popt_S21[1], color="r", linestyle="-.", label=f"f_p={popt_S21[1]:.2f} GHz"
-    )
-    ax6_s21.axvline(
-        x=popt_S21[0], color="g", linestyle="-.", label=f"f_r={popt_S21[0]:.2f} GHz"
-    )
+    ax6_s21.axvline(x=f_p, color="r", linestyle="-.", label=f"f_p={f_p:.2f} GHz")
+    ax6_s21.axvline(x=f_r, color="g", linestyle="-.", label=f"f_r={f_r:.2f} GHz")
     if fp_fixed:
         ax6_s21.axvline(
             x=f_par_GHz, color="r", linestyle=":", label=f"f_p_2={f_par_GHz:.2f} GHz"
         )
         ax6_s21.axvline(
-            x=popt_S21_2[0],
+            x=f_r2,
             color="g",
             linestyle=":",
-            label=f"f_r2={popt_S21_2[0]:.2f} GHz",
+            label=f"f_r2={f_r2:.2f} GHz",
         )
-    ax6_s21.legend(fontsize=8)
+    ax6_s21.legend(fontsize=10)
 
     # plt.tight_layout()
     # plt.show()
@@ -470,13 +508,19 @@ def one_file_approximation(
 
     # print and return the results
     print(
-        f"R_m={R_m:.2f}\tR_j={R_j:.2f}\tC_p={C_p:.2f}\tC_m={C_m:.2f}\tf_r={f_r:.2f}\tf_p={f_p:.2f}\tgamma={gamma:.2f}\tc={c:.2f}\tf3dB={f3dB:.2f}\nMSE_S21={S21_Fit_MSE:.2f}, MSE_S11*10^4={S11_Fit_MSE*10**4:.2f}, MSE_imag*10^4={S11_Fit_MSE_imag*10**4:.2f}, MSE_real*10^4={S11_Fit_MSE_real*10**4:.2f}, fit to {freqlimit} GHz"
+        f"""
+        L={L:.2f} pH, R_p={R_p:2f} Om, R_m={R_m:.2f}\tR_a={R_a:.2f}\tC_p={C_p:.2f}\tC_a={C_a:.2f}
+        f_r={f_r:.2f}\tf_p={f_p:.2f}\tgamma={gamma:.2f}\tc={c:.2f}\tf3dB={f3dB:.2f}
+        MSE_S21={S21_Fit_MSE:.2f}, MSE_S11*10^4={S11_Fit_MSE*10**4:.2f}, MSE_imag*10^4={S11_Fit_MSE_imag*10**4:.2f}, MSE_real*10^4={S11_Fit_MSE_real*10**4:.2f}, fit to {freqlimit} GHz
+        """
     )
     return (
+        L,
+        R_p,
         R_m,
-        R_j,
+        R_a,
         C_p,
-        C_m,
+        C_a,
         f_r,
         f_p,
         gamma,

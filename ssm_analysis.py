@@ -14,8 +14,8 @@ from one_file_ssm_analysis import one_file_approximation
 
 
 S21_MSE_threshold = 5
-probe_port = 2
-freqlimit = 40
+probe_port = 1
+freqlimit = 30
 fp_fixed = True
 
 
@@ -80,10 +80,12 @@ def analyse(
     df = pd.DataFrame(
         columns=[
             "Current, mA",
+            "L, pH",
+            "R_p, Om",
             "R_m, Om",
-            "R_j, Om",
+            "R_a, Om",
             "C_p, fF",
-            "C_m, fF",
+            "C_a, fF",
             "f_r, GHz",
             "f_p, GHz",
             "gamma",
@@ -101,10 +103,12 @@ def analyse(
         report_dir = start_directory + "PNA_reports(s2p)/"
         for file in matched_files:
             (
+                L,
+                R_p,
                 R_m,
-                R_j,
+                R_a,
                 C_p,
-                C_m,
+                C_a,
                 f_r,
                 f_p,
                 gamma,
@@ -133,10 +137,12 @@ def analyse(
 
             df.loc[len(df)] = [
                 current,
+                L,
+                R_p,
                 R_m,
-                R_j,
+                R_a,
                 C_p,
-                C_m,
+                C_a,
                 f_r,
                 f_p,
                 gamma,
@@ -180,10 +186,12 @@ def analyse(
             start = i * points + i
             stop = (i + 1) * points + i
             (
+                L,
+                R_p,
                 R_m,
-                R_j,
+                R_a,
                 C_p,
-                C_m,
+                C_a,
                 f_r,
                 f_p,
                 gamma,
@@ -216,10 +224,12 @@ def analyse(
 
             df.loc[len(df)] = [
                 current,
+                L,
+                R_p,
                 R_m,
-                R_j,
+                R_a,
                 C_p,
-                C_m,
+                C_a,
                 f_r,
                 f_p,
                 gamma,
@@ -258,104 +268,124 @@ def makefigs(df, directory, s2p=True):
         .removeprefix("data-")
     )
 
-    fig = plt.figure(figsize=(1.8 * 11.69, 1.8 * 8.27))
+    fig = plt.figure(figsize=(3 * 11.69, 3 * 8.27))
     fig.suptitle(name_from_dir)
 
     max_current = 20
 
-    ax1_rm = fig.add_subplot(241)
-    ax1_rm.plot(df["Current, mA"], df["R_m, Om"])
-    ax1_rm.set_ylabel("R_m, Om")
-    ax1_rm.set_xlabel("Current, mA")
-    ax1_rm.set_ylim([0, 200])
-    # ax1_rm.set_xlim(left=0)
-    ax1_rm.set_xlim([0, max_current])
-    ax1_rm.grid(which="both")
-    ax1_rm.minorticks_on()
+    ax1_l = fig.add_subplot(261)
+    ax1_l.plot(df["Current, mA"], df["L, pH"])
+    ax1_l.set_ylabel("L, pH")
+    ax1_l.set_xlabel("Current, mA")
+    ax1_l.set_ylim([0, 300])
+    # ax1_l.set_xlim(left=0)
+    ax1_l.set_xlim([0, max_current])
+    ax1_l.grid(which="both")
+    ax1_l.minorticks_on()
 
-    ax2_rj = fig.add_subplot(242)
-    ax2_rj.plot(df["Current, mA"], df["R_j, Om"])
-    ax2_rj.set_ylabel("R_j, Om")
-    ax2_rj.set_xlabel("Current, mA")
-    # ax2_rj.set_xlim(left=0)
-    ax2_rj.set_xlim([0, max_current])
-    ax2_rj.set_ylim([0, 1000])
-    ax2_rj.grid(which="both")
-    ax2_rj.minorticks_on()
+    ax2_rp = fig.add_subplot(262)
+    ax2_rp.plot(df["Current, mA"], df["R_p, Om"])
+    ax2_rp.set_ylabel("R_p, Om")
+    ax2_rp.set_xlabel("Current, mA")
+    ax2_rp.set_ylim([0, 200])
+    # ax2_rp.set_xlim(left=0)
+    ax2_rp.set_xlim([0, max_current])
+    ax2_rp.grid(which="both")
+    ax2_rp.minorticks_on()
 
-    ax3_cp = fig.add_subplot(243)
-    ax3_cp.plot(df["Current, mA"], df["C_p, fF"])
-    ax3_cp.set_ylabel("C_p, fF")
-    ax3_cp.set_xlabel("Current, mA")
-    # ax3_cp.set_xlim(left=0)
-    ax3_cp.set_xlim([0, max_current])
-    ax3_cp.set_ylim([0, 100])
-    ax3_cp.grid(which="both")
-    ax3_cp.minorticks_on()
+    ax3_rm = fig.add_subplot(263)
+    ax3_rm.plot(df["Current, mA"], df["R_m, Om"])
+    ax3_rm.set_ylabel("R_m, Om")
+    ax3_rm.set_xlabel("Current, mA")
+    ax3_rm.set_ylim([0, 200])
+    # ax3_rm.set_xlim(left=0)
+    ax3_rm.set_xlim([0, max_current])
+    ax3_rm.grid(which="both")
+    ax3_rm.minorticks_on()
 
-    ax4_cm = fig.add_subplot(244)
-    ax4_cm.plot(df["Current, mA"], df["C_m, fF"])
-    ax4_cm.set_ylabel("C_m, fF")
-    ax4_cm.set_xlabel("Current, mA")
-    # ax4_cm.set_xlim(left=0)
-    ax4_cm.set_xlim([0, max_current])
-    ax4_cm.set_ylim([0, 1000])
-    ax4_cm.grid(which="both")
-    ax4_cm.minorticks_on()
+    ax4_rj = fig.add_subplot(264)
+    ax4_rj.plot(df["Current, mA"], df["R_a, Om"])
+    ax4_rj.set_ylabel("R_a, Om")
+    ax4_rj.set_xlabel("Current, mA")
+    # ax4_rj.set_xlim(left=0)
+    ax4_rj.set_xlim([0, max_current])
+    ax4_rj.set_ylim([0, 1000])
+    ax4_rj.grid(which="both")
+    ax4_rj.minorticks_on()
 
-    ax5_gamma = fig.add_subplot(245)
-    ax5_gamma.plot(df["Current, mA"], df["gamma"], label="ɣ")
+    ax5_cp = fig.add_subplot(265)
+    ax5_cp.plot(df["Current, mA"], df["C_p, fF"])
+    ax5_cp.set_ylabel("C_p, fF")
+    ax5_cp.set_xlabel("Current, mA")
+    # ax5_cp.set_xlim(left=0)
+    ax5_cp.set_xlim([0, max_current])
+    ax5_cp.set_ylim([0, 500])
+    ax5_cp.grid(which="both")
+    ax5_cp.minorticks_on()
+
+    ax6_cm = fig.add_subplot(266)
+    ax6_cm.plot(df["Current, mA"], df["C_a, fF"])
+    ax6_cm.set_ylabel("C_a, fF")
+    ax6_cm.set_xlabel("Current, mA")
+    # ax6_cm.set_xlim(left=0)
+    ax6_cm.set_xlim([0, max_current])
+    ax6_cm.set_ylim([0, 500])
+    ax6_cm.grid(which="both")
+    ax6_cm.minorticks_on()
+
+    ax7_gamma = fig.add_subplot(245)
+    ax7_gamma.plot(df["Current, mA"], df["gamma"], label="ɣ")
     if fp_fixed:
-        ax5_gamma.plot(
+        ax7_gamma.plot(
             df["Current, mA"], df["gamma(f_p fixed)"], label="ɣ(f_p fixed)", alpha=0.5
         )
-    ax5_gamma.set_ylabel("ɣ")
-    ax5_gamma.set_xlabel("Current, mA")
-    # ax5_gamma.set_xlim(left=0)
-    ax5_gamma.set_xlim([0, max_current])
-    ax5_gamma.set_ylim([0, 300])
-    ax5_gamma.grid(which="both")
-    ax5_gamma.minorticks_on()
+    ax7_gamma.set_ylabel("ɣ")
+    ax7_gamma.set_xlabel("Current, mA")
+    # ax7_gamma.set_xlim(left=0)
+    ax7_gamma.set_xlim([0, max_current])
+    ax7_gamma.set_ylim([0, 300])
+    ax7_gamma.grid(which="both")
+    ax7_gamma.minorticks_on()
     if fp_fixed:
-        ax5_gamma.legend()
+        ax7_gamma.legend()
 
-    ax6_fp = fig.add_subplot(246)
-    ax6_fp.plot(df["Current, mA"], df["f_p, GHz"], label="from S21")
+    ax8_fp = fig.add_subplot(246)
+    ax8_fp.plot(df["Current, mA"], df["f_p, GHz"], label="from S21")
     if fp_fixed:
-        ax6_fp.plot(
+        ax8_fp.plot(
             df["Current, mA"],
             df["f_p(fixed), GHz"],
             label="from equivalent circuit",
             alpha=0.5,
         )
-    ax6_fp.set_ylabel("f_p, GHz")
-    ax6_fp.set_xlabel("Current, mA")
-    # ax6_fp.set_xlim(left=0)
-    ax6_fp.set_xlim([0, max_current])
-    ax6_fp.set_ylim([0, 65])
-    ax6_fp.grid(which="both")
-    ax6_fp.minorticks_on()
+    ax8_fp.set_ylabel("f_p, GHz")
+    ax8_fp.set_xlabel("Current, mA")
+    # ax8_fp.set_xlim(left=0)
+    ax8_fp.set_xlim([0, max_current])
+    ax8_fp.set_ylim([0, 65])
+    ax8_fp.grid(which="both")
+    ax8_fp.minorticks_on()
     if fp_fixed:
-        ax6_fp.legend()
+        ax8_fp.legend()
 
-    ax7_fr = fig.add_subplot(247)
-    ax7_fr.plot(df["Current, mA"], df["f_r, GHz"], label="f_r")
+    ax9_fr = fig.add_subplot(247)
+    ax9_fr.plot(df["Current, mA"], df["f_r, GHz"], label="f_r")
     if fp_fixed:
-        ax7_fr.plot(
+        ax9_fr.plot(
             df["Current, mA"],
             df["f_r(f_p fixed), GHz"],
             label="f_r(f_p fixed)",
             alpha=0.5,
         )
-    ax7_fr.set_ylabel("f_r, GHz")
-    ax7_fr.set_xlabel("Current, mA")
-    # ax7_fr.set_xlim(left=0)
-    ax7_fr.set_xlim([0, max_current])
-    ax7_fr.set_ylim([0, 65])
-    ax7_fr.grid(which="both")
-    ax7_fr.minorticks_on()
+    ax9_fr.set_ylabel("f_r, GHz")
+    ax9_fr.set_xlabel("Current, mA")
+    # ax9_fr.set_xlim(left=0)
+    ax9_fr.set_xlim([0, max_current])
+    ax9_fr.set_ylim([0, 65])
+    ax9_fr.grid(which="both")
+    ax9_fr.minorticks_on()
     if fp_fixed:
-        ax7_fr.legend()
+        ax9_fr.legend()
 
     # ax8_c = fig.add_subplot(338)
     # ax8_c.plot(df["Current, mA"], df["c"], marker="o")
@@ -367,19 +397,19 @@ def makefigs(df, directory, s2p=True):
     # ax8_c.grid(which="both")
     # ax8_c.minorticks_on()
 
-    ax9_f3db = fig.add_subplot(248)
-    ax9_f3db.plot(df["Current, mA"], df["f_3dB, GHz"], label="f3dB")
+    ax10_f3db = fig.add_subplot(248)
+    ax10_f3db.plot(df["Current, mA"], df["f_3dB, GHz"], label="f3dB")
     if fp_fixed:
-        ax9_f3db.plot(
+        ax10_f3db.plot(
             df["Current, mA"], df["f3dB(f_p fixed), GHz"], label="f3dB(f_p fixed)"
         )
-    ax9_f3db.set_ylabel("f_3dB, GHz")
-    ax9_f3db.set_xlabel("Current, mA")
-    # ax9_f3db.set_xlim(left=0)
-    ax9_f3db.set_xlim([0, max_current])
-    ax9_f3db.set_ylim([0, 65])
-    ax9_f3db.grid(which="both")
-    ax9_f3db.minorticks_on()
+    ax10_f3db.set_ylabel("f_3dB, GHz")
+    ax10_f3db.set_xlabel("Current, mA")
+    # ax10_f3db.set_xlim(left=0)
+    ax10_f3db.set_xlim([0, max_current])
+    ax10_f3db.set_ylim([0, 65])
+    ax10_f3db.grid(which="both")
+    ax10_f3db.minorticks_on()
 
     def annotate_max_f3db(x, y, ax=None):
         xmax = x[np.argmax(y)]
@@ -400,9 +430,9 @@ def makefigs(df, directory, s2p=True):
         ax.annotate(text, xy=(xmax, ymax), xytext=(0.99, 0.99), **kw)
         return xmax
 
-    annotate_max_f3db(df["Current, mA"], df["f_3dB, GHz"], ax=ax9_f3db)
+    annotate_max_f3db(df["Current, mA"], df["f_3dB, GHz"], ax=ax10_f3db)
     if fp_fixed:
-        ax9_f3db.legend(loc=2)
+        ax10_f3db.legend(loc=2)
 
     if not os.path.exists(directory):  # make directories
         os.makedirs(directory)
