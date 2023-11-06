@@ -1,6 +1,7 @@
 env/
 venv/
 .venv/
+.tmp/
 data/
 reports/
 __pycache__/

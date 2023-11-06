@@ -208,7 +208,7 @@ def one_file_approximation(
     H2_f_dB0 = 10 * np.log10(H2_ext0)
 
     f_par_Hz = f_h[np.where(H2_ext / H2_ext0 < 0.5)[0][0]]
-    f_par_GHz = f_par_Hz * 10**-9
+    f_p2 = f_par_Hz * 10**-9
 
     #  ____ ____  _
     # / ___|___ \/ |
@@ -246,7 +246,7 @@ def one_file_approximation(
             new_f,
             new_S21_Magnitude_to_fit,
             # p0=[150, 150, 30, 150, 0],
-            bounds=([0, 0, 0, -np.inf], [np.inf, np.inf, np.inf, np.inf]),
+            bounds=([0, 0, 0, -np.inf], [81, 81, 2001, np.inf]),
             maxfev=100000,
         )
         f_r, f_p, gamma, c = popt_S21
@@ -259,7 +259,7 @@ def one_file_approximation(
         if check_f3dB.any():
             f3dB = f[np.where(S21_Fit < c - 3)[0][0]] * 10**-9  # GHz
         else:
-            f3dB = 0
+            f3dB = None
         if S21_Fit_MSE > S21_MSE_threshold:
             print(f""" s21_freqlimit={s21_freqlimit} GHz """)
             # print(
@@ -274,7 +274,7 @@ def one_file_approximation(
             s21_freqlimit -= 1
 
     if S21_Fit_MSE > S21_MSE_threshold:
-        print(f"Failed to fit S21")
+        print(f"\n                    Failed to fit S21\n")
     # if S21_Fit_MSE < 5:
     #     f_r, f_p, gamma, c, f3dB = None, None, None, None, None
 
@@ -306,13 +306,13 @@ def one_file_approximation(
             new_f2 = new_f2[new_f2 <= s21_freqlimit2 * 10**9]
 
             # Find the best-fit solution for S21
-            # f_r, f_p, gamma, c
+            # f_r, gamma, c
             popt_S21_2, pcovBoth_2 = curve_fit(
                 s21_func2,
                 new_f2,
                 new_S21_Magnitude_to_fit2,
                 # p0=[150, 150, 30, 150, 0],
-                bounds=([0, 0, -np.inf], [np.inf, np.inf, np.inf]),
+                bounds=([0, 0, -np.inf], [81, 2001, np.inf]),
                 maxfev=100000,
             )
             f_r2, gamma2, c2 = popt_S21_2
@@ -325,10 +325,10 @@ def one_file_approximation(
             if check_f3dB2.any():
                 f3dB2 = f[np.where(S21_Fit2 < c2 - 3)[0][0]] * 10**-9  # GHz
             else:
-                f3dB2 = 0
+                f3dB2 = None
             if S21_Fit_MSE2 > S21_MSE_threshold:
                 print(
-                    f"""f_par fixed at {f_par_GHz:.2f} GHz, s21_freqlimit={s21_freqlimit2} GHz """
+                    f"""f_par fixed at {f_p2:.2f} GHz, s21_freqlimit={s21_freqlimit2} GHz """
                 )
                 # print(
                 #     f"""
@@ -342,7 +342,9 @@ def one_file_approximation(
                 s21_freqlimit2 -= 1
 
         if S21_Fit_MSE2 > S21_MSE_threshold:
-            print(f"Failed to fit S21 with f_par fixed at {f_par_GHz:.2f} GHz")
+            print(
+                f"\n                    Failed to fit S21 with f_par fixed at {f_p2:.2f} GHz\n"
+            )
         # if S21_Fit_MSE2 < 5:
         #     f_r2, gamma2, c2, f3dB2 = None, None, None, None
     else:
@@ -364,7 +366,9 @@ def one_file_approximation(
         f * 10**-9,
         np.real(S11_Fit),
         "b-.",
-        label=f"Best fit S11\nReal L={L:.2f} pH, R_p={R_p:.2f} Om, R_m={R_m:.2f} Om, R_a={poptBoth_S11[1]:.2f} Om, C_p={poptBoth_S11[2]:.2f} fF, C_a={poptBoth_S11[3]:.2f} fF\nMSE*10^4={S11_Fit_MSE*10**4:.2f}, MSE_real*10^4={S11_Fit_MSE_real*10**4:.2f}, fit to {freqlimit} GHz",
+        label=f"""Best fit S11
+        Real L={L:.2f} pH, R_p={R_p:.2f} Om, R_m={R_m:.2f} Om, R_a={R_a:.2f} Om, C_p={C_p:.2f} fF, C_a={C_a:.2f} fF
+        MSE*10^4={S11_Fit_MSE*10**4:.2f}, MSE_real*10^4={S11_Fit_MSE_real*10**4:.2f}, fit to {freqlimit} GHz""",
         alpha=1,
     )
     ax1_s11re.set_ylabel("Re(S11)")
@@ -386,7 +390,9 @@ def one_file_approximation(
         f * 10**-9,
         np.imag(S11_Fit),
         "b-.",
-        label=f"Best fit S11\nImaginary L={L:.2f} pH, R_p={R_p:.2f} Om, R_m={R_m:.2f} Om, R_a={poptBoth_S11[1]:.2f} Om, C_p={poptBoth_S11[2]:.2f} fF, C_a={poptBoth_S11[3]:.2f} fF\nMSE*10^4={S11_Fit_MSE*10**4:.2f}, MSE_real*10^4={S11_Fit_MSE_real*10**4:.2f}, fit to {freqlimit} GHz",
+        label=f"""Best fit S11
+        Imaginary L={L:.2f} pH, R_p={R_p:.2f} Om, R_m={R_m:.2f} Om, R_a={R_a:.2f} Om, C_p={C_p:.2f} fF, C_a={C_a:.2f} fF
+        MSE*10^4={S11_Fit_MSE*10**4:.2f}, MSE_real*10^4={S11_Fit_MSE_real*10**4:.2f}, fit to {freqlimit} GHz""",
         alpha=1,
     )
     ax2_s11im.set_ylabel("Im(S11)")
@@ -444,10 +450,10 @@ def one_file_approximation(
     #     x=f3dB_vout, color="y", linestyle="-.", label=f"f3dB_Vout={f3dB_vout:.2f}"
     # )
     ax4_h2.axvline(
-        x=f_par_GHz,
+        x=f_p2,
         color="r",
         linestyle=":",
-        label=f"f3dB_parasitic={f_par_GHz:.2f} GHz",
+        label=f"f3dB_parasitic={f_p2:.2f} GHz",
     )
     ax4_h2.legend()
 
@@ -462,7 +468,9 @@ def one_file_approximation(
         new_f * 10**-9,
         S21_Fit - c,
         "b-.",
-        label=f"Best fit S21\nf_r={f_r:.2f} GHz, f_p={f_p:.2f} GHz, ɣ={gamma:.2f}, c={c:.2f}\nMSE={S21_Fit_MSE:.2f}, fit to {s21_freqlimit} GHz",
+        label=f"""Best fit S21
+        f_r={f_r:.2f} GHz, f_p={f_p:.2f} GHz, ɣ={gamma:.2f}, c={c:.2f}
+        MSE={S21_Fit_MSE:.2f}, fit to {s21_freqlimit} GHz""",
         alpha=1,
     )
     if fp_fixed:
@@ -470,7 +478,9 @@ def one_file_approximation(
             new_f2 * 10**-9,
             S21_Fit2 - c2,
             "m:",
-            label=f"S21 fit with f_p_2={f_par_GHz:.2f} GHz\nf_r={f_r2:.2f} GHz, ɣ={gamma2:.2f}, c={c2:.2f}\nMSE={S21_Fit_MSE2:.2f}, fit to {s21_freqlimit2} GHz",
+            label=f"""S21 fit with f_p_2={f_p2:.2f} GHz
+            f_r={f_r2:.2f} GHz, ɣ={gamma2:.2f}, c={c2:.2f}
+            MSE={S21_Fit_MSE2:.2f}, fit to {s21_freqlimit2} GHz""",
             alpha=1,
         )
     ax6_s21.set_title("S21")
@@ -481,14 +491,16 @@ def one_file_approximation(
     ax6_s21.grid(which="both")
     ax6_s21.minorticks_on()
     ax6_s21.axhline(y=-3, color="y", linestyle="-.")
-    ax6_s21.axvline(x=f3dB, color="y", linestyle="-.", label=f"f3dB={f3dB:.2f} GHz")
-    ax6_s21.axvline(x=f3dB2, color="y", linestyle=":", label=f"f3dB2={f3dB2:.2f} GHz")
+    if f3dB:
+        ax6_s21.axvline(x=f3dB, color="y", linestyle="-.", label=f"f3dB={f3dB:.2f} GHz")
+    if f3dB2:
+        ax6_s21.axvline(
+            x=f3dB2, color="y", linestyle=":", label=f"f3dB2={f3dB2:.2f} GHz"
+        )
     ax6_s21.axvline(x=f_p, color="r", linestyle="-.", label=f"f_p={f_p:.2f} GHz")
     ax6_s21.axvline(x=f_r, color="g", linestyle="-.", label=f"f_r={f_r:.2f} GHz")
     if fp_fixed:
-        ax6_s21.axvline(
-            x=f_par_GHz, color="r", linestyle=":", label=f"f_p_2={f_par_GHz:.2f} GHz"
-        )
+        ax6_s21.axvline(x=f_p2, color="r", linestyle=":", label=f"f_p_2={f_p2:.2f} GHz")
         ax6_s21.axvline(
             x=f_r2,
             color="g",
@@ -507,13 +519,34 @@ def one_file_approximation(
     plt.close()
 
     # print and return the results
-    print(
-        f"""
-        L={L:.2f} pH, R_p={R_p:2f} Om, R_m={R_m:.2f}\tR_a={R_a:.2f}\tC_p={C_p:.2f}\tC_a={C_a:.2f}
-        f_r={f_r:.2f}\tf_p={f_p:.2f}\tgamma={gamma:.2f}\tc={c:.2f}\tf3dB={f3dB:.2f}
-        MSE_S21={S21_Fit_MSE:.2f}, MSE_S11*10^4={S11_Fit_MSE*10**4:.2f}, MSE_imag*10^4={S11_Fit_MSE_imag*10**4:.2f}, MSE_real*10^4={S11_Fit_MSE_real*10**4:.2f}, fit to {freqlimit} GHz
-        """
-    )
+    if f3dB:
+        print(
+            f""" L={L:.2f} pH, R_p={R_p:.2f} Om, R_m={R_m:.2f}\tR_a={R_a:.2f}\tC_p={C_p:.2f}\tC_a={C_a:.2f}
+            f_r={f_r:.2f}\tf_p={f_p:.2f}\tgamma={gamma:.2f}\tc={c:.2f}\tf3dB={f3dB:.2f}
+            MSE_S21={S21_Fit_MSE:.2f}, MSE_S11*10^4={S11_Fit_MSE*10**4:.2f}, MSE_imag*10^4={S11_Fit_MSE_imag*10**4:.2f}, MSE_real*10^4={S11_Fit_MSE_real*10**4:.2f}, fit to {freqlimit} GHz """
+        )
+    else:
+        print(
+            f""" L={L:.2f} pH, R_p={R_p:.2f} Om, R_m={R_m:.2f}\tR_a={R_a:.2f}\tC_p={C_p:.2f}\tC_a={C_a:.2f}
+            f_r={f_r:.2f}\tf_p={f_p:.2f}\tgamma={gamma:.2f}\tc={c:.2f}\tf3dB={f3dB}
+            MSE_S21={S21_Fit_MSE:.2f}, MSE_S11*10^4={S11_Fit_MSE*10**4:.2f}, MSE_imag*10^4={S11_Fit_MSE_imag*10**4:.2f}, MSE_real*10^4={S11_Fit_MSE_real*10**4:.2f}, fit to {freqlimit} GHz """
+        )
+    if f_r > 80 or f_p > 80 or gamma > 2000:
+        f_r, f_p, c, gamma, f3dB = None, None, None, None, None
+        print(
+            f"""
+            f_r={f_r:.2f}\tf_p={f_p:.2f}\tgamma={gamma:.2f}\tc={c:.2f}\tf3dB={f3dB}
+            *Changed to None*
+            """
+        )
+    if f_r2 > 80 or f_p2 > 80 or gamma2 > 2000:
+        f_r2, f_p2, c2, gamma2, f3dB2 = None, None, None, None, None
+        print(
+            f"""
+            f_r2={f_r:.2f}\tf_p2={f_p2:.2f}\tgamma2={gamma2:.2f}\tc2={c2:.2f}\tf3dB2={f3dB2}
+            *Changed to None*
+            """
+        )
     return (
         L,
         R_p,
@@ -526,7 +559,7 @@ def one_file_approximation(
         gamma,
         c,
         f3dB,
-        f_par_GHz,
+        f_p2,
         f_r2,
         gamma2,
         c2,
