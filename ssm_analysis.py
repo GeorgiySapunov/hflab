@@ -19,15 +19,22 @@ S21_MSE_threshold = 5
 probe_port = 1
 fit_freqlimit = 20  # GHz
 #
-fp_fixed = True
-fig_max_current = 20  # mA
-fig_max_freq = None  # GHz
-fig_max_gamma = None
-fig_max_f_r2_for_gamma = None
 i_th_fixed = None  # mA
-D_MCEF_max = None
-K_max = None
-gamma0_max = None
+fp_fixed = True
+# 1st row
+fig_ec_ind_max = 100
+fig_ec_res_max = 200
+fig_ec_cap_max = 300
+#
+fig_max_current = 20  # mA
+fig_max_freq = 20  # GHz
+# 2nd row
+fig_max_gamma = 100
+fig_max_f_r2_for_gamma = 180
+# 4th row
+fig_K_max = 1.5
+fig_gamma0_max = 20
+fig_D_MCEF_max = 10
 
 
 # directory, file_name, probe_port, limit
@@ -186,7 +193,7 @@ def analyse(
             ].loc[  # saturable absorber manual threshold current
                 df["Temperature, °C"] == temperature
             ] = float(
-                t_th_fixed
+                i_th_fixed
             )
         else:
             temperature_list = df["Temperature, °C"].unique()
@@ -327,43 +334,6 @@ def analyse(
             auto_I_th
         )
 
-        # # I_th from /LIV
-        # liv_dir = directory.removesuffix("/PNA/") + "/LIV/"
-        # print(f"liv dir {liv_dir}")
-        # have_liv_dir = os.path.exists(liv_dir)
-        # if have_liv_dir:
-        #     walk = list(os.walk(liv_dir))
-        #     string_for_re = ".*\\.csv$"
-        #     r = re.compile(string_for_re)
-        #     files = walk[0][2]
-        #     matched_files = list(filter(r.match, files))
-        #     matched_files.sort()
-        #     print(f"Matched LIV files: {matched_files}")
-        #     for temperature in temperature_list:
-        #         string_for_re = f".*-{temperature}°C"
-        #         r = re.compile(string_for_re)
-        #         files = walk[0][2]
-        #         matched_files = list(filter(r.match, matched_files))
-        #         matched_files.sort()
-        #         if matched_files:
-        #             file = matched_files[0]
-        #             liv = pd.read_csv(liv_dir + file)
-        #             i = liv["Current, mA"]
-        #             l = liv["Output power, mW"]
-        #             first_der = np.gradient(l, i)
-        #             second_der = np.gradient(first_der, i)
-        #             if second_der.max() >= 5:
-        #                 i_threshold = i[np.argmax(second_der >= 5)]  # mA
-        #                 # l_threshold = l[np.argmax(second_der >= 5)]
-        #                 df["Threshold current, mA"].loc[
-        #                     df["Temperature, °C"] == temperature
-        #                 ] = float(i_threshold)
-        #             else:
-        #                 i_threshold = None
-        #         else:
-        #             i_threshold = None
-        #         print(f"I_threshold={i_threshold}")
-
         df["sqrt(I-I_th), sqrt(mA)"] = np.sqrt(
             df["Current, mA"] - df["Threshold current, mA"]
         )
@@ -459,10 +429,17 @@ def makefigs(
     df,
     directory,
     s2p,
+    i_th_fixed,
+    fig_ec_ind_max,
+    fig_ec_res_max,
+    fig_ec_cap_max,
     fig_max_current,
     fig_max_freq,
     fig_max_gamma,
     fig_max_f_r2_for_gamma,
+    fig_K_max,
+    fig_gamma0_max,
+    fig_D_MCEF_max,
     K_D_MCEF_df,
     K_D_MCEF_df2,
 ):
@@ -481,54 +458,60 @@ def makefigs(
 
     # 1-st row
     ax1_l = fig.add_subplot(461)
-    ax1_l.scatter(df["Current, mA"], df["L, pH"])
+    ax1_l.set_title("Inductance of the equivalent circuit")
+    ax1_l.plot(df["Current, mA"], df["L, pH"], marker="o")
     ax1_l.set_ylabel("L, pH")
     ax1_l.set_xlabel("Current, mA")
-    ax1_l.set_ylim([0, 300])
-    # ax1_l.set_xlim(left=0)
+    ax1_l.set_ylim([0, fig_ec_ind_max])
     ax1_l.set_xlim([0, fig_max_current])
     ax1_l.grid(which="both")
     ax1_l.minorticks_on()
 
     ax2_r = fig.add_subplot(462)
-    ax2_r.scatter(df["Current, mA"], df["R_p, Om"], label="R_p")
-    ax2_r.scatter(df["Current, mA"], df["R_m, Om"], label="R_m")
-    ax2_r.scatter(df["Current, mA"], df["R_a, Om"], label="R_a")
+    ax2_r.set_title("Resistance of the equivalent circuit")
+    ax2_r.plot(df["Current, mA"], df["R_p, Om"], label="R_p", marker="o")
+    ax2_r.plot(df["Current, mA"], df["R_m, Om"], label="R_m", marker="o")
+    ax2_r.plot(df["Current, mA"], df["R_a, Om"], label="R_a", marker="o")
     ax2_r.set_ylabel("Resistance, Om")
     ax2_r.set_xlabel("Current, mA")
-    ax2_r.set_ylim([0, 200])
-    # ax2_r.set_xlim(left=0)
+    ax2_r.set_ylim([0, fig_ec_res_max])
     ax2_r.set_xlim([0, fig_max_current])
     ax2_r.grid(which="both")
     ax2_r.minorticks_on()
     ax2_r.legend()
 
     ax3_c = fig.add_subplot(463)
-    ax3_c.scatter(df["Current, mA"], df["C_p, fF"], label="C_p")
-    ax3_c.scatter(df["Current, mA"], df["C_a, fF"], label="C_a")
+    ax3_c.set_title("Capacitance of the equivalent circuit")
+    ax3_c.plot(df["Current, mA"], df["C_p, fF"], label="C_p", marker="o")
+    ax3_c.plot(df["Current, mA"], df["C_a, fF"], label="C_a", marker="o")
     ax3_c.set_ylabel("Capacitance, fF")
     ax3_c.set_xlabel("Current, mA")
-    # ax3_c.set_xlim(left=0)
     ax3_c.set_xlim([0, fig_max_current])
-    ax3_c.set_ylim([0, 500])
+    ax3_c.set_ylim([0, fig_ec_cap_max])
     ax3_c.grid(which="both")
     ax3_c.minorticks_on()
+    ax3_c.legend()
 
     # 2-nd row
     ax7_gamma = fig.add_subplot(445)
-    ax7_gamma.scatter(
+    ax7_gamma.set_title("ɣ from S21 approximation")
+    ax7_gamma.plot(
         df["Current, mA"],
         df["gamma"],
         label="ɣ",
+        marker="o",
         alpha=0.5,
     )
     if fp_fixed:
-        ax7_gamma.scatter(
-            df["Current, mA"], df["gamma(f_p fixed)"], label="ɣ(f_p fixed)", alpha=0.5
+        ax7_gamma.plot(
+            df["Current, mA"],
+            df["gamma(f_p fixed)"],
+            label="ɣ(f_p fixed)",
+            alpha=0.5,
+            marker="o",
         )
     ax7_gamma.set_ylabel("ɣ")
     ax7_gamma.set_xlabel("Current, mA")
-    # ax7_gamma.set_xlim(left=0)
     ax7_gamma.set_xlim([0, fig_max_current])
     ax7_gamma.set_ylim([0, fig_max_gamma])
     ax7_gamma.grid(which="both")
@@ -537,22 +520,26 @@ def makefigs(
         ax7_gamma.legend()
 
     ax8_fp = fig.add_subplot(446)
-    ax8_fp.scatter(
+    ax8_fp.set_title(
+        "Parasitic cut-off frequiencies from S21 approximation and equivalent circuit"
+    )
+    ax8_fp.plot(
         df["Current, mA"],
         df["f_p, GHz"],
         label="from S21",
+        marker="o",
         alpha=0.5,
     )
     if fp_fixed:
-        ax8_fp.scatter(
+        ax8_fp.plot(
             df["Current, mA"],
             df["f_p(fixed), GHz"],
             label="from equivalent circuit",
+            marker="o",
             alpha=0.5,
         )
     ax8_fp.set_ylabel("f_p, GHz")
     ax8_fp.set_xlabel("Current, mA")
-    # ax8_fp.set_xlim(left=0)
     ax8_fp.set_xlim([0, fig_max_current])
     ax8_fp.set_ylim([0, fig_max_freq])
     ax8_fp.grid(which="both")
@@ -561,22 +548,24 @@ def makefigs(
         ax8_fp.legend()
 
     ax9_fr = fig.add_subplot(447)
-    ax9_fr.scatter(
+    ax9_fr.set_title("Resonance frequencies from S21 approximation")
+    ax9_fr.plot(
         df["Current, mA"],
         df["f_r, GHz"],
         label="f_r",
+        marker="o",
         alpha=0.5,
     )
     if fp_fixed:
-        ax9_fr.scatter(
+        ax9_fr.plot(
             df["Current, mA"],
             df["f_r(f_p fixed), GHz"],
             label="f_r(f_p fixed)",
+            marker="o",
             alpha=0.5,
         )
     ax9_fr.set_ylabel("f_r, GHz")
     ax9_fr.set_xlabel("Current, mA")
-    # ax9_fr.set_xlim(left=0)
     ax9_fr.set_xlim([0, fig_max_current])
     ax9_fr.set_ylim([0, fig_max_freq])
     ax9_fr.grid(which="both")
@@ -584,28 +573,21 @@ def makefigs(
     if fp_fixed:
         ax9_fr.legend()
 
-    # ax8_c = fig.add_subplot(338)
-    # ax8_c.plot(df["Current, mA"], df["c"], marker="o")
-    # ax8_c.set_ylabel("c")
-    # ax8_c.set_xlabel("Current, mA")
-    # # ax8_c.set_xlim(left=0)
-    # ax8_c.set_xlim([0, max_current])
-    # ax8_c.set_ylim([-100, 0])
-    # ax8_c.grid(which="both")
-    # ax8_c.minorticks_on()
-
     ax10_f3db = fig.add_subplot(4, 4, 8)
-    ax10_f3db.scatter(
+    ax10_f3db.set_title("f3dB frequencies from S21 approximation")
+    ax10_f3db.plot(
         df["Current, mA"],
         df["f_3dB, GHz"],
         label="f_3dB",
+        marker="o",
         alpha=0.5,
     )
     if fp_fixed:
-        ax10_f3db.scatter(
+        ax10_f3db.plot(
             df["Current, mA"],
             df["f_3dB(f_p fixed), GHz"],
             label="f_3dB(f_p fixed)",
+            marker="o",
             alpha=0.5,
         )
     ax10_f3db.set_ylabel("f_3dB, GHz")
@@ -618,17 +600,20 @@ def makefigs(
 
     # 3-rd row
     ax11_sqrt_gamma = fig.add_subplot(4, 4, 9)
-    ax11_sqrt_gamma.scatter(
+    ax11_sqrt_gamma.set_title("ɣ vs f_r^2")
+    ax11_sqrt_gamma.plot(
         df["f_r, GHz"] ** 2,
         df["gamma"],
         label="ɣ",
+        marker="o",
         alpha=0.5,
     )
     if fp_fixed:
-        ax11_sqrt_gamma.scatter(
+        ax11_sqrt_gamma.plot(
             df["f_r(f_p fixed), GHz"] ** 2,
             df["gamma(f_p fixed)"],
             label="ɣ(f_p fixed)",
+            marker="o",
             alpha=0.5,
         )
     ax11_sqrt_gamma.set_ylabel("ɣ")
@@ -640,187 +625,161 @@ def makefigs(
     if fp_fixed:
         ax11_sqrt_gamma.legend()
 
-    # ax12_sqrt_fp = fig.add_subplot(4, 4, 10)
-    # ax12_sqrt_fp.plot(
-    #     df["sqrt(I-I_th), sqrt(mA)"],
-    #     np.gradient(df["f_p, GHz"]),
-    #     label="from S21",
-    #     alpha=0.5,
-    # )
-    # if fp_fixed:
-    #     ax12_sqrt_fp.plot(
-    #         df["sqrt(I-I_th), sqrt(mA)"],
-    #         np.gradient(df["f_p(fixed), GHz"]),
-    #         label="from equivalent circuit",
-    #         alpha=0.5,
-    #     )
-    # ax12_sqrt_fp.set_ylabel("dfp/d(sqrt(I-I_th), sqrt(mA))")
-    # ax12_sqrt_fp.set_xlabel("sqrt(I-I_th), sqrt(mA)")
-    # ax12_sqrt_fp.set_xlim(left=0)
-    # ax12_sqrt_fp.set_ylim(bottom=-1, top=3)
-    # ax12_sqrt_fp.grid(which="both")
-    # ax12_sqrt_fp.minorticks_on()
-    # if fp_fixed:
-    #     ax12_sqrt_fp.legend()
-
-    ax13_D = fig.add_subplot(4, 4, 11)
-    # grad = np.gradient(df["f_r, GHz"], df["sqrt(I-I_th), sqrt(mA)"])
-    # mean = grad[~np.isnan(grad)].mean()
-    ax13_D.scatter(
+    ax13_fr_for_D = fig.add_subplot(4, 4, 11)
+    ax13_fr_for_D.set_title("f_r vs sqrt(I-Ith) for D factor derivation")
+    ax13_fr_for_D.plot(
         df["sqrt(I-I_th), sqrt(mA)"],
-        # np.gradient(df["f_r, GHz"], df["sqrt(I-I_th), sqrt(mA)"]),
-        # df["f_r, GHz"] / df["sqrt(I-I_th), sqrt(mA)"],
         df["f_r, GHz"],
         label=f"f_r",
+        marker="o",
         alpha=0.5,
     )
-    # ax13_D.axhline(y=mean, color="b", linestyle="-.")
     if fp_fixed:
-        # gradf = np.gradient(df["f_r(f_p fixed), GHz"], df["sqrt(I-I_th), sqrt(mA)"])
-        # meanf = gradf[~np.isnan(gradf)].mean()
-        ax13_D.scatter(
+        ax13_fr_for_D.plot(
             df["sqrt(I-I_th), sqrt(mA)"],
-            # np.gradient(df["f_r(f_p fixed), GHz"], df["sqrt(I-I_th), sqrt(mA)"]),
-            # df["f_r(f_p fixed), GHz"] / df["sqrt(I-I_th), sqrt(mA)"],
             df["f_r(f_p fixed), GHz"],
             label="f_r(f_p fixed)",
+            marker="o",
             alpha=0.5,
         )
-        # ax13_D.axhline(y=meanf, color="y", linestyle="-.")
-    # ax13_D.set_ylabel("df_r/d(sqrt(I-I_th), sqrt(mA)), GHz/sqrt(mA)")
-    ax13_D.set_ylabel("f_r, GHz")
-    ax13_D.set_xlabel("sqrt(I-I_th), sqrt(mA)")
-    ax13_D.set_xlim(left=0, right=np.sqrt(fig_max_current))
-    ax13_D.set_ylim(bottom=0, top=fig_max_freq)
-    ax13_D.grid(which="both")
-    ax13_D.minorticks_on()
+    ax13_fr_for_D.set_ylabel("f_r, GHz")
+    ax13_fr_for_D.set_xlabel("sqrt(I-I_th), sqrt(mA)")
+    ax13_fr_for_D.set_xlim(left=0, right=np.sqrt(fig_max_current))
+    ax13_fr_for_D.set_ylim(bottom=0, top=fig_max_freq)
+    ax13_fr_for_D.grid(which="both")
+    ax13_fr_for_D.minorticks_on()
     if fp_fixed:
-        ax13_D.legend()
+        ax13_fr_for_D.legend()
 
-    ax14_MCEF = fig.add_subplot(4, 4, 12)
-    # grad = np.gradient(df["f_3dB, GHz"], df["sqrt(I-I_th), sqrt(mA)"])
-    # mean = grad[~np.isnan(grad)].mean()
-    ax14_MCEF.scatter(
+    ax14_f3dB_for_MCEF = fig.add_subplot(4, 4, 12)
+    ax14_f3dB_for_MCEF.set_title("f_3dB vs sqrt(I-Ith) for MCEF derivation")
+    ax14_f3dB_for_MCEF.plot(
         df["sqrt(I-I_th), sqrt(mA)"],
-        # np.gradient(df["f_3dB, GHz"], df["sqrt(I-I_th), sqrt(mA)"]),
-        # df["f_3dB, GHz"] / df["sqrt(I-I_th), sqrt(mA)"],
         df["f_3dB, GHz"],
         label=f"f_3dB",
+        marker="o",
         alpha=0.5,
     )
-    # ax14_MCEF.axhline(y=mean, color="b", linestyle="-.")
     if fp_fixed:
-        # gradf = np.gradient(df["f_3dB(f_p fixed), GHz"], df["sqrt(I-I_th), sqrt(mA)"])
-        # meanf = gradf[~np.isnan(gradf)].mean()
-        ax14_MCEF.scatter(
+        ax14_f3dB_for_MCEF.plot(
             df["sqrt(I-I_th), sqrt(mA)"],
-            # np.gradient(df["f_3dB(f_p fixed), GHz"], df["sqrt(I-I_th), sqrt(mA)"]),
-            # df["f_3dB(f_p fixed), GHz"] / df["sqrt(I-I_th), sqrt(mA)"],
             df["f_3dB(f_p fixed), GHz"],
             label=f"f_3dB(f_p fixed)",
+            marker="o",
             alpha=0.5,
         )
-        # ax14_MCEF.axhline(y=meanf, color="y", linestyle="-.")
-    # ax14_MCEF.set_ylabel("df_3dB/d(sqrt(I-I_th), sqrt(mA)), GHz/sqrt(mA)")
-    ax14_MCEF.set_ylabel("f_3dB, GHz")
-    ax14_MCEF.set_xlabel("sqrt(I-I_th), sqrt(mA)")
-    ax14_MCEF.set_xlim(left=0, right=np.sqrt(fig_max_current))
-    ax14_MCEF.set_ylim(bottom=0, top=fig_max_freq)
-    ax14_MCEF.grid(which="both")
-    ax14_MCEF.minorticks_on()
+    ax14_f3dB_for_MCEF.set_ylabel("f_3dB, GHz")
+    ax14_f3dB_for_MCEF.set_xlabel("sqrt(I-I_th), sqrt(mA)")
+    ax14_f3dB_for_MCEF.set_xlim(left=0, right=np.sqrt(fig_max_current))
+    ax14_f3dB_for_MCEF.set_ylim(bottom=0, top=fig_max_freq)
+    ax14_f3dB_for_MCEF.grid(which="both")
+    ax14_f3dB_for_MCEF.minorticks_on()
     if fp_fixed:
-        ax14_MCEF.legend()
+        ax14_f3dB_for_MCEF.legend()
 
     # 4-th row
     ax15_K = fig.add_subplot(4, 4, 13)
-    lns1 = ax15_K.plot(
+    ax15_K.set_title("K factor for different appoximation limits")
+    ax15_K.plot(
         K_D_MCEF_df["f_r_2_max"],
         K_D_MCEF_df["K factor, ns"],
         label=f"K factor",
-        alpha=0.5,
-    )
-    ax15_gamma0 = ax15_K.twinx()
-    lns2 = ax15_gamma0.plot(
-        K_D_MCEF_df["f_r_2_max"],
-        K_D_MCEF_df["gamma0"],
-        ":",
-        label="ɣ_0",
+        marker="o",
         alpha=0.5,
     )
     if fp_fixed:
-        lns3 = ax15_K.plot(
+        ax15_K.plot(
             K_D_MCEF_df2["f_r_2_max"],
             K_D_MCEF_df2["K factor, ns"],
             label=f"K factor(f_p fixed)",
+            marker="o",
             alpha=0.5,
         )
-        lns4 = ax15_gamma0.plot(
-            K_D_MCEF_df2["f_r_2_max"],
-            K_D_MCEF_df2["gamma0"],
-            ":",
-            label="ɣ_0(f_p fixed)",
-            alpha=0.5,
-        )
-
     ax15_K.set_ylabel("K factor, ns")
-    ax15_gamma0.set_ylabel("ɣ_0")
     ax15_K.set_xlabel("max f_r^2, GHz^2")
     ax15_K.set_xlim(left=0, right=fig_max_f_r2_for_gamma)
-    ax15_K.set_ylim(bottom=0)
-    ax15_gamma0.set_ylim(bottom=0)
+    ax15_K.set_ylim(bottom=0, top=fig_K_max)
     ax15_K.grid(which="both")
     ax15_K.minorticks_on()
-    if fp_fixed:
-        lns = lns1 + lns2 + lns3 + lns4
-    else:
-        lns = lns1 + lns2
-    labs = [l.get_label() for l in lns]
-    ax15_K.legend(lns, labs)
+    ax15_K.legend()
 
-    ax16_D = fig.add_subplot(4, 4, 16)
-    lns1 = ax16_D.plot(
+    ax16_gamma0 = fig.add_subplot(4, 4, 14)
+    ax16_gamma0.set_title("ɣ0 for different appoximation limits")
+    ax16_gamma0.plot(
+        K_D_MCEF_df["f_r_2_max"],
+        K_D_MCEF_df["gamma0"],
+        label="ɣ_0",
+        marker="o",
+        alpha=0.5,
+    )
+    if fp_fixed:
+        ax16_gamma0.plot(
+            K_D_MCEF_df2["f_r_2_max"],
+            K_D_MCEF_df2["gamma0"],
+            label="ɣ_0(f_p fixed)",
+            marker="o",
+            alpha=0.5,
+        )
+
+    ax16_gamma0.set_ylabel("ɣ_0")
+    ax16_gamma0.set_xlabel("max f_r^2, GHz^2")
+    ax16_gamma0.set_xlim(left=0, right=fig_max_f_r2_for_gamma)
+    ax16_gamma0.set_ylim(bottom=0, top=fig_gamma0_max)
+    ax16_gamma0.grid(which="both")
+    ax16_gamma0.minorticks_on()
+    ax15_K.legend()
+
+    ax17_D = fig.add_subplot(4, 4, 15)
+    ax17_D.set_title("D factor for different appoximation limits")
+    ax17_D.plot(
         K_D_MCEF_df["max sqrt(I-I_th), sqrt(mA)"],
         K_D_MCEF_df["D factor"],
         label=f"D factor",
-        alpha=0.5,
-    )
-    ax16_MCEF = ax16_D.twinx()
-    lns2 = ax16_MCEF.plot(
-        K_D_MCEF_df["max sqrt(I-I_th), sqrt(mA)"],
-        K_D_MCEF_df["MCEF"],
-        ":",
-        label="MCEF",
+        marker="o",
         alpha=0.5,
     )
     if fp_fixed:
-        lns3 = ax16_D.plot(
+        ax17_D.plot(
             K_D_MCEF_df2["max sqrt(I-I_th), sqrt(mA)"],
             K_D_MCEF_df2["D factor"],
             label=f"D factor(f_p fixed)",
-            alpha=0.5,
-        )
-        lns4 = ax16_MCEF.plot(
-            K_D_MCEF_df2["max sqrt(I-I_th), sqrt(mA)"],
-            K_D_MCEF_df2["MCEF"],
-            ":",
-            label="MCEF(f_p fixed)",
+            marker="o",
             alpha=0.5,
         )
 
-    ax16_D.set_ylabel("D factor")
-    ax16_MCEF.set_ylabel("MCEF")
-    ax16_D.set_xlabel("max sqrt(I-I_th), sqrt(mA)")
-    ax16_D.set_xlim(left=0, right=np.sqrt(fig_max_current))
-    ax16_D.set_ylim(bottom=0)
-    ax16_MCEF.set_ylim(bottom=0)
-    ax16_D.grid(which="both")
-    ax16_D.minorticks_on()
+    ax17_D.set_ylabel("D factor, GHz/sqrt(mA)")
+    ax17_D.set_xlabel("max sqrt(I-I_th), sqrt(mA)")
+    ax17_D.set_xlim(left=0, right=np.sqrt(fig_max_current))
+    ax17_D.set_ylim(bottom=0, top=fig_D_MCEF_max)
+    ax17_D.grid(which="both")
+    ax17_D.minorticks_on()
+    ax17_D.legend()
+
+    ax18_MCEF = fig.add_subplot(4, 4, 16)
+    ax18_MCEF.set_title("MCEF for different appoximation limits")
+    ax18_MCEF.plot(
+        K_D_MCEF_df["max sqrt(I-I_th), sqrt(mA)"],
+        K_D_MCEF_df["MCEF"],
+        label="MCEF",
+        marker="o",
+        alpha=0.5,
+    )
     if fp_fixed:
-        lns = lns1 + lns2 + lns3 + lns4
-    else:
-        lns = lns1 + lns2
-    labs = [l.get_label() for l in lns]
-    ax16_D.legend(lns, labs)
+        ax18_MCEF.plot(
+            K_D_MCEF_df2["max sqrt(I-I_th), sqrt(mA)"],
+            K_D_MCEF_df2["MCEF"],
+            label="MCEF(f_p fixed)",
+            marker="o",
+            alpha=0.5,
+        )
+
+    ax18_MCEF.set_ylabel("MCEF, GHz/sqrt(mA)")
+    ax18_MCEF.set_xlabel("max sqrt(I-I_th), sqrt(mA)")
+    ax18_MCEF.set_xlim(left=0, right=np.sqrt(fig_max_current))
+    ax18_MCEF.set_ylim(bottom=0, top=fig_D_MCEF_max)
+    ax18_MCEF.grid(which="both")
+    ax18_MCEF.minorticks_on()
+    ax18_MCEF.legend()
 
     def annotate_max_f3db(x, y, ax=None):
         xmax = x[np.argmax(y)]
@@ -848,20 +807,17 @@ def makefigs(
     if not os.path.exists(directory):  # make directories
         os.makedirs(directory)
     plt.savefig(directory + name_from_dir + ".png")  # save figure
-    # plt.savefig(
-    #     directory + "/reports/" + directory.replace("/", "-") + ".png"
-    # )  # save figure
 
     if not os.path.exists("reports/"):  # make directories
         os.makedirs("reports/")
     plt.savefig("reports/" + name_from_dir + ".png")  # save figure
-    # plt.savefig("reports/" + directory.replace("/", "-") + ".png")  # save figure
     plt.close()
 
 
 for i, directory in enumerate(sys.argv[1:]):
     le = len(sys.argv[1:])
     print(f"[{i+1}/{le}] {directory}")
+    # s2p=True
     df, dir, report_dir = analyse(
         directory,
         s2p=True,
@@ -873,6 +829,16 @@ for i, directory in enumerate(sys.argv[1:]):
     K_D_MCEF_df = collect_K_D_MCEF(
         df, col_f_r="f_r, GHz", col_f_3dB="f_3dB, GHz", col_gamma="gamma"
     )
+
+    name_from_dir = (
+        directory.replace("/", "-")
+        .removesuffix("-")
+        .removesuffix("-PNA")
+        .removeprefix("data-")
+    )
+    if K_D_MCEF_df is not None:
+        K_D_MCEF_df.to_csv(report_dir + name_from_dir + "-K_D_MCEF.csv")
+
     if fp_fixed:
         K_D_MCEF_df2 = collect_K_D_MCEF(
             df,
@@ -880,25 +846,35 @@ for i, directory in enumerate(sys.argv[1:]):
             col_f_3dB="f_3dB(f_p fixed), GHz",
             col_gamma="gamma(f_p fixed)",
         )
+        if K_D_MCEF_df2 is not None:
+            K_D_MCEF_df2.to_csv(report_dir + name_from_dir + "-K_D_MCEF(f_p fixed).csv")
     else:
         K_D_MCEF_df2 = None
     makefigs(
         df,
         report_dir,
         s2p=True,
+        i_th_fixed=i_th_fixed,
+        fig_ec_ind_max=fig_ec_ind_max,
+        fig_ec_res_max=fig_ec_res_max,
+        fig_ec_cap_max=fig_ec_cap_max,
         fig_max_current=fig_max_current,
         fig_max_freq=fig_max_freq,
         fig_max_gamma=fig_max_gamma,
         fig_max_f_r2_for_gamma=fig_max_f_r2_for_gamma,
+        fig_K_max=fig_K_max,
+        fig_gamma0_max=fig_gamma0_max,
+        fig_D_MCEF_max=fig_D_MCEF_max,
         K_D_MCEF_df=K_D_MCEF_df,
         K_D_MCEF_df2=K_D_MCEF_df2,
     )
-
+    print(".s2p")
     print("K_D_MCEF_df")
     print(K_D_MCEF_df)
     print("\nK_D_MCEF_df2")
     print(K_D_MCEF_df2)
 
+    # s2p=False (automatic system .csv)
     df, dir, report_dir = analyse(
         directory,
         s2p=False,
@@ -910,6 +886,8 @@ for i, directory in enumerate(sys.argv[1:]):
     K_D_MCEF_df = collect_K_D_MCEF(
         df, col_f_r="f_r, GHz", col_f_3dB="f_3dB, GHz", col_gamma="gamma"
     )
+    if K_D_MCEF_df is not None:
+        K_D_MCEF_df.to_csv(report_dir + name_from_dir + "-K_D_MCEF.csv")
     if fp_fixed:
         K_D_MCEF_df2 = collect_K_D_MCEF(
             df,
@@ -917,16 +895,30 @@ for i, directory in enumerate(sys.argv[1:]):
             col_f_3dB="f_3dB(f_p fixed), GHz",
             col_gamma="gamma(f_p fixed)",
         )
+        if K_D_MCEF_df2 is not None:
+            K_D_MCEF_df2.to_csv(report_dir + name_from_dir + "-K_D_MCEF(f_p fixed).csv")
     else:
         K_D_MCEF_df2 = None
     makefigs(
         df,
         report_dir,
         s2p=False,
+        i_th_fixed=i_th_fixed,
+        fig_ec_ind_max=fig_ec_ind_max,
+        fig_ec_res_max=fig_ec_res_max,
+        fig_ec_cap_max=fig_ec_cap_max,
         fig_max_current=fig_max_current,
         fig_max_freq=fig_max_freq,
         fig_max_gamma=fig_max_gamma,
         fig_max_f_r2_for_gamma=fig_max_f_r2_for_gamma,
+        fig_K_max=fig_K_max,
+        fig_gamma0_max=fig_gamma0_max,
+        fig_D_MCEF_max=fig_D_MCEF_max,
         K_D_MCEF_df=K_D_MCEF_df,
         K_D_MCEF_df2=K_D_MCEF_df2,
     )
+    print("auto .csv")
+    print("K_D_MCEF_df")
+    print(K_D_MCEF_df)
+    print("\nK_D_MCEF_df2")
+    print(K_D_MCEF_df2)

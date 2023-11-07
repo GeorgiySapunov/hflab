@@ -11,4 +11,4 @@ pyusb
 pyserial
 psutil
 zeroconf
-pysmithplot-fork
+# pysmithplot-fork

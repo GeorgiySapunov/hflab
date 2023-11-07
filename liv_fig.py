@@ -39,7 +39,7 @@ def makefigs(directory):
     for file in matched_files:
         print(file)
         iv = pd.read_csv(directory + "/" + file, index_col=0)
-        file.removesuffix(".csv")
+        file = file.removesuffix(".csv")
         (
             waferid,
             wavelength,

@@ -7,23 +7,22 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-legend = [
-    "2.5μm",
-    "2.5μm",
-    "3μm",
-    "3.5μm",
-    "3.5μm",
-    "4μm",
-    "4μm",
-    "4.5μm",
-    "5μm",
-    "10μm",
+legend_list = [
+    "25 °C",
+    "35 °C",
+    "45 °C",
+    "55 °C",
+    "65 °C",
+    "75 °C",
+    "85 °C",
 ]
+# legend_list = None
 
 fig = plt.figure(figsize=(11.69, 8.27))
 ax = fig.add_subplot(111)
 # Creating figure
 ax2 = ax.twinx()
+plt.title("1550nm 57M6GSG")
 # plt.title(
 #     str(waferid)
 #     + " "
@@ -49,12 +48,16 @@ for num, file in enumerate(sys.argv[1:]):
     le = len(sys.argv[1:])
     print(f"[{num+1}/{le}] {directory}")
 
-    # name_from_dir = (
-    #     directory.replace("/", "-")
-    #     .removesuffix("-")
-    #     .removesuffix("-PNA")
-    #     .removeprefix("data-")
-    # )
+    if legend_list:
+        leg = legend_list[num]
+    else:
+        name_from_dir = (
+            file.replace("/", "-")
+            .removesuffix("-")
+            .removesuffix("-PNA")
+            .removeprefix("data-")
+        )
+        leg = name_from_dir
 
     # names.append(name_from_dir)
     # vcsel.append(name_from_dir.split("-")[-1])
@@ -74,9 +77,9 @@ for num, file in enumerate(sys.argv[1:]):
     l = dfiv["Output power, mW"]
 
     # Plotting dataset_2
-    lns1 = ax.plot(i, l, "-", label=f"{legend[num]} Output power, mW")
+    lns1 = ax.plot(i, l, "-", label=f"{leg} Output power, mW")
     # Creating Twin axes for dataset_1
-    lns2 = ax2.plot(i, v, "-.", label=f"{legend[num]} Voltage, V")
+    lns2 = ax2.plot(i, v, "-.", label=f"{leg} Voltage, V")
 
     # legend
     lns.extend(lns1 + lns2)
@@ -92,7 +95,7 @@ ax2.minorticks_on()
 ax.grid(which="both")  # adding grid
 
 # Adding legend
-ax.legend(lns, labs, loc=4, fontsize=10)
+ax.legend(lns, labs, loc=4, fontsize=8)
 # ax2.legend(loc=0)
 
 # fig.suptitle("-".join(name_from_dir.split("-")[:-1]) + " " + "-".join(vcsel))
@@ -100,4 +103,4 @@ ax.legend(lns, labs, loc=4, fontsize=10)
 if not os.path.exists("reports/"):  # make directories
     os.makedirs("reports/")
 # plt.savefig("reports/" + "-".join(vcsel) + ".png", dpi=600)  # save figure
-plt.savefig("reports/" + "1" + ".png", dpi=600)  # save figure
+plt.savefig("reports/" + "LIV" + ".png", dpi=600)  # save figure
