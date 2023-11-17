@@ -73,9 +73,9 @@ def annotate_threshold(x, y, ax=None):  # TODO
     first_der = np.gradient(y, x)
     second_der = np.gradient(first_der, x)
     # print(f"max second der = {second_der.max()}")
-    if second_der.max() >= 5:
-        x_threshold = x[np.argmax(second_der >= 5)]  # decision level
-        y_threshold = y[np.argmax(second_der >= 5)]
+    if second_der.max() >= 1:
+        x_threshold = x[np.argmax(second_der >= 1)]  # decision level
+        y_threshold = y[np.argmax(second_der >= 1)]
 
         text = f"I_th={x_threshold:.2f} mA"
         if not ax:

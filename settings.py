@@ -21,10 +21,10 @@ settings = {
     "current_increment_LIV": 0.01,  # mA
     "max_current": 50,  # mA
     "beyond_rollover_stop_cond": 0.9,  # stop if power lower then 90% of max output power
-    "current_limit1": 2,  # mA, stop measuremet if current above limit1 (mA) and output power less then 0.01 mW
+    "current_limit1": 5,  # mA, stop measuremet if current above limit1 (mA) and output power less then 0.01 mW
     "current_limit2": 10,  # mA, stop measuremet if current above limit2 (mA) and maximum output power less then 0.5 mW
     "temperature_limit": 105,  # °C
-    "osa_span": 30,  # nm
-    "current_increment_OSA": 0.3,  # mA
+    "osa_span": 100,  # nm
+    "current_increment_OSA": 0.2,  # mA
     "spectra_dpi": 100,  # dots per inch for optical spectra plots
 }

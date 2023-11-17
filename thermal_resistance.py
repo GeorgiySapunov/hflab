@@ -14,6 +14,9 @@ from sklearn import linear_model
 
 from settings import settings
 
+spectra_xlim_left = 1560
+spectra_xlim_right = 1580
+
 
 def analyse(dirpath):
     if dirpath[-1] != "/":  # TODO check it
@@ -111,13 +114,13 @@ def analyse(dirpath):
         # itterate by current
         for current, column in zip(currents, columns):
             # get Pdis
-            # row = row[row["Current, mA"] == current] # TODO does't work, e.g. row["Current, mA"] != 4.1, but == 4.1000000000000005. wft
+            # row = row[row["Current, mA"] == current] # TODO does't work, e.g. row["Current, mA"] != 4.1, but == 4.1000000000000005
             row = livdf.loc[round(current / settings["current_increment_LIV"], 2)]
             pdis = float(
                 row["Current, mA"] * row["Voltage, V"] - row["Output power, mW"]
             )  # mW
-            # get peak wavelength
-            peak_indexes, _ = fp(x=osdf[column], height=-65, prominence=2, distance=10)
+            # find peaks wavelength
+            peak_indexes, _ = fp(x=osdf[column], height=-60, prominence=2, distance=10)
             if len(peak_indexes):
                 last_peak_index = peak_indexes[-1]  # get last peak index
                 # get last peak wl
@@ -173,6 +176,7 @@ def analyse(dirpath):
             # xlim2 = 955
             # ax.set_xlim(xlim1, xlim2)
             ax.set_ylim(-80, 0)
+            ax.set_xlim(spectra_xlim_left, spectra_xlim_right)
 
             filepath_t = (
                 dirpath
@@ -220,42 +224,39 @@ def analyse(dirpath):
     dldi = pd.DataFrame(columns=["Temperature, °C", "dλ/dI", "intercept"])
 
     # 8.1 Current approximation (NEW)
-    fig = plt.figure(figsize=(11.69, 8.27))
-    plt.suptitle(f"{waferid}-{wavelength}nm-{coordinates}")
+    fig = plt.figure(figsize=(0.5 * 11.69, 0.5 * 8.27))
+    plt.suptitle(
+        f"{waferid}-{wavelength}nm-{coordinates}\nλ(I) at different temperatures"
+    )
     ax1 = fig.add_subplot(111)  # λ(I) at different temperatures
     # Creating figure
     for col_temp in df_I_T.columns:  # columns are temperatures
-        df_I_T_drop = df_I_T[col_temp].dropna()
-        # linear approximation
-        model = linear_model.LinearRegression()
-        X = df_I_T_drop.index.values.reshape(-1, 1)
-        y = df_I_T_drop  # column [col_temp]
-        model.fit(X, y)
-        slope = model.coef_[0]
-        # save fit parameters to a DataFrame
-        dldi.loc[len(dldi)] = [col_temp, slope, model.intercept_]
+        # df_I_T_drop = df_I_T[col_temp].dropna()
+        # # linear approximation
+        # model = linear_model.LinearRegression()
+        # X = df_I_T_drop.index.values.reshape(-1, 1)
+        # y = df_I_T_drop  # column [col_temp]
+        # model.fit(X, y)
+        # slope = model.coef_[0]
+        # # save fit parameters to a DataFrame
+        # dldi.loc[len(dldi)] = [col_temp, slope, model.intercept_]
 
         ax1.plot(
             df_I_T.index,
             df_I_T[col_temp],
             "-",
-            alpha=0.8,
+            # marker="o",
+            alpha=0.6,
             label=f"{col_temp} °C",
         )
-        ax1.scatter(
-            df_I_T.index,
-            df_I_T[col_temp],
-            alpha=0.2,
-        )
-        ax1.plot(
-            df_I_T.index,
-            model.predict(df_I_T.index.values.reshape(-1, 1)),
-            "-.",
-            alpha=0.2,
-            label=f"fit {col_temp} °C, dλ/dI={slope:.3f}, intercept={model.intercept_:.3f}",
-        )
+        # ax1.plot(
+        #     df_I_T.index,
+        #     model.predict(df_I_T.index.values.reshape(-1, 1)),
+        #     "-.",
+        #     alpha=0.2,
+        #     label=f"fit {col_temp} °C, dλ/dI={slope:.3f}, intercept={model.intercept_:.3f}",
+        # )
     # Adding title
-    plt.title("λ(I) at different temperatures")
     # adding grid
     ax1.grid(which="both")  # adding grid
     ax1.minorticks_on()
@@ -264,6 +265,7 @@ def analyse(dirpath):
     ax1.set_ylabel("Peak wavelength, nm")
     # Adding legend
     ax1.legend(loc=0, prop={"size": 7})
+    ax1.set_xlim(left=0)
 
     # save files
     filepath = (
@@ -280,7 +282,7 @@ def analyse(dirpath):
 
     # 8. plot λ(P_dis), λ(T), dλ\dT(P_dis), R_th(T) lineplots
     # Creating figure
-    fig = plt.figure(figsize=(11.69, 8.27))
+    fig = plt.figure(figsize=(1.5 * 11.69, 1.5 * 8.27))
     plt.suptitle(f"{waferid}-{wavelength}nm-{coordinates}")
     # Plotting dataset
     ax1 = fig.add_subplot(221)  # λ(P_dis) at different temperatures

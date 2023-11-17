@@ -39,7 +39,7 @@ def makefigs(directory):
     for file in matched_files:
         print(file)
         iv = pd.read_csv(directory + "/" + file, index_col=0)
-        file = file.removesuffix(".csv")
+        file = file.removesuffix("/").removesuffix(".csv")
         (
             waferid,
             wavelength,
@@ -51,6 +51,7 @@ def makefigs(directory):
         ) = file.split("-")
         temperature = temperature.removesuffix("°C")
         timestr = date + "-" + time
+        wavelength = wavelength.removesuffix("nm")
         filepath = (
             directory
             + "/"
