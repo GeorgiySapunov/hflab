@@ -303,19 +303,24 @@ def measure_liv(
     YOKOGAWA_AQ6370D_address=None,
     ATT_A160CMI_address=None,
     current_increment_LIV=settings["current_increment_LIV"],
-    max_current=50,
-    beyond_rollover_stop_cond=0.9,
-    current_limit1=4,
-    current_limit2=10,
+    max_current=settings["max_current"],
+    beyond_rollover_stop_cond=settings["beyond_rollover_stop_cond"],
+    current_limit1=settings["current_limit1"],
+    current_limit2=settings["current_limit2"],
     temperature_limit=110,
     osa_span=30,
     current_increment_OSA=0.3,
     spectra_dpi=100,
 ):
-    current_list = [
-        i / 10**5
-        for i in range(0, max_current * 10**4, int(current_increment_LIV * 100))
-    ]
+    # current_list = [
+    #     i / 10**5
+    #     for i in range(0, max_current * 10**4, int(current_increment_LIV * 100))
+    # ]  # TODO change to np.arange()
+    current_list = np.arange(
+        0,
+        max_current / 1000 + current_increment_LIV / 1000,
+        current_increment_LIV / 1000,
+    )  # TODO test it
 
     pm100_toggle = False
     keysight_8163B_toggle = False

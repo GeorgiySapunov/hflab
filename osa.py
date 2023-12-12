@@ -35,13 +35,13 @@ def measure_osa(
     YOKOGAWA_AQ6370D_address=None,
     ATT_A160CMI_address=None,
     current_increment_LIV=0.01,
-    max_current=50,
+    max_current=settings["max_current"],
     beyond_rollover_stop_cond=0.9,
     current_limit1=4,
     current_limit2=10,
     temperature_limit=110,
-    osa_span=30,
-    current_increment_OSA=0.3,
+    osa_span=settings["osa_span"],
+    current_increment_OSA=settings["current_increment_OSA"],
     spectra_dpi=100,
 ):
     if YOKOGAWA_AQ6370D:
@@ -67,12 +67,17 @@ def measure_osa(
     max_current = dataframe.iloc[-1]["Current set, mA"]
 
     # make a list of currents for spectra measurements
-    osa_current_list = [
-        i / 10**5
-        for i in range(
-            0, int(max_current * 10**2) + 1, int(current_increment_OSA * 100)
-        )
-    ]
+    # osa_current_list = [
+    #     i / 10**5
+    #     for i in range(
+    #         0, int(max_current * 10**2) + 1, int(current_increment_OSA * 100)
+    #     )
+    # ]  # TODO change to np.arange()
+    osa_current_list = np.arange(
+        0,
+        max_current / 1000,
+        current_increment_OSA / 1000,
+    )
     print(f"to {osa_current_list[-1]*1000} mA")
 
     # make a data frame for additional IV measurements (.csv file in OSA directory)
@@ -86,7 +91,10 @@ def measure_osa(
     )
 
     # make a data frame for spectra measurements
-    spectra = pd.DataFrame()
+    columns_spectra = ["Wavelength, nm"] + [
+        f"Intensity at {i*1000:.2f} mA, dBm" for i in osa_current_list
+    ]
+    spectra = pd.DataFrame(columns=columns_spectra, dtype="float64")
 
     # initial setings for OSA
     YOKOGAWA_AQ6370D.write("*RST")
@@ -124,7 +132,7 @@ def measure_osa(
         # print data to the terminal
         print(f"{i*1000:3.2f} mA: {current*1000:10.5f} mA, {voltage:8.5f} V")
 
-        YOKOGAWA_AQ6370D.write("*CLS")
+        # YOKOGAWA_AQ6370D.write("*CLS")
         YOKOGAWA_AQ6370D.write(":INITiate")
 
         status = YOKOGAWA_AQ6370D.query(":STATus:OPERation:EVENt?")[0]
@@ -142,7 +150,7 @@ def measure_osa(
         YOKOGAWA_AQ6370D.write("*CLS")
         intensity = YOKOGAWA_AQ6370D.query(":TRACE:Y? TRA").strip().split(",")
         column_spectra = f"Intensity at {i*1000:.2f} mA, dBm"
-        spectra[column_spectra] = pd.Series(intensity)
+        spectra[column_spectra] = pd.Series(intensity).astype("float64")
 
     YOKOGAWA_AQ6370D.write("*CLS")
 

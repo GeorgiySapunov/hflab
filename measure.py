@@ -184,7 +184,6 @@ def main():
                     PM100USB=PM100USB,
                     Keysight_8163B=Keysight_8163B,
                     k_port=k_port,
-                    **settings,
                 )
                 if len(temperature_list) == 1:
                     # show figure
@@ -205,7 +204,6 @@ def main():
                     temperature,
                     Keysight_B2901A=Keysight_B2901A,
                     YOKOGAWA_AQ6370D=YOKOGAWA_AQ6370D,
-                    **settings,
                 )
 
 

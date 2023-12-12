@@ -96,11 +96,32 @@ def analyse(dirpath):
         # read files
         osdf = pd.read_csv(dirpath + "OSA/" + osfile, index_col=0)
         livdf = pd.read_csv(dirpath + "LIV/" + livfile, index_col=0)
+
+        def find_threshold(x, y):
+            first_der = np.gradient(y, x)
+            second_der = np.gradient(first_der, x)
+            if second_der.max() >= 1:
+                x_threshold = x[np.argmax(second_der >= 1)]  # decision level 1
+                text = f"I_th={x_threshold:.2f} mA"
+            else:
+                x_threshold = 0.0
+            return float(x_threshold)
+
+        def find_rollower(x, y):
+            xmax = x[np.argmax(y)]
+            ymax = y.max()
+            text = f"I_ro={xmax:.2f} mA, optical power={ymax:.2f} mW"
+            return float(xmax)
+
+        I_th = round(find_threshold(livdf["Current, mA"], livdf["Output power, mW"]), 2)
+        I_ro = round(find_rollower(livdf["Current, mA"], livdf["Output power, mW"]), 2)
         # get a list of currents
         columns = [
             col
             for col in osdf.columns.values.tolist()
             if col.startswith("Intensity at")
+            if float(col.split()[2]) >= (I_th - 0.05)
+            and float(col.split()[2]) <= (I_ro + 0.05)
         ]
         currents = [
             float(col.split()[2]) for col in columns if col.startswith("Intensity at")
@@ -123,6 +144,8 @@ def analyse(dirpath):
             peak_indexes, _ = fp(x=osdf[column], height=-60, prominence=2, distance=10)
             if len(peak_indexes):
                 last_peak_index = peak_indexes[-1]  # get last peak index
+                # if len(peak_indexes) > 1: # TODO calculate SMSR
+                #     second_peak_index = peak_indexes[-2]
                 # get last peak wl
                 wl_peak = osdf["Wavelength, nm"].iloc[last_peak_index]
                 print(
@@ -264,7 +287,7 @@ def analyse(dirpath):
     ax1.set_xlabel("Current, mA")
     ax1.set_ylabel("Peak wavelength, nm")
     # Adding legend
-    ax1.legend(loc=0, prop={"size": 7})
+    ax1.legend(loc=0)
     ax1.set_xlim(left=0)
 
     # save files
@@ -363,7 +386,7 @@ def analyse(dirpath):
     # ax.legend(loc=0, prop={"size": 4})
 
     # need to get dλ/dT at 0 mW dissipated power
-    # make a linear approximation
+    # make a linear approximation TODO make it linear/polinomial choice
     model = linear_model.LinearRegression()
     X = dldt["Dissipated power, mW"].values.reshape(-1, 1)
     y = dldt["dλ/dT"]
@@ -478,7 +501,7 @@ def analyse(dirpath):
         .rename_axis("Current, mA", axis=0)
         .rename_axis("Output power, mW", axis=1)
     )
-    curr_cell = 0.5  # mA
+    curr_cell = 0.5  # mA, heatmap increment TODO put it at the top
     current_axis_values = [
         i * curr_cell for i in range(0, int(larg_current / curr_cell + 1), 1)
     ]
