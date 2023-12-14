@@ -11,6 +11,7 @@ import matplotlib.image as mpimg
 import seaborn as sns
 from scipy.signal import find_peaks as fp
 from sklearn import linear_model
+from itertools import cycle
 
 from settings import settings
 
@@ -55,6 +56,18 @@ def analyse(dirpath):
     )
 
     df_I_T = (
+        pd.DataFrame(columns=[*temperatures])
+        .rename_axis("Current, mA", axis=0)
+        .rename_axis("Temperature, °C", axis=1)
+    )
+
+    df_I_T_smsr = (
+        pd.DataFrame(columns=[*temperatures])
+        .rename_axis("Current, mA", axis=0)
+        .rename_axis("Temperature, °C", axis=1)
+    )
+
+    df_I_T_highest_peak = (
         pd.DataFrame(columns=[*temperatures])
         .rename_axis("Current, mA", axis=0)
         .rename_axis("Temperature, °C", axis=1)
@@ -131,6 +144,16 @@ def analyse(dirpath):
         # adjust if Wavelength in meters
         if "Wavelength, nm" not in osdf.columns.values.tolist():
             osdf["Wavelength, nm"] = osdf["Wavelength, m"] * 10**9
+
+        def peak_threshold_height(osdf_column):
+            x = np.array(osdf_column.values)[
+                np.where(np.asarray(osdf[column].values) > -80)
+            ]
+            mask = np.abs((x - x.mean(0)) / x.std(0)) < 2
+            x = x[np.where(mask)]
+            peak_threshold_height = x.mean() + 2 * x.std() + 2
+            return peak_threshold_height
+
         # find peaks
         # itterate by current
         for current, column in zip(currents, columns):
@@ -141,7 +164,12 @@ def analyse(dirpath):
                 row["Current, mA"] * row["Voltage, V"] - row["Output power, mW"]
             )  # mW
             # find peaks wavelength
-            peak_indexes, _ = fp(x=osdf[column], height=-60, prominence=2, distance=10)
+            peak_indexes, _ = fp(
+                x=osdf[column],
+                height=peak_threshold_height(osdf[column]),
+                prominence=2,
+                distance=1,
+            )
             if len(peak_indexes):
                 last_peak_index = peak_indexes[-1]  # get last peak index
                 # if len(peak_indexes) > 1: # TODO calculate SMSR
@@ -152,14 +180,36 @@ def analyse(dirpath):
                     f"{temperature} °C\t{current} mA\tPdis: {pdis:.3f} mW\tpeak: {wl_peak:.3f} nm\t{column}"
                 )
             else:
+                last_peak_index = None
                 wl_peak = None
                 print(
                     f"{temperature} °C\t{current} mA\tPdis: {pdis:.3f} mW\tpeak: {wl_peak}\t\t{column}"
                 )
+            peak_indexes2, properties = fp(
+                x=osdf[column], height=-80, prominence=2, distance=1
+            )
+            argsort_peaks = np.argsort(
+                properties["peak_heights"]
+            )  # TODO partial argsort should be better in terms of speed
+            highest_peak_hight = properties["peak_heights"][argsort_peaks[-1]]
+            highest_peak_index = peak_indexes2[argsort_peaks[-1]]
+            second_highest_peak_hight = properties["peak_heights"][argsort_peaks[-2]]
+            second_highest_peak_index = peak_indexes2[argsort_peaks[-2]]
+            smsr = highest_peak_hight - second_highest_peak_hight
+            # print(
+            #     f"""highest_peak={osdf['Wavelength, nm'].iloc[highest_peak_index]}\thighest_peak_hight={highest_peak_hight}
+            #         second_highest_peak={osdf['Wavelength, nm'].iloc[second_highest_peak_index]}\tsecond_highest_peak_hight={second_highest_peak_hight}
+            #         SMSR={smsr}
+            #     """
+            # )
 
             # 4. fill Pdis, temperature, lambda df
             df_Pdis_T.at[pdis, temperature] = wl_peak
             df_I_T.at[current, temperature] = wl_peak
+            df_I_T_smsr.at[current, temperature] = smsr
+            df_I_T_highest_peak.at[current, temperature] = osdf["Wavelength, nm"].iloc[
+                highest_peak_index
+            ]
 
             # 5. make spectra plots and save .png
             # Make spectra figures
@@ -173,7 +223,7 @@ def analyse(dirpath):
                 osdf[column],
                 "-",
                 alpha=0.5,
-                label=f"{temperature} °C, {current} mA, dissipated power: {pdis} mW, peak: {wl_peak} nm",
+                label=f"{temperature} °C, {current} mA, dissipated power: {pdis} mW",
             )
             # peaks scatterplot
             ax.scatter(
@@ -181,6 +231,27 @@ def analyse(dirpath):
                 osdf[column].iloc[peak_indexes],
                 alpha=0.5,
             )
+            ax.scatter(
+                osdf["Wavelength, nm"].iloc[highest_peak_index],
+                highest_peak_hight,
+                alpha=0.5,
+                c="r",
+                label=f"the highest peak at {osdf['Wavelength, nm'].iloc[highest_peak_index]} nm, {highest_peak_hight} dBm, SMSR={smsr}",
+            )
+            ax.scatter(
+                osdf["Wavelength, nm"].iloc[second_highest_peak_index],
+                second_highest_peak_hight,
+                alpha=0.5,
+                c="g",
+                label=f"the second highest peak at {osdf['Wavelength, nm'].iloc[second_highest_peak_index]} nm, {second_highest_peak_hight} dBm",
+            )
+            if wl_peak:
+                ax.axvline(
+                    x=wl_peak,
+                    linestyle=":",
+                    alpha=0.5,
+                    label=f"far right peak at {wl_peak} nm",
+                )
             # Adding title
             plt.title(
                 f"{waferid}-{wavelength}nm-{coordinates}, {temperature} °C, {current} mA"
@@ -241,6 +312,18 @@ def analyse(dirpath):
         + f"{waferid}-{wavelength}nm-{coordinates}-Current-Temperature.csv"
     )
 
+    df_I_T_smsr.to_csv(
+        dirpath
+        + f"OSA/figures/"
+        + f"{waferid}-{wavelength}nm-{coordinates}-Current-Temperature-SMSR.csv"
+    )
+
+    df_I_T_highest_peak.to_csv(
+        dirpath
+        + f"OSA/figures/"
+        + f"{waferid}-{wavelength}nm-{coordinates}-Current-Temperature-highestpeak.csv"
+    )
+
     # 7. fill dλ/dP_dis and dλ/dT
     dldp = pd.DataFrame(columns=["Temperature, °C", "dλ/dP_dis", "intercept"])
     dldt = pd.DataFrame(columns=["Dissipated power, mW", "dλ/dT", "intercept"])
@@ -252,33 +335,87 @@ def analyse(dirpath):
         f"{waferid}-{wavelength}nm-{coordinates}\nλ(I) at different temperatures"
     )
     ax1 = fig.add_subplot(111)  # λ(I) at different temperatures
+    colors = cycle(plt.rcParams["axes.prop_cycle"].by_key()["color"])
     # Creating figure
     for col_temp in df_I_T.columns:  # columns are temperatures
-        # df_I_T_drop = df_I_T[col_temp].dropna()
-        # # linear approximation
-        # model = linear_model.LinearRegression()
-        # X = df_I_T_drop.index.values.reshape(-1, 1)
-        # y = df_I_T_drop  # column [col_temp]
-        # model.fit(X, y)
-        # slope = model.coef_[0]
-        # # save fit parameters to a DataFrame
-        # dldi.loc[len(dldi)] = [col_temp, slope, model.intercept_]
+        color = next(colors)
+        df_I_T_drop = df_I_T[col_temp].dropna()
+        # linear approximation
+        model = linear_model.LinearRegression()
+        X = df_I_T_drop.index.values.reshape(-1, 1)
+        y = df_I_T_drop  # column [col_temp]
+        model.fit(X, y)
+        slope = model.coef_[0]
+        # save fit parameters to a DataFrame
+        dldi.loc[len(dldi)] = [col_temp, slope, model.intercept_]
 
         ax1.plot(
             df_I_T.index,
             df_I_T[col_temp],
             "-",
             # marker="o",
+            c=color,
             alpha=0.6,
             label=f"{col_temp} °C",
         )
-        # ax1.plot(
-        #     df_I_T.index,
-        #     model.predict(df_I_T.index.values.reshape(-1, 1)),
-        #     "-.",
-        #     alpha=0.2,
-        #     label=f"fit {col_temp} °C, dλ/dI={slope:.3f}, intercept={model.intercept_:.3f}",
-        # )
+        ax1.plot(
+            df_I_T.index,
+            model.predict(df_I_T.index.values.reshape(-1, 1)),
+            "-.",
+            c=color,
+            alpha=0.2,
+            label=f"fit {col_temp} °C, dλ/dI={slope:.3f}, intercept={model.intercept_:.3f}",
+        )
+    # Adding title
+    # adding grid
+    ax1.grid(which="both")  # adding grid
+    ax1.minorticks_on()
+    # Adding labels
+    ax1.set_xlabel("Current, mA")
+    ax1.set_ylabel("Peak wavelength, nm")
+    # Adding legend
+    ax1.legend(loc=0, fontsize=4)
+    ax1.set_xlim(left=0)
+
+    # save files
+    filepath = (
+        dirpath
+        + f"OSA/figures/"
+        + f"{waferid}-{wavelength}nm-{coordinates}-Lambda-Current"
+    )
+
+    if not os.path.exists(dirpath + f"OSA/figures/"):
+        os.makedirs(dirpath + f"OSA/figures/")
+
+    plt.savefig(filepath + ".png", dpi=300)
+    plt.close()
+
+    # 8.2 highest peak (current approximation)
+    fig = plt.figure(figsize=(0.5 * 11.69, 0.5 * 8.27))
+    plt.suptitle(
+        f"{waferid}-{wavelength}nm-{coordinates}\nthe highest peak at different temperatures/currents"
+    )
+    ax1 = fig.add_subplot(111)  # λ(I) at different temperatures
+    colors = cycle(plt.rcParams["axes.prop_cycle"].by_key()["color"])
+    # Creating figure
+    for col_temp in df_I_T_highest_peak.columns:  # columns are temperatures
+        color = next(colors)
+        ax1.plot(
+            df_I_T_highest_peak.index,
+            df_I_T_highest_peak[col_temp],
+            "-",
+            # marker="o",
+            alpha=0.3,
+            color=color,
+            label=f"{col_temp} °C",
+        )
+        ax1.plot(
+            df_I_T_highest_peak[col_temp].loc[df_I_T_smsr[col_temp] >= 30].index,
+            df_I_T_highest_peak[col_temp].loc[df_I_T_smsr[col_temp] >= 30],
+            "-",
+            color=color,
+            alpha=0.8,
+        )
     # Adding title
     # adding grid
     ax1.grid(which="both")  # adding grid
@@ -294,7 +431,7 @@ def analyse(dirpath):
     filepath = (
         dirpath
         + f"OSA/figures/"
-        + f"{waferid}-{wavelength}nm-{coordinates}-Lambda-Current"
+        + f"{waferid}-{wavelength}nm-{coordinates}-highestpeak"
     )
 
     if not os.path.exists(dirpath + f"OSA/figures/"):
