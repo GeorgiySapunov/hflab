@@ -107,8 +107,8 @@ def analyse(dirpath):
 
         # 3. get last peak lambdas and Pdis
         # read files
-        osdf = pd.read_csv(dirpath + "OSA/" + osfile, index_col=0)
-        livdf = pd.read_csv(dirpath + "LIV/" + livfile, index_col=0)
+        osdf = pd.read_csv(dirpath + "OSA/" + osfile)
+        livdf = pd.read_csv(dirpath + "LIV/" + livfile)
 
         def find_threshold(x, y):
             first_der = np.gradient(y, x)
@@ -299,29 +299,34 @@ def analyse(dirpath):
     df_Pdis_T.to_csv(
         dirpath
         + f"OSA/figures/"
-        + f"{waferid}-{wavelength}nm-{coordinates}-withNaN.csv"
+        + f"{waferid}-{wavelength}nm-{coordinates}-withNaN.csv",
+        index=False,
     )
     df_Pdis_T_int.to_csv(
-        dirpath + f"OSA/figures/" + f"{waferid}-{wavelength}nm-{coordinates}.csv"
+        dirpath + f"OSA/figures/" + f"{waferid}-{wavelength}nm-{coordinates}.csv",
+        index=False,
     )
     df_Pdis_T_int_drop = df_Pdis_T_int.dropna()  # delete rows with empty cells
 
     df_I_T.to_csv(
         dirpath
         + f"OSA/figures/"
-        + f"{waferid}-{wavelength}nm-{coordinates}-Current-Temperature.csv"
+        + f"{waferid}-{wavelength}nm-{coordinates}-Current-Temperature.csv",
+        index=False,
     )
 
     df_I_T_smsr.to_csv(
         dirpath
         + f"OSA/figures/"
-        + f"{waferid}-{wavelength}nm-{coordinates}-Current-Temperature-SMSR.csv"
+        + f"{waferid}-{wavelength}nm-{coordinates}-Current-Temperature-SMSR.csv",
+        index=False,
     )
 
     df_I_T_highest_peak.to_csv(
         dirpath
         + f"OSA/figures/"
-        + f"{waferid}-{wavelength}nm-{coordinates}-Current-Temperature-highestpeak.csv"
+        + f"{waferid}-{wavelength}nm-{coordinates}-Current-Temperature-highestpeak.csv",
+        index=False,
     )
 
     # 7. fill dλ/dP_dis and dλ/dT
@@ -565,7 +570,8 @@ def analyse(dirpath):
         R_th.loc[i] = [temperature, dldp["dλ/dP_dis"].iloc[i] / dldt_zero]
     # save DataFrame to .csv
     R_th.to_csv(
-        dirpath + f"OSA/figures/" + f"{waferid}-{wavelength}nm-{coordinates}-R_th.csv"
+        dirpath + f"OSA/figures/" + f"{waferid}-{wavelength}nm-{coordinates}-R_th.csv",
+        index=False,
     )
 
     # linear approximation of R_th(T)
@@ -614,12 +620,14 @@ def analyse(dirpath):
     dldp.to_csv(
         dirpath
         + f"OSA/figures/"
-        + f"{waferid}-{wavelength}nm-{coordinates}-dλdP_dis_fit.csv"
+        + f"{waferid}-{wavelength}nm-{coordinates}-dλdP_dis_fit.csv",
+        index=False,
     )
     dldt.to_csv(
         dirpath
         + f"OSA/figures/"
-        + f"{waferid}-{wavelength}nm-{coordinates}-dλdT_fit.csv"
+        + f"{waferid}-{wavelength}nm-{coordinates}-dλdT_fit.csv",
+        index=False,
     )
 
     # 9. plot heatmaps
@@ -644,7 +652,7 @@ def analyse(dirpath):
     ]
     for temperature in temperatures:
         livfile = dict_of_filenames_liv[temperature]
-        livdf = pd.read_csv(dirpath + "LIV/" + livfile, index_col=0)
+        livdf = pd.read_csv(dirpath + "LIV/" + livfile)
         currents = [
             current
             for current in current_axis_values
@@ -670,10 +678,12 @@ def analyse(dirpath):
             mask.sort_index(ascending=False, inplace=True)
 
     T_act.to_csv(
-        dirpath + f"OSA/figures/" + f"{waferid}-{wavelength}nm-{coordinates}-T_act.csv"
+        dirpath + f"OSA/figures/" + f"{waferid}-{wavelength}nm-{coordinates}-T_act.csv",
+        index=False,
     )
     P_out.to_csv(
-        dirpath + f"OSA/figures/" + f"{waferid}-{wavelength}nm-{coordinates}-P_out.csv"
+        dirpath + f"OSA/figures/" + f"{waferid}-{wavelength}nm-{coordinates}-P_out.csv",
+        index=False,
     )
 
     T_act = T_act.fillna(0.0)

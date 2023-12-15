@@ -87,11 +87,9 @@ for i, directory in enumerate(sys.argv[1:]):
 
         df = pd.read_csv(
             directory + name_from_dir + "-report(s2p).csv",
-            index_col=0,
         )
         K_D_MCEF_df = pd.read_csv(
             directory + name_from_dir + "-K_D_MCEF.csv",
-            index_col=0,
         )
 
         fig.suptitle(name_from_dir)

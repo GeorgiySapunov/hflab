@@ -84,7 +84,7 @@ fig = plt.figure(figsize=(11.69, 0.5 * 8.27))
 ax = fig.add_subplot(111)
 ax.set_title("M-type 6 μm BTJ 1550 nm VCSEL")
 for fn, file in enumerate(list_of_files):
-    osdf = pd.read_csv(directory + file, index_col=0)
+    osdf = pd.read_csv(directory + file)
     currents = list_of_currents[fn]
     columns = [f"Intensity at {i:.2f} mA, dBm" for i in currents]
     temperature = list_of_temp[fn]

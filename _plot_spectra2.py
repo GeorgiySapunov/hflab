@@ -15,9 +15,9 @@ spectra_xlim_left = 1565
 spectra_xlim_right = 1577
 
 
-osdf1 = pd.read_csv(directory + file1, index_col=0)
-osdf2 = pd.read_csv(directory + file2, index_col=0)
-osdf3 = pd.read_csv(directory + file3, index_col=0)
+osdf1 = pd.read_csv(directory + file1)
+osdf2 = pd.read_csv(directory + file2)
+osdf3 = pd.read_csv(directory + file3)
 columns1 = [f"Intensity at {i:.2f} mA, dBm" for i in currents1]
 columns2 = [f"Intensity at {i:.2f} mA, dBm" for i in currents2]
 columns3 = [f"Intensity at {i:.2f} mA, dBm" for i in currents3]

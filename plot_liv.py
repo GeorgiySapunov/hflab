@@ -160,7 +160,7 @@ for num, file in enumerate(sys.argv[1:]):
     # names.append(name_from_dir)
     # vcsel.append(name_from_dir.split("-")[-1])
 
-    dfiv = pd.read_csv(file, index_col=0)
+    dfiv = pd.read_csv(file)
 
     # Adding labels
     ax.set_xlabel("Current, mA")

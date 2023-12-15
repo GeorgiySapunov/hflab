@@ -178,5 +178,5 @@ def measure_osa(
         + f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-{timestr}-{osa}"
     )
 
-    iv.to_csv(filepath + "-IV.csv")
-    spectra.to_csv(filepath + "-OS.csv")
+    iv.to_csv(filepath + "-IV.csv", index=False)
+    spectra.to_csv(filepath + "-OS.csv", index=False)

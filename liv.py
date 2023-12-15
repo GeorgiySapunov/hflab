@@ -312,15 +312,12 @@ def measure_liv(
     current_increment_OSA=0.3,
     spectra_dpi=100,
 ):
-    # current_list = [
-    #     i / 10**5
-    #     for i in range(0, max_current * 10**4, int(current_increment_LIV * 100))
-    # ]  # TODO change to np.arange()
     current_list = np.arange(
         0,
-        max_current / 1000 + current_increment_LIV / 1000,
-        current_increment_LIV / 1000,
-    )  # TODO test it
+        max_current + current_increment_LIV,
+        current_increment_LIV,
+        dtype=np.float32,
+    )  # mA
 
     pm100_toggle = False
     keysight_8163B_toggle = False
@@ -375,6 +372,7 @@ def measure_liv(
     # initate power and max power variables with 0
     max_output_power = 0
     output_power = 0
+    warnings = []
 
     #                 (_)       | |
     #  _ __ ___   __ _ _ _ __   | | ___   ___  _ __
@@ -383,34 +381,35 @@ def measure_liv(
     # |_| |_| |_|\__,_|_|_| |_| |_|\___/ \___/| .__/
     #                                         | |
     #                                         |_|
-    for i in current_list:
-        # Outputs i Ampere immediately
-        Keysight_B2901A.write(":SOUR:CURR " + str(i))
+    for current_set in current_list:
+        # Outputs {current_set} mA immediately
+        Keysight_B2901A.write(":SOUR:CURR " + str(current_set / 1000))
         time.sleep(0.03)
         # measure Voltage, V
         voltage = float(Keysight_B2901A.query("MEAS:VOLT?"))
         # measure Current, A
-        current = float(Keysight_B2901A.query("MEAS:CURR?"))
+        current_measured = float(Keysight_B2901A.query("MEAS:CURR?")) * 1000  # mA
 
         # measure output power
         if pm100_toggle:
-            # measure output power, W
-            output_power = float(PM100USB.query("measure:power?"))
+            # measure output power, mW
+            output_power = float(PM100USB.query("measure:power?")) * 1000
         elif keysight_8163B_toggle:
-            # measure output power, W
-            output_power = float(Keysight_8163B.query(f"FETC1:CHAN{k_port}:POW?"))
+            # measure output power, mW
+            output_power = (
+                float(Keysight_8163B.query(f"FETC1:CHAN{k_port}:POW?")) * 1000
+            )
 
-        output_power *= 1000
         if output_power > max_output_power:  # track max power
             max_output_power = output_power
 
         # add current, measured current, voltage, output power, power consumption, power conversion efficiency to the DataFrame
         iv.loc[len(iv)] = [
-            i * 1000,
-            current * 1000,
+            current_set,
+            current_measured,
             voltage,
             None,
-            voltage * current * 1000,
+            voltage * current_measured,
             0,
         ]
 
@@ -419,36 +418,53 @@ def measure_liv(
             iv.iloc[-1]["Output power, mW"] = output_power
 
         # print data to the terminal
-        if voltage * current == 0 or output_power >= (voltage * current * 1000):
+        if voltage * current_measured == 0 or output_power >= (
+            voltage * current_measured
+        ):
             print(
-                f"{i*1000:3.2f} mA: {current*1000:10.5f} mA, {voltage:8.5f} V, {output_power:8.5f} mW, 0 %"
+                f"{current_set:3.2f} mA: {current_measured:10.5f} mA, {voltage:8.5f} V, {output_power:8.5f} mW, 0 %"
             )
         else:
             print(
-                f"{i*1000:3.2f} mA: {current*1000:10.5f} mA, {voltage:8.5f} V, {output_power:8.5f} mW, {output_power/(voltage*current*10):8.2f} %"
+                f"{current_set:3.2f} mA: {current_measured:10.5f} mA, {voltage:8.5f} V, {output_power:8.5f} mW, {(100*output_power)/(voltage*current_measured):8.2f} %"
             )
-            iv.iloc[-1]["Power conversion efficiency, %"] = output_power / (
-                voltage * current * 10
+            iv.iloc[-1]["Power conversion efficiency, %"] = (100 * output_power) / (
+                voltage * current_measured
             )
 
+        # deal with set/measured current mismatch
+        current_error = abs(current_set - current_measured)
+        if round(current_measured, 4) != current_set:
+            warnings.append(
+                f"Current set={current_set} mA, current measured={current_measured} mA"
+            )
+            print(
+                f"WARNING! current set is {current_set}, while current measured is {current_measured:.4f}"
+            )
+
+        if current_error >= 0.03:
+            break  # break the loop
+
         # breaking conditions
-        if i > current_limit1 / 1000:  # if current is more then limit1 mA
+        if current_set > current_limit1:  # if current is more then limit1 mA
             if (
                 output_power <= max_output_power * beyond_rollover_stop_cond
                 or output_power <= 0.01
             ):  # check conditions to stop the measurements
                 break  # break the loop
         if max_output_power <= 0.5:
-            if i > current_limit2 / 1000:  # if current is more then limit2 mA
+            if current_set > current_limit2:  # if current is more then limit2 mA
                 break  # break the loop
 
     # slowly decrease current
-    current = float(Keysight_B2901A.query("MEAS:CURR?"))  # measure current
-    # e.g. 5 mA to 50 and 1 is a step
-    for i in range(int(current * 10000), 0, -1):
-        i /= 10000  # makes 0.1 mA steps
-        Keysight_B2901A.write(f":SOUR:CURR {str(i)}")  # Outputs i A immediately
-        print(f"Current set: {i*1000:3.1f} mA")
+    current_measured = (
+        float(Keysight_B2901A.query("MEAS:CURR?")) * 1000
+    )  # measure current
+    for current_set in np.arange(current_measured, 0, -0.1):
+        Keysight_B2901A.write(
+            f":SOUR:CURR {str(current_set/1000)}"
+        )  # Outputs i A immediately
+        print(f"Current set: {current_set:3.1f} mA")
         time.sleep(0.01)  # 0.01 sec for a step, 1 sec for 10 mA
 
     # Measurement is stopped by the :OUTP OFF command.
@@ -465,7 +481,7 @@ def measure_liv(
     if not os.path.exists(dirpath + "LIV"):  # make directories
         os.makedirs(dirpath + "LIV")
 
-    iv.to_csv(filepath + ".csv")  # save DataFrame to csv file
+    iv.to_csv(filepath + ".csv", index=False)  # save DataFrame to csv file
 
     # save figures
     buildplt_all(
@@ -495,5 +511,8 @@ def measure_liv(
     # image = mpimg.imread(filepath + "-all.png")
     # plt.imshow(image)
     # plt.show()
+    print(f"Warnings: {len(warnings)}")
+    if warnings:
+        print(*warnings, sep="\n")
 
     return filepath

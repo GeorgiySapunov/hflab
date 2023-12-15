@@ -239,7 +239,7 @@ def analyse(
 
         if not os.path.exists(report_dir):  # make directories
             os.makedirs(report_dir)
-        df.to_csv(report_dir + name_from_dir + "-report(s2p).csv")
+        df.to_csv(report_dir + name_from_dir + "-report(s2p).csv", index=False)
     elif not s2p:  # automatic system csv file parsing and processing
         report_dir = start_directory + "PNA_reports(auto)/"
         auto_file = pd.read_csv(
@@ -340,7 +340,7 @@ def analyse(
 
         if not os.path.exists(report_dir):  # make directories
             os.makedirs(report_dir)
-        df.to_csv(report_dir + name_from_dir + "-report(auto).csv")
+        df.to_csv(report_dir + name_from_dir + "-report(auto).csv", index=False)
 
     print(df)
     return df, directory, report_dir
@@ -837,7 +837,7 @@ for i, directory in enumerate(sys.argv[1:]):
         .removeprefix("data-")
     )
     if K_D_MCEF_df is not None:
-        K_D_MCEF_df.to_csv(report_dir + name_from_dir + "-K_D_MCEF.csv")
+        K_D_MCEF_df.to_csv(report_dir + name_from_dir + "-K_D_MCEF.csv", index=False)
 
     if fp_fixed:
         K_D_MCEF_df2 = collect_K_D_MCEF(
@@ -847,7 +847,9 @@ for i, directory in enumerate(sys.argv[1:]):
             col_gamma="gamma(f_p fixed)",
         )
         if K_D_MCEF_df2 is not None:
-            K_D_MCEF_df2.to_csv(report_dir + name_from_dir + "-K_D_MCEF(f_p fixed).csv")
+            K_D_MCEF_df2.to_csv(
+                report_dir + name_from_dir + "-K_D_MCEF(f_p fixed).csv", index=False
+            )
     else:
         K_D_MCEF_df2 = None
     makefigs(
@@ -887,7 +889,7 @@ for i, directory in enumerate(sys.argv[1:]):
         df, col_f_r="f_r, GHz", col_f_3dB="f_3dB, GHz", col_gamma="gamma"
     )
     if K_D_MCEF_df is not None:
-        K_D_MCEF_df.to_csv(report_dir + name_from_dir + "-K_D_MCEF.csv")
+        K_D_MCEF_df.to_csv(report_dir + name_from_dir + "-K_D_MCEF.csv", index=False)
     if fp_fixed:
         K_D_MCEF_df2 = collect_K_D_MCEF(
             df,
@@ -896,7 +898,9 @@ for i, directory in enumerate(sys.argv[1:]):
             col_gamma="gamma(f_p fixed)",
         )
         if K_D_MCEF_df2 is not None:
-            K_D_MCEF_df2.to_csv(report_dir + name_from_dir + "-K_D_MCEF(f_p fixed).csv")
+            K_D_MCEF_df2.to_csv(
+                report_dir + name_from_dir + "-K_D_MCEF(f_p fixed).csv", index=False
+            )
     else:
         K_D_MCEF_df2 = None
     makefigs(
