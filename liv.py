@@ -26,47 +26,6 @@ from settings import settings
 # |  _| | | (_| | |_| | | |  __/\__ \
 # |_|   |_|\__, |\__,_|_|  \___||___/
 #          |___/
-def annotate_max_L(x, y, ax=None):
-    xmax = x[np.argmax(y)]
-    ymax = y.max()
-    text = f"I_ro={xmax:.2f} mA, optical power={ymax:.2f} mW"
-    if not ax:
-        ax = plt.gca()
-    bbox_props = dict(boxstyle="square,pad=0.3", fc="w", ec="k", lw=0.72)
-    arrowprops = dict(arrowstyle="->", connectionstyle="angle,angleA=0,angleB=90")
-    kw = dict(
-        xycoords="data",
-        textcoords="axes fraction",
-        arrowprops=arrowprops,
-        bbox=bbox_props,
-        ha="left",
-        va="top",
-    )
-    ax.annotate(text, xy=(xmax, ymax), xytext=(0.3, 0.99), **kw)
-    return xmax, ymax
-
-
-def annotate_max_ef(
-    x, y, threshold=0, ax=None, current_increment_LIV=settings["current_increment_LIV"]
-):  # TODO
-    thresholdx = int(threshold / current_increment_LIV)
-    xmax = x[np.argmax(y[thresholdx:]) + thresholdx]  # TODO
-    ymax = y[thresholdx:].max()  # TODO
-    text = f"I={xmax:.2f} mA, PCE={ymax:.2f}, %"
-    if not ax:
-        ax = plt.gca()
-    bbox_props = dict(boxstyle="square,pad=0.3", fc="w", ec="k", lw=0.72)
-    arrowprops = dict(arrowstyle="->", connectionstyle="angle,angleA=0,angleB=90")
-    kw = dict(
-        xycoords="data",
-        textcoords="axes fraction",
-        arrowprops=arrowprops,
-        bbox=bbox_props,
-        ha="left",
-        va="top",
-    )
-    ax.annotate(text, xy=(xmax, ymax), xytext=(0.4, 0.99), **kw)
-    return xmax
 
 
 def annotate_threshold(x, y, ax=None):  # TODO
@@ -96,6 +55,48 @@ def annotate_threshold(x, y, ax=None):  # TODO
     return x_threshold
 
 
+def annotate_max_L(x, y, ax=None):
+    xmax = x[np.argmax(y)]
+    ymax = y.max()
+    text = f"I_ro={xmax:.2f} mA, optical power={ymax:.2f} mW"
+    if not ax:
+        ax = plt.gca()
+    bbox_props = dict(boxstyle="square,pad=0.3", fc="w", ec="k", lw=0.72)
+    arrowprops = dict(arrowstyle="->", connectionstyle="angle,angleA=0,angleB=90")
+    kw = dict(
+        xycoords="data",
+        textcoords="axes fraction",
+        arrowprops=arrowprops,
+        bbox=bbox_props,
+        ha="left",
+        va="top",
+    )
+    ax.annotate(text, xy=(xmax, ymax), xytext=(0.3, 0.99), **kw)
+    return xmax, ymax
+
+
+def annotate_max_ef(x, y, threshold=0, ax=None):
+    # thresholdx = int(threshold / current_increment_LIV)  # TODO
+    thresholdx = np.argmax(x == threshold)
+    xmax = x[np.argmax(y[thresholdx:]) + thresholdx]
+    ymax = y[thresholdx:].max()
+    text = f"I={xmax:.2f} mA, PCE={ymax:.2f}, %"
+    if not ax:
+        ax = plt.gca()
+    bbox_props = dict(boxstyle="square,pad=0.3", fc="w", ec="k", lw=0.72)
+    arrowprops = dict(arrowstyle="->", connectionstyle="angle,angleA=0,angleB=90")
+    kw = dict(
+        xycoords="data",
+        textcoords="axes fraction",
+        arrowprops=arrowprops,
+        bbox=bbox_props,
+        ha="left",
+        va="top",
+    )
+    ax.annotate(text, xy=(xmax, ymax), xytext=(0.4, 0.99), **kw)
+    return xmax
+
+
 # functions to build graphs
 def buildplt_all(
     dataframe,
@@ -104,7 +105,6 @@ def buildplt_all(
     coordinates,
     temperature,
     powermeter,
-    current_increment_LIV=settings["current_increment_LIV"],
 ):
     fig = plt.figure(figsize=(1.8 * 11.69, 1.8 * 8.27))
     fig.suptitle(f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-{powermeter}")
@@ -296,21 +296,21 @@ def measure_liv(
     PM100USB=None,
     Keysight_8163B=None,
     k_port=None,
-    # settings
-    Keysight_B2901A_address=None,
-    Thorlabs_PM100USB_address=None,
-    Keysight_8163B_address=None,
-    YOKOGAWA_AQ6370D_address=None,
-    ATT_A160CMI_address=None,
-    current_increment_LIV=settings["current_increment_LIV"],
-    max_current=settings["max_current"],
-    beyond_rollover_stop_cond=settings["beyond_rollover_stop_cond"],
-    current_limit1=settings["current_limit1"],
-    current_limit2=settings["current_limit2"],
-    temperature_limit=110,
-    osa_span=30,
-    current_increment_OSA=0.3,
-    spectra_dpi=100,
+    # # settings
+    # Keysight_B2901A_address=None,
+    # Thorlabs_PM100USB_address=None,
+    # Keysight_8163B_address=None,
+    # YOKOGAWA_AQ6370D_address=None,
+    # ATT_A160CMI_address=None,
+    # current_increment_LIV=settings["current_increment_LIV"],
+    # max_current=settings["max_current"],
+    # beyond_rollover_stop_cond=settings["beyond_rollover_stop_cond"],
+    # current_limit1=settings["current_limit1"],
+    # current_limit2=settings["current_limit2"],
+    # temperature_limit=110,
+    # osa_span=30,
+    # current_increment_OSA=0.3,
+    # spectra_dpi=100,
 ):
     current_list = np.arange(
         0,
@@ -373,6 +373,7 @@ def measure_liv(
     max_output_power = 0
     output_power = 0
     warnings = []
+    alarm = False
 
     #                 (_)       | |
     #  _ __ ___   __ _ _ _ __   | | ___   ___  _ __
@@ -439,10 +440,14 @@ def measure_liv(
                 f"Current set={current_set} mA, current measured={current_measured} mA"
             )
             print(
-                f"WARNING! current set is {current_set}, while current measured is {current_measured:.4f}"
+                f"WARNING! Current set is {current_set}, while current measured is {current_measured}"
             )
 
         if current_error >= 0.03:
+            alarm = True
+            print(
+                f"ALARM! Current set is {current_set}, while current measured is {current_measured}\tBreaking the measurements!"
+            )
             break  # break the loop
 
         # breaking conditions
@@ -451,9 +456,17 @@ def measure_liv(
                 output_power <= max_output_power * beyond_rollover_stop_cond
                 or output_power <= 0.01
             ):  # check conditions to stop the measurements
+                print(
+                    f"Current reached {current_limit1} mA, but the output_power is less then 0.01 mW\tbreaking the loop"
+                )
+                alarm = True
                 break  # break the loop
         if max_output_power <= 0.5:
             if current_set > current_limit2:  # if current is more then limit2 mA
+                print(
+                    f"Current reached {current_limit2} mA, but the output_power is less then 0.5 mW\tbreaking the loop"
+                )
+                alarm = True
                 break  # break the loop
 
     # slowly decrease current
@@ -515,4 +528,4 @@ def measure_liv(
     if warnings:
         print(*warnings, sep="\n")
 
-    return filepath
+    return filepath, alarm

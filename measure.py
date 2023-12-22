@@ -100,6 +100,7 @@ def main():
 
         dirpath = f"data/{waferid}-{wavelength}nm/{coordinates}/"
 
+        alarm = False
         pm100_toggle = False
         keysight_8163B_toggle = False
         k_port = None
@@ -158,24 +159,24 @@ def main():
                 read_termination="\n",
             )
 
-        if powermeter:
-            for temperature in temperature_list:
-                # if len(temperature_list) != 1:  # TODO
-                #     temp_for_att = ""
-                #     if temperature >= 0 and temperature < 10:
-                #         temp_for_att = "+00" + str(round(temperature, ndigits=2))
-                #     elif temperature >= 10 and temperature < 100:
-                #         temp_for_att = "+0" + str(round(temperature, ndigits=2))
-                #     elif temperature >= 100 and temperature <= temperature_limit:
-                #         temp_for_att = "+" + str(round(temperature, ndigits=2))
-                #     else:
-                #         Exception("Temperature is too high!")
-                #     ATT_A160CMI_address.write("RS=1")
-                #     ATT_A160CMI_address.write("TA=+" + temp_for_att)
-                #     current_temperature = float(ATT_A160CMI_address.query("TA?"))
-                #     pass
-                #     # TODO
-                filepath = measure_liv(
+        for temperature in temperature_list:
+            # if len(temperature_list) != 1:  # TODO
+            #     temp_for_att = ""
+            #     if temperature >= 0 and temperature < 10:
+            #         temp_for_att = "+00" + str(round(temperature, ndigits=2))
+            #     elif temperature >= 10 and temperature < 100:
+            #         temp_for_att = "+0" + str(round(temperature, ndigits=2))
+            #     elif temperature >= 100 and temperature <= temperature_limit:
+            #         temp_for_att = "+" + str(round(temperature, ndigits=2))
+            #     else:
+            #         Exception("Temperature is too high!")
+            #     ATT_A160CMI_address.write("RS=1")
+            #     ATT_A160CMI_address.write("TA=+" + temp_for_att)
+            #     current_temperature = float(ATT_A160CMI_address.query("TA?"))
+            #     pass
+            #     # TODO
+            if powermeter:
+                filepath, alarm = measure_liv(
                     waferid,
                     wavelength,
                     coordinates,
@@ -192,12 +193,8 @@ def main():
                     plt.axis("off")
                     plt.show()
 
-        elif osa:
-            for temperature in temperature_list:
-                if len(temperature_list) != 1:
-                    pass
-                    # TODO
-                measure_osa(
+            elif osa:
+                alarm = measure_osa(
                     waferid,
                     wavelength,
                     coordinates,
@@ -205,6 +202,10 @@ def main():
                     Keysight_B2901A=Keysight_B2901A,
                     YOKOGAWA_AQ6370D=YOKOGAWA_AQ6370D,
                 )
+
+            if alarm:
+                # TODO set temperature to 25 deg
+                break
 
 
 # Run main when the script is run by passing it as a command to the Python interpreter (just a good practice)
