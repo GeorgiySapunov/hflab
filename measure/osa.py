@@ -9,16 +9,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
-
-from settings import settings
-
-
-# parameters
-# equipment = sys.argv[1]
-# waferid = sys.argv[2]
-# wavelength = sys.argv[3]
-# coordinates = sys.argv[4]
-# temperature = sys.argv[5]
+from configparser import ConfigParser
 
 
 def measure_osa(
@@ -28,10 +19,17 @@ def measure_osa(
     temperature,
     Keysight_B2901A=None,
     YOKOGAWA_AQ6370D=None,
-    max_current=settings["max_current"],
-    osa_span=settings["osa_span"],
-    current_increment_OSA=settings["current_increment_OSA"],
 ):
+    config = ConfigParser()
+    config.read("config.ini")
+    # instruments_config = config["INSTRUMENTS"]
+    # liv_config = config["LIV"]
+    osa_config = config["OSA"]
+    # other_config = config["OTHER"]
+    max_current = float(osa_config["max_current"])
+    osa_span = float(osa_config["osa_span"])
+    current_increment_OSA = float(osa_config["current_increment_OSA"])
+
     alarm = False
     warnings = []
     if YOKOGAWA_AQ6370D:
@@ -57,7 +55,7 @@ def measure_osa(
     max_current = liv_dataframe.iloc[-1]["Current set, mA"]
 
     # make a list of currents for spectra measurements
-    osa_current_list = [0]
+    osa_current_list = [0.0]
     round_to = max(0, int(np.ceil(np.log10(1 / current_increment_OSA))))
     while osa_current_list[-1] <= max_current - current_increment_OSA:
         osa_current_list.append(

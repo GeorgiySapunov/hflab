@@ -15,13 +15,19 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
+from configparser import ConfigParser
 
-from settings import settings
-from liv import measure_liv
-from osa import measure_osa
+from measure.liv import measure_liv
+from measure.osa import measure_osa
 
 
 def main():
+    config = ConfigParser()
+    config.read("config.ini")
+    instruments_config = config["INSTRUMENTS"]
+    # liv_config = config["LIV"]
+    # osa_config = config["OSA"]
+    other_config = config["OTHER"]
     # if python got less then or more then 6 parameters
     if len(sys.argv) not in (6, 8):
         # initiate pyvisa
@@ -41,19 +47,19 @@ def main():
         print()
         print("Make sure addresses in the programm are correct!")
         print(
-            f"Keysight_B2901A_address is set to       {settings['Keysight_B2901A_address']}"
+            f"Keysight_B2901A_address is set to       {instruments_config['Keysight_B2901A_address']}"
         )
         print(
-            f"Thorlabs_PM100USB_address is set to     {settings['Thorlabs_PM100USB_address']}"
+            f"Thorlabs_PM100USB_address is set to     {instruments_config['Thorlabs_PM100USB_address']}"
         )
         print(
-            f"Keysight_8163B_address is set to        {settings['Keysight_8163B_address']}"
+            f"Keysight_8163B_address is set to        {instruments_config['Keysight_8163B_address']}"
         )
         print(
-            f"Yokogawa_AQ6370D_adress is set to       {settings['YOKOGAWA_AQ6370D_address']}"
+            f"Yokogawa_AQ6370D_adress is set to       {instruments_config['YOKOGAWA_AQ6370D_address']}"
         )
         print(
-            f"ATT_A160CMI_address is set to           {settings['ATT_A160CMI_address']}"
+            f"ATT_A160CMI_address is set to           {instruments_config['ATT_A160CMI_address']}"
         )
         print()
         print("following arguments are needed:")
@@ -97,7 +103,9 @@ def main():
                 )
             temperature_list.append(float(temperature_end))
             temperature_list = [
-                t for t in temperature_list if t <= settings["temperature_limit"]
+                t
+                for t in temperature_list
+                if t <= float(other_config["temperature_limit"])
             ]
 
         for arg in sys.argv[1:]:
@@ -135,34 +143,34 @@ def main():
         rm = pyvisa.ResourceManager()
         # set addresses for devices
         Keysight_B2901A = rm.open_resource(
-            settings["Keysight_B2901A_address"],
+            instruments_config["Keysight_B2901A_address"],
             write_termination="\r\n",
             read_termination="\n",
         )
         if pm100_toggle:
             PM100USB = rm.open_resource(
-                settings["Thorlabs_PM100USB_address"],
+                instruments_config["Thorlabs_PM100USB_address"],
                 write_termination="\r\n",
                 read_termination="\n",
             )
             powermeter = "PM100USB"
         elif keysight_8163B_toggle:
             Keysight_8163B = rm.open_resource(
-                settings["Keysight_8163B_address"],
+                instruments_config["Keysight_8163B_address"],
                 write_termination="\r\n",
                 read_termination="\n",
             )
             powermeter = "Keysight_8163B_port" + k_port
         elif YOKOGAWA_AQ6370D_toggle:
             YOKOGAWA_AQ6370D = rm.open_resource(
-                settings["YOKOGAWA_AQ6370D_address"],
+                instruments_config["YOKOGAWA_AQ6370D_address"],
                 write_termination="\r\n",
                 read_termination="\n",
             )
             osa = "YOKOGAWA_AQ6370D"
         if len(temperature_list) != 1:
             ATT_A160CMI = rm.open_resource(
-                settings["ATT_A160CMI_address"],
+                instruments_config["ATT_A160CMI_address"],
                 write_termination="\r\n",
                 read_termination="\n",
             )

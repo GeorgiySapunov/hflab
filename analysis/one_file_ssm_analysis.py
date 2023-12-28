@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from sklearn.metrics import mean_squared_error
 
-from pysmithplot_fork.smithplot import SmithAxes
+from resources.pysmithplot_fork.smithplot import SmithAxes
 
 
 def one_file_approximation(

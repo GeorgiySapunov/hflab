@@ -11,8 +11,7 @@ from scipy.optimize import curve_fit
 from sklearn.metrics import mean_squared_error
 from sklearn import linear_model
 
-from one_file_ssm_analysis import one_file_approximation
-from settings import settings
+from analysis.one_file_ssm_analysis import one_file_approximation
 
 # Settings
 S21_MSE_threshold = 5

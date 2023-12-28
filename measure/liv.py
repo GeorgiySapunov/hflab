@@ -8,8 +8,9 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
+from configparser import ConfigParser
 
-from settings import settings
+# from settings import settings
 
 
 # parameters
@@ -295,22 +296,20 @@ def measure_liv(
     PM100USB=None,
     Keysight_8163B=None,
     k_port=None,
-    # # settings
-    # Keysight_B2901A_address=None,
-    # Thorlabs_PM100USB_address=None,
-    # Keysight_8163B_address=None,
-    # YOKOGAWA_AQ6370D_address=None,
-    # ATT_A160CMI_address=None,
-    current_increment_LIV=settings["current_increment_LIV"],
-    max_current=settings["max_current"],
-    beyond_rollover_stop_cond=settings["beyond_rollover_stop_cond"],
-    current_limit1=settings["current_limit1"],
-    current_limit2=settings["current_limit2"],
-    # osa_span=30,
-    # current_increment_OSA=0.3,
-    # spectra_dpi=100,
 ):
-    current_list = [0]
+    config = ConfigParser()
+    config.read("config.ini")
+    # instruments_config = config["INSTRUMENTS"]
+    liv_config = config["LIV"]
+    # osa_config = config["OSA"]
+    # other_config = config["OTHER"]
+    current_increment_LIV = float(liv_config["current_increment_LIV"])
+    max_current = float(liv_config["max_current"])
+    beyond_rollover_stop_cond = float(liv_config["beyond_rollover_stop_cond"])
+    current_limit1 = float(liv_config["current_limit1"])
+    current_limit2 = float(liv_config["current_limit2"])
+
+    current_list = [0.0]
     round_to = max(0, int(np.ceil(np.log10(1 / current_increment_LIV))))
     while current_list[-1] <= max_current - current_increment_LIV:
         current_list.append(round(current_list[-1] + current_increment_LIV, round_to))

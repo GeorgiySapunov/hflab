@@ -9,14 +9,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
-from settings import settings
-from liv import (
-    # annotate_max_L,
-    # annotate_max_ef,
-    # annotate_threshold,
-    buildplt_all,
-    buildplt_tosave,
-)
+from measure.liv import buildplt_all, buildplt_tosave
 
 
 def makefigs(directory):
@@ -65,7 +58,6 @@ def makefigs(directory):
             coordinates=coordinates,
             temperature=temperature,
             powermeter=powermeter,
-            current_increment_LIV=settings["current_increment_LIV"],
         )
         plt.savefig(filepath + "-all.png", dpi=300)  # save figure
         i_threshold, i_rollover = buildplt_tosave(
@@ -74,7 +66,6 @@ def makefigs(directory):
             wavelength=wavelength,
             coordinates=coordinates,
             temperature=temperature,
-            powermeter=powermeter,
         )
         plt.savefig(
             filepath + f"_Ith={i_threshold:.2f}_Iro={i_rollover:.2f}.png", dpi=300

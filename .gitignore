@@ -1,11 +1,12 @@
+__pycache__/
 env/
+.env/
 venv/
 .venv/
 .tmp/
 data/
+projects/
 reports/
-__pycache__/
-shell.nix
 
 # Rainer Michalzik-2013-VCSEL Fundamentals DOI: 10.1007/978-3-642-24986-0
 resources/Michalzik-2013-VCSEL Fundamentals.pdf

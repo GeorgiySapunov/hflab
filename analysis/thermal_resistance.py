@@ -12,14 +12,22 @@ import seaborn as sns
 from scipy.signal import find_peaks as fp
 from sklearn import linear_model
 from itertools import cycle
+from configparser import ConfigParser
 
-from settings import settings
+# from settings import settings
 
 spectra_xlim_left = 1560
 spectra_xlim_right = 1580
 
 
-def analyse(dirpath):
+def analyze(dirpath):
+    config = ConfigParser()
+    config.read("config.ini")
+    # instruments_config = config["INSTRUMENTS"]
+    # liv_config = config["LIV"]
+    # osa_config = config["OSA"]
+    other_config = config["OTHER"]
+
     if dirpath[-1] != "/":  # TODO check it
         dirpath = dirpath + "/"
     photodiode = "PM100USB"
@@ -288,8 +296,8 @@ def analyse(dirpath):
             if not os.path.exists(dirpath + f"OSA/figures/temperature/{temperature}°C"):
                 os.makedirs(dirpath + f"OSA/figures/temperature/{temperature}°C")
 
-            plt.savefig(filepath_t + ".png", dpi=settings["spectra_dpi"])
-            plt.savefig(filepath_i + ".png", dpi=settings["spectra_dpi"])
+            plt.savefig(filepath_t + ".png", dpi=other_config["spectra_dpi"])
+            plt.savefig(filepath_i + ".png", dpi=other_config["spectra_dpi"])
             plt.close()
 
     # 6. sort and interpolate
@@ -653,14 +661,20 @@ def analyse(dirpath):
     for temperature in temperatures:
         livfile = dict_of_filenames_liv[temperature]
         livdf = pd.read_csv(dirpath + "LIV/" + livfile)
+        # currents = [  # TODO test and delete this
+        #     current
+        #     for current in current_axis_values
+        #     if int(current / settings["current_increment_LIV"])
+        #     in livdf.index.values.tolist()
+        # ]
         currents = [
             current
             for current in current_axis_values
-            if int(current / settings["current_increment_LIV"])
-            in livdf.index.values.tolist()
+            if float(current) in livdf["Current, mA"].astype(float)
         ]
         for current in currents:
-            row = livdf.loc[round(current / settings["current_increment_LIV"], 2)]
+            # row = livdf.loc[round(current / settings["current_increment_LIV"], 2)]
+            row = livdf.loc[livdf["Current, mA"] == current]  # TODO check it
             if (row["Current, mA"] * row["Voltage, V"] - row["Output power, mW"]) > 0:
                 pdis = float(
                     row["Current, mA"] * row["Voltage, V"] - row["Output power, mW"]
