@@ -220,9 +220,7 @@ def buildplt_all(
     ax4.legend(lns, labs, loc=0)
 
 
-def buildplt_tosave(
-    dataframe, waferid, wavelength, coordinates, temperature, powermeter
-):
+def buildplt_tosave(dataframe, waferid, wavelength, coordinates, temperature):
     # Creating figure
     fig = plt.figure(figsize=(11.69, 8.27))
     ax = fig.add_subplot(111)
@@ -313,8 +311,9 @@ def measure_liv(
     # spectra_dpi=100,
 ):
     current_list = [0]
+    round_to = max(0, int(np.ceil(np.log10(1 / current_increment_LIV))))
     while current_list[-1] <= max_current - current_increment_LIV:
-        current_list.append(current_list[-1] + current_increment_LIV)
+        current_list.append(round(current_list[-1] + current_increment_LIV, round_to))
     # current_list = np.arange(
     #     0,
     #     max_current + current_increment_LIV,
@@ -439,7 +438,6 @@ def measure_liv(
             )
 
         # deal with set/measured current mismatch
-        round_to=2
         current_error = abs(current_set - current_measured)
         if np.float64(round(current_measured, round_to)) != np.float64(
             round(current_set, round_to)

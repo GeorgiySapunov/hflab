@@ -11,4 +11,6 @@ pyusb
 pyserial
 psutil
 zeroconf
+pyfiglet
+rich
 # pysmithplot-fork

@@ -158,8 +158,8 @@ def analyse(dirpath):
         # itterate by current
         for current, column in zip(currents, columns):
             # get Pdis
-            # row = row[row["Current, mA"] == current] # TODO does't work, e.g. row["Current, mA"] != 4.1, but == 4.1000000000000005
-            row = livdf.loc[round(current / settings["current_increment_LIV"], 2)]
+            row = livdf.loc[livdf["Current, mA"] == current]  # TODO check it
+            # row = livdf.loc[round(current / settings["current_increment_LIV"], 2)]
             pdis = float(
                 row["Current, mA"] * row["Voltage, V"] - row["Output power, mW"]
             )  # mW

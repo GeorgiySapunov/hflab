@@ -58,8 +58,11 @@ def measure_osa(
 
     # make a list of currents for spectra measurements
     osa_current_list = [0]
+    round_to = max(0, int(np.ceil(np.log10(1 / current_increment_OSA))))
     while osa_current_list[-1] <= max_current - current_increment_OSA:
-        osa_current_list.append(osa_current_list[-1] + current_increment_OSA)
+        osa_current_list.append(
+            round(osa_current_list[-1] + current_increment_OSA, round_to)
+        )
     # osa_current_list = np.arange(
     #     0,
     #     max_current,
