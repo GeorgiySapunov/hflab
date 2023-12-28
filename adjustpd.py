@@ -41,5 +41,5 @@ while True:
     elif output_power > 1:
         color = "green"
     print(f"[{color}]{power}[/{color}]")
-    print(f"\n"{output_power:3.6f}")
+    print(f"\n{output_power:3.6f}")
     print("Ctrl-C to cancel")
