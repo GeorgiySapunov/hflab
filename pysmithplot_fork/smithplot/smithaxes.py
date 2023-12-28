@@ -555,8 +555,7 @@ class SmithAxes(Axes):
         # if hasattr(self, "yaxis") and len(self.yaxis.majorTicks) > 0:
         #     font_size = self.yaxis.majorTicks[0].label.get_size()
         # else:
-        #     font_size = self._get_key("font.size")
-        font_size = 18  # TODO
+        font_size = self._get_key("font.size")  # TODO
 
         offset = self._get_key("axes.ylabel.correction")[2]
         return (
