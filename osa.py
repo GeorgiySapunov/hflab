@@ -57,11 +57,16 @@ def measure_osa(
     max_current = liv_dataframe.iloc[-1]["Current set, mA"]
 
     # make a list of currents for spectra measurements
-    osa_current_list = np.arange(
-        0,
-        max_current,
-        current_increment_OSA,
-    )
+    osa_current_list = [0]
+    while osa_current_list[-1] <= max_current - current_increment_OSA:
+        osa_current_list.append(osa_current_list[-1] + current_increment_OSA)
+    # osa_current_list = np.arange(
+    #     0,
+    #     max_current,
+    #     current_increment_OSA,
+    # )
+    # round_to = max(0, int(np.ceil(np.log10(1 / current_increment_OSA))))
+    # osa_current_list = np.array([round(i, round_to) for i in osa_current_list])
     print(f"to {osa_current_list[-1]} mA")
 
     # make a data frame for additional IV measurements (.csv file in OSA directory)
@@ -140,7 +145,7 @@ def measure_osa(
 
         # deal with set/measured current mismatch
         current_error = abs(current_set - current_measured)
-        if round(current_measured, 4) != current_set:
+        if round(current_measured, round_to) != current_set:
             warnings.append(
                 f"Current set={current_set} mA, current measured={current_measured} mA"
             )

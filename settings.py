@@ -16,7 +16,7 @@ settings = {
     # "Keysight_8163B_address": "TCPIP::169.254.20.100::5025::SOCKET",
     "YOKOGAWA_AQ6370D_address": "TCPIP::169.254.5.10::INSTR",
     # "YOKOGAWA_AQ6370D_address": "TCPIP0::169.254.5.10::10001::SOCKET",
-    "ATT_A160CMI_address": "",
+    "ATT_A160CMI_address": "ASRL4::INSTR",
     # list of current to measure from 0 to 50 mA, 0.01 mA steps
     "current_increment_LIV": 0.01,  # mA
     "max_current": 50,  # mA

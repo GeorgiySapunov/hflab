@@ -4,7 +4,7 @@
 # - Thorlabs PM100USB Power and energy meter
 # - Keysight 8163B Lightwave Multimeter
 # - YOKOGAWA AQ6370D Optical Spectrum Analyzer
-# - Advanced Temperature Test Systems Chuck System A160 CMI TODO
+# - Advanced Temperature Test Systems Chuck System A160 CMI
 
 import sys
 import os
@@ -83,14 +83,22 @@ def main():
         waferid = sys.argv[2]
         wavelength = sys.argv[3]
         coordinates = sys.argv[4]
-        temperature1 = sys.argv[5]
-        temperature_list = [float(temperature1)]
+        temperature_start = sys.argv[5]
+        temperature_list = [float(temperature_start)]
         if len(sys.argv) == 8:
-            temperature2 = sys.argv[6]
-            temperature3 = sys.argv[8]
-            temperature_list = list(
-                range(float(temperature1), float(temperature2), float(temperature3))
-            ).append(float(temperature2))
+            temperature_end = sys.argv[6]
+            temperature_increment = sys.argv[8]
+            temperature_list = [float(temperature_start)]
+            while temperature_list[-1] < float(temperature_end) - float(
+                temperature_increment
+            ):
+                temperature_list.append(
+                    float(temperature_list[-1] + float(temperature_increment))
+                )
+            temperature_list.append(float(temperature_end))
+            temperature_list = [
+                t for t in temperature_list if t <= settings["temperature_limit"]
+            ]
 
         for arg in sys.argv[1:]:
             if "-" in arg:
@@ -159,28 +167,39 @@ def main():
                 read_termination="\n",
             )
 
-        for temperature in temperature_list:
-            # if len(temperature_list) != 1:  # TODO
-            #     temp_for_att = ""
-            #     if temperature >= 0 and temperature < 10:
-            #         temp_for_att = "+00" + str(round(temperature, ndigits=2))
-            #     elif temperature >= 10 and temperature < 100:
-            #         temp_for_att = "+0" + str(round(temperature, ndigits=2))
-            #     elif temperature >= 100 and temperature <= temperature_limit:
-            #         temp_for_att = "+" + str(round(temperature, ndigits=2))
-            #     else:
-            #         Exception("Temperature is too high!")
-            #     ATT_A160CMI_address.write("RS=1")
-            #     ATT_A160CMI_address.write("TA=+" + temp_for_att)
-            #     current_temperature = float(ATT_A160CMI_address.query("TA?"))
-            #     pass
-            #     # TODO
+        for i, set_temperature in enumerate(temperature_list):
+            print(f"[{i}/{len(temperature_list)}] {set_temperature} degree Celsius")
+            if len(temperature_list) != 1:  # TODO
+                ATT_A160CMI_address.write("RS=1")
+                ATT_A160CMI_address.write(f"TA=+{set_temperature:3.2f}")
+                stable = False
+                counter_stability = 0
+                sign = 0
+                time.sleep(120)
+                while not stable:
+                    time.sleep(3)
+                    current_temperature_str = str(ATT_A160CMI_address.query("TA?"))
+                    if current_temperature_str[4] == "+":
+                        sign = 1
+                    elif current_temperature_str[4] == "-":
+                        sign = -1
+                    current_temperature = sign * (
+                        float(current_temperature_str[4:6])
+                        + float(current_temperature_str[7:8]) / 100
+                    )
+                    error = abs(current_temperature - set_temperature)
+                    if error < 0.05:
+                        counter_stability += 1
+                    else:
+                        counter_stability = 0
+                    if counter_stability == 10:
+                        stable = True
             if powermeter:
                 filepath, alarm = measure_liv(
                     waferid,
                     wavelength,
                     coordinates,
-                    temperature,
+                    set_temperature,
                     Keysight_B2901A=Keysight_B2901A,
                     PM100USB=PM100USB,
                     Keysight_8163B=Keysight_8163B,
@@ -198,14 +217,19 @@ def main():
                     waferid,
                     wavelength,
                     coordinates,
-                    temperature,
+                    set_temperature,
                     Keysight_B2901A=Keysight_B2901A,
                     YOKOGAWA_AQ6370D=YOKOGAWA_AQ6370D,
                 )
 
             if alarm:
-                # TODO set temperature to 25 deg
+                time.sleep(1)
+                ATT_A160CMI_address.write("TA=+02500")
                 break
+
+        if len(temperature_list) != 1:
+            time.sleep(1)
+            ATT_A160CMI_address.write("TA=+02500")
 
 
 # Run main when the script is run by passing it as a command to the Python interpreter (just a good practice)

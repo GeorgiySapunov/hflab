@@ -24,18 +24,18 @@ list_of_files = [
 list_of_temp = [25, 35, 45, 55, 65, 75, 85]
 
 list_of_currents = [
-    [3, 4, 10, 15, 18],
+    [3, 4, 10, 16, 18],
     [],
     [],
     [],
-    [15],
-    [15],
+    [16],
+    [16],
     [],
 ]
 
 directory = "data/PW2024-1550nm/57M6GSG/OSA/"
-spectra_xlim_left = 1563
-spectra_xlim_right = 1577
+spectra_xlim_left = 1564
+spectra_xlim_right = 1578
 
 # # 47M6GSG
 # list_of_files = [

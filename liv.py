@@ -29,12 +29,13 @@ from settings import settings
 
 
 def annotate_threshold(x, y, ax=None):  # TODO
+    decision_level = 1
     first_der = np.gradient(y, x)
     second_der = np.gradient(first_der, x)
     # print(f"max second der = {second_der.max()}")
-    if second_der.max() >= 1:
-        x_threshold = x[np.argmax(second_der >= 1)]  # decision level
-        y_threshold = y[np.argmax(second_der >= 1)]
+    if second_der.max() >= decision_level:
+        x_threshold = x[np.argmax(second_der >= decision_level)]
+        y_threshold = y[np.argmax(second_der >= decision_level)]
 
         text = f"I_th={x_threshold:.2f} mA"
         if not ax:
@@ -201,8 +202,8 @@ def buildplt_all(
     ax3.set_xlim(left=0)  # Current
     ax32.set_ylim(0, 100)  # Power conversion efficiency
     ax4.set_xlim(left=0)  # Current
-    ax4.set_ylim((0, 1))  # Current
-    ax42.set_ylim((0, 0.2))  # Current
+    # ax4.set_ylim((0, 2))  # Current
+    # ax42.set_ylim((0, 0.4))  # Current
 
     # legends
     lns = lns11 + lns12
@@ -302,22 +303,26 @@ def measure_liv(
     # Keysight_8163B_address=None,
     # YOKOGAWA_AQ6370D_address=None,
     # ATT_A160CMI_address=None,
-    # current_increment_LIV=settings["current_increment_LIV"],
-    # max_current=settings["max_current"],
-    # beyond_rollover_stop_cond=settings["beyond_rollover_stop_cond"],
-    # current_limit1=settings["current_limit1"],
-    # current_limit2=settings["current_limit2"],
-    # temperature_limit=110,
+    current_increment_LIV=settings["current_increment_LIV"],
+    max_current=settings["max_current"],
+    beyond_rollover_stop_cond=settings["beyond_rollover_stop_cond"],
+    current_limit1=settings["current_limit1"],
+    current_limit2=settings["current_limit2"],
     # osa_span=30,
     # current_increment_OSA=0.3,
     # spectra_dpi=100,
 ):
-    current_list = np.arange(
-        0,
-        max_current + current_increment_LIV,
-        current_increment_LIV,
-        dtype=np.float32,
-    )  # mA
+    current_list = [0]
+    while current_list[-1] <= max_current - current_increment_LIV:
+        current_list.append(current_list[-1] + current_increment_LIV)
+    # current_list = np.arange(
+    #     0,
+    #     max_current + current_increment_LIV,
+    #     current_increment_LIV,
+    #     dtype=np.float64,
+    # )  # mA
+    # round_to = max(0, int(np.ceil(np.log10(1 / current_increment_LIV))))
+    # current_list = np.array([round(i, round_to) for i in current_list])
 
     pm100_toggle = False
     keysight_8163B_toggle = False
@@ -435,12 +440,14 @@ def measure_liv(
 
         # deal with set/measured current mismatch
         current_error = abs(current_set - current_measured)
-        if round(current_measured, 4) != current_set:
+        if np.float64(round(current_measured, round_to)) != np.float64(
+            round(current_set, round_to)
+        ):
             warnings.append(
                 f"Current set={current_set} mA, current measured={current_measured} mA"
             )
             print(
-                f"WARNING! Current set is {current_set}, while current measured is {current_measured}"
+                f"WARNING! Current set is {current_set} mA, while current measured is {current_measured} mA"
             )
 
         if current_error >= 0.03:
@@ -456,10 +463,11 @@ def measure_liv(
                 output_power <= max_output_power * beyond_rollover_stop_cond
                 or output_power <= 0.01
             ):  # check conditions to stop the measurements
-                print(
-                    f"Current reached {current_limit1} mA, but the output_power is less then 0.01 mW\tbreaking the loop"
-                )
-                alarm = True
+                if output_power <= 0.01:
+                    print(
+                        f"Current reached {current_limit1} mA, but the output_power is less then 0.01 mW\tbreaking the loop"
+                    )
+                    alarm = True
                 break  # break the loop
         if max_output_power <= 0.5:
             if current_set > current_limit2:  # if current is more then limit2 mA
@@ -504,7 +512,6 @@ def measure_liv(
         coordinates=coordinates,
         temperature=temperature,
         powermeter=powermeter,
-        current_increment_LIV=current_increment_LIV,
     )
     plt.savefig(filepath + "-all.png", dpi=300)  # save figure
     i_threshold, i_rollover = buildplt_tosave(

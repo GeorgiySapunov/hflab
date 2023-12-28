@@ -17,24 +17,24 @@ from settings import settings
 # Settings
 S21_MSE_threshold = 5
 probe_port = 1
-fit_freqlimit = 20  # GHz
+fit_freqlimit = 40  # GHz
 #
 i_th_fixed = None  # mA
-fp_fixed = True
+fp_fixed = False
 # 1st row
 fig_ec_ind_max = 100
 fig_ec_res_max = 200
 fig_ec_cap_max = 300
 #
-fig_max_current = 20  # mA
-fig_max_freq = 20  # GHz
+fig_max_current = 12  # mA
+fig_max_freq = 25  # GHz
 # 2nd row
 fig_max_gamma = 100
-fig_max_f_r2_for_gamma = 180
+fig_max_f_r2_for_gamma = 500
 # 4th row
-fig_K_max = 1.5
+fig_K_max = 0.2
 fig_gamma0_max = 20
-fig_D_MCEF_max = 10
+fig_D_MCEF_max = 20
 
 
 # directory, file_name, probe_port, limit
@@ -252,16 +252,15 @@ def analyse(
             .values.reshape(-1)
         )
         frequency = auto_file["Frequency1"].values.reshape(-1)
-        abs_s21 = auto_file["Abs(S21)"].values.reshape(-1)
-        phase_s21 = auto_file["Phase(S21)"].values.reshape(-1)
-        abs_s11 = auto_file["Abs(S11)"].values.reshape(-1)
-        phase_s11 = auto_file["Phase(S11)"].values.reshape(-1)
+        abs_s21 = auto_file["Abs(S11)"].values.reshape(-1)
+        re_s11 = auto_file["Abs(S21)"].values.reshape(-1)
+        im_s11 = auto_file["Phase(S21)"].values.reshape(-1)
         points = np.where(abs_s21 == -999999999)[0][0]
         waferid_wl, coordinates, _ = matched_csv_file.split("_")
         waferid, wavelength = waferid_wl.split("-")
         coordinates = coordinates[:2] + coordinates[3:]
         temperature = 25.0
-        auto_I_th = float(auto_file["Threshold current"].iloc[0])
+        auto_I_th = float(auto_file["Threshold current"].iloc[0].iloc[0])
         for i, current in enumerate(currents):
             print(f"current={current}")
             start = i * points + i
@@ -295,10 +294,12 @@ def analyse(
                 current=current,
                 #     temperature=None,
                 frequency=frequency[0:points],
-                s11mag=abs_s11[start:stop],
-                s11deg_rad=phase_s11[start:stop],
+                # s11mag=abs_s11[start:stop], # TODO del
+                # s11deg_rad=phase_s11[start:stop], # TODO del
+                s11re=re_s11[start:stop],
+                s11im=im_s11[start:stop],
                 s21mag=abs_s21[start:stop],
-                s21deg=phase_s11[start:stop],
+                # s21deg=phase_s11[start:stop],
                 S21_MSE_threshold=S21_MSE_threshold,
                 fp_fixed=fp_fixed,
             )

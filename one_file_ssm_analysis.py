@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from sklearn.metrics import mean_squared_error
 
-from pysmithplot_fork.smithplot import SmithAxes
+# from pysmithplot_fork.smithplot import SmithAxes
 
 
 def one_file_approximation(
@@ -23,11 +23,13 @@ def one_file_approximation(
     current=None,
     temperature=25,
     frequency=None,
-    s11mag=None,
-    s11deg=None,
-    s11deg_rad=None,
+    # s11mag=None,
+    # s11deg=None,
+    # s11deg_rad=None,
+    s11re=None,
+    s11im=None,
     s21mag=None,
-    s21deg=None,
+    # s21deg=None,
     S21_MSE_threshold=3,
     fp_fixed=True,
 ):
@@ -38,7 +40,7 @@ def one_file_approximation(
         elif probe_port == 2:
             optical_port = 1
         else:
-            raise Exception("probe_port is not 1 or 2")
+            raise Exception("probe_port is unclear")
 
         vcsel_ntwk = rf.Network(full_path)
         photodiode = rf.Network("resources/T3K7V9_DXM30BF_U00162.s2p")
@@ -79,24 +81,19 @@ def one_file_approximation(
         # For DB: let $mag = 10**($a/20), such that:
         # $complex = $mag*cos($b*pi()/180) + $mag*sin($b*pi()/180) j
         f = frequency
-        if s11deg:
-            s11deg_rad = s11deg * np.pi / 180
-        # mag = 10 ** ((s11mag) / 20)  # usually
-        mag = 10 ** (((s11mag) / 10) + 3)  # for automatic system
-        S11_Real = np.cos(s11deg_rad) * mag
-        S11_Imag = np.sin(s11deg_rad) * mag
-        S21_Magnitude = s21mag  # usually
-        # S21_Magnitude = 20 * ((s21mag / 10) + 3)  # for automatic system
         file_name = f"{waferid}-{wavelength}-{coordinates}-{temperature}°C-{current}mA"
-
-        vcsel_df = pd.DataFrame(S11_Real, index=f)
+        sdict = {"s11_re": s11re, "s11_im": s11im, "s21_mag": s21mag}
+        vcsel_df = pd.DataFrame(sdict, index=f)
         vcsel_df = vcsel_df[vcsel_df.index <= freqlimit * 10**9]
+        S11_Real = vcsel_df["s11_re"]
+        S11_Imag = vcsel_df["s11_im"]
+        S21_Magnitude = vcsel_df["s21_mag"]
         # fixing index in photodiodes .s2p file
-        # Substract PD
+        # Subtract PD
         photodiode = rf.Network("resources/T3K7V9_DXM30BF_U00162.s2p")
         pd_df = photodiode.to_dataframe("s")
         pd_df.index = pd_df.index.values * 10**9
-        # substracting photodiode S21
+        # subtracting photodiode S21
         pd_df["pd_s21_re"] = pd_df["s 21"].values.real
         pd_df["pd_s21_im"] = pd_df["s 21"].values.imag
         vcsel_df = vcsel_df.join(pd_df[["pd_s21_re", "pd_s21_im"]], how="outer")
@@ -207,8 +204,17 @@ def one_file_approximation(
     H2_ext0 = np.abs(H_ext0) ** 2
     H2_f_dB0 = 10 * np.log10(H2_ext0)
 
-    f_par_Hz = f_h[np.where(H2_ext / H2_ext0 < 0.5)[0][0]]
-    f_p2 = f_par_Hz * 10**-9
+    if (
+        np.where(H2_ext / H2_ext0 < 0.5) == True
+    ):  # TODO fix it! turn on and off S11 fitting?
+        f_par_Hz = f_h[np.where(H2_ext / H2_ext0 < 0.5)[0][0]]
+        f_p2 = f_par_Hz * 10**-9
+    else:
+        f_par_Hz = 10 * 10**9
+        f_p2 = f_par_Hz * 10**-9
+        print(
+            "WARNING!: np.where(H2_ext / H2_ext0 < 0.5) == True\tf_parasitic set to 10!"
+        )
 
     #  ____ ____  _
     # / ___|___ \/ |
@@ -251,7 +257,7 @@ def one_file_approximation(
         )
         f_r, f_p, gamma, c = popt_S21
 
-        # Compute the best-fit solution and mean squered error for S21
+        # Compute the best-fit solution and mean squared error for S21
         S21_Fit = s21_func(new_f, *popt_S21)
         S21_Fit_MSE = mean_squared_error(new_S21_Magnitude_to_fit, S21_Fit)
         # print(f"S21_Fit_MSE={S21_Fit_MSE}")
@@ -274,7 +280,7 @@ def one_file_approximation(
             s21_freqlimit -= 1
 
     if S21_Fit_MSE > S21_MSE_threshold:
-        print(f"\n                    Failed to fit S21\n")
+        print(f"\n\tFailed to fit S21\n")
     # if S21_Fit_MSE < 5:
     #     f_r, f_p, gamma, c, f3dB = None, None, None, None, None
 
@@ -317,7 +323,7 @@ def one_file_approximation(
             )
             f_r2, gamma2, c2 = popt_S21_2
 
-            # Compute the best-fit solution and mean squered error for S21
+            # Compute the best-fit solution and mean squared error for S21
             S21_Fit2 = s21_func2(new_f2, *popt_S21_2)
             S21_Fit_MSE2 = mean_squared_error(new_S21_Magnitude_to_fit2, S21_Fit2)
             # print(f"S21_Fit_MSE={S21_Fit_MSE}")
@@ -342,9 +348,7 @@ def one_file_approximation(
                 s21_freqlimit2 -= 1
 
         if S21_Fit_MSE2 > S21_MSE_threshold:
-            print(
-                f"\n                    Failed to fit S21 with f_par fixed at {f_p2:.2f} GHz\n"
-            )
+            print(f"\n\tFailed to fit S21 with f_par fixed at {f_p2:.2f} GHz\n")
         # if S21_Fit_MSE2 < 5:
         #     f_r2, gamma2, c2, f3dB2 = None, None, None, None
     else:
@@ -402,30 +406,31 @@ def one_file_approximation(
     ax2_s11im.minorticks_on()
     ax2_s11im.set_ylim([-1, 1])
 
-    # plot the S11 Smith Chart
-    ax3_s11_smith = fig.add_subplot(
-        323,
-        projection="smith",
-    )
-    # ax3_s11_smith.update_scParams(axes_impedance=50)
-    ax3_s11_smith.plot(
-        S11_Real,
-        np.real(S11_Imag),
-        "k",
-        label="S11 measured",
-        alpha=0.6,
-    )
-    ax3_s11_smith.plot(
-        np.real(S11_Fit), np.imag(S11_Fit), "b", label="S11 fit", alpha=0.6
-    )
-    ax3_s11_smith.set_title("S11 Smith chart")
-    # ax3_s11_smith.set_ylabel("Im(S11)")
-    # ax3_s11_smith.set_xlabel("Re(S11)")
-    # ax3_s11_smith.legend()
-    # ax3_s11_smith.grid(which="both")
-    # ax3_s11_smith.minorticks_on()
-    # ax3_s11_smith.set_ylim([-1, 1])
-    # ax3_s11_smith.set_xlim([-1, 1])
+    # TODO fix smith chart plot
+    # # plot the S11 Smith Chart
+    # ax3_s11_smith = fig.add_subplot(
+    #     323,
+    #     projection="smith",
+    # )
+    # # ax3_s11_smith.update_scParams(axes_impedance=50)
+    # ax3_s11_smith.plot(
+    #     S11_Real,
+    #     np.real(S11_Imag),
+    #     "k",
+    #     label="S11 measured",
+    #     alpha=0.6,
+    # )
+    # ax3_s11_smith.plot(
+    #     np.real(S11_Fit), np.imag(S11_Fit), "b", label="S11 fit", alpha=0.6
+    # )
+    # ax3_s11_smith.set_title("S11 Smith chart")
+    # # ax3_s11_smith.set_ylabel("Im(S11)")
+    # # ax3_s11_smith.set_xlabel("Re(S11)")
+    # # ax3_s11_smith.legend()
+    # # ax3_s11_smith.grid(which="both")
+    # # ax3_s11_smith.minorticks_on()
+    # # ax3_s11_smith.set_ylim([-1, 1])
+    # # ax3_s11_smith.set_xlim([-1, 1])
 
     # H^2(f)
     ax4_h2 = fig.add_subplot(324)
@@ -468,9 +473,7 @@ def one_file_approximation(
         new_f * 10**-9,
         S21_Fit - c,
         "b-.",
-        label=f"""Best fit S21
-        f_r={f_r:.2f} GHz, f_p={f_p:.2f} GHz, ɣ={gamma:.2f}, c={c:.2f}
-        MSE={S21_Fit_MSE:.2f}, fit to {s21_freqlimit} GHz""",
+        label=f"Best fit S21\nf_r={f_r:.2f} GHz, f_p={f_p:.2f} GHz, ɣ={gamma:.2f}, c={c:.2f}\nMSE={S21_Fit_MSE:.2f}, fit to {s21_freqlimit} GHz",
         alpha=1,
     )
     if fp_fixed:
@@ -478,9 +481,7 @@ def one_file_approximation(
             new_f2 * 10**-9,
             S21_Fit2 - c2,
             "m:",
-            label=f"""S21 fit with f_p_2={f_p2:.2f} GHz
-            f_r={f_r2:.2f} GHz, ɣ={gamma2:.2f}, c={c2:.2f}
-            MSE={S21_Fit_MSE2:.2f}, fit to {s21_freqlimit2} GHz""",
+            label=f"S21 fit with f_p_2={f_p2:.2f} GHz\nf_r={f_r2:.2f} GHz, ɣ={gamma2:.2f}, c={c2:.2f}\nMSE={S21_Fit_MSE2:.2f}, fit to {s21_freqlimit2} GHz",
             alpha=1,
         )
     ax6_s21.set_title("S21")
@@ -521,32 +522,27 @@ def one_file_approximation(
     # print and return the results
     if f3dB:
         print(
-            f""" L={L:.2f} pH, R_p={R_p:.2f} Om, R_m={R_m:.2f}\tR_a={R_a:.2f}\tC_p={C_p:.2f}\tC_a={C_a:.2f}
+            f"""L={L:.2f} pH, R_p={R_p:.2f} Om, R_m={R_m:.2f}\tR_a={R_a:.2f}\tC_p={C_p:.2f}\tC_a={C_a:.2f}
             f_r={f_r:.2f}\tf_p={f_p:.2f}\tgamma={gamma:.2f}\tc={c:.2f}\tf3dB={f3dB:.2f}
             MSE_S21={S21_Fit_MSE:.2f}, MSE_S11*10^4={S11_Fit_MSE*10**4:.2f}, MSE_imag*10^4={S11_Fit_MSE_imag*10**4:.2f}, MSE_real*10^4={S11_Fit_MSE_real*10**4:.2f}, fit to {freqlimit} GHz """
         )
     else:
         print(
-            f""" L={L:.2f} pH, R_p={R_p:.2f} Om, R_m={R_m:.2f}\tR_a={R_a:.2f}\tC_p={C_p:.2f}\tC_a={C_a:.2f}
+            f"""L={L:.2f} pH, R_p={R_p:.2f} Om, R_m={R_m:.2f}\tR_a={R_a:.2f}\tC_p={C_p:.2f}\tC_a={C_a:.2f}
             f_r={f_r:.2f}\tf_p={f_p:.2f}\tgamma={gamma:.2f}\tc={c:.2f}\tf3dB={f3dB}
             MSE_S21={S21_Fit_MSE:.2f}, MSE_S11*10^4={S11_Fit_MSE*10**4:.2f}, MSE_imag*10^4={S11_Fit_MSE_imag*10**4:.2f}, MSE_real*10^4={S11_Fit_MSE_real*10**4:.2f}, fit to {freqlimit} GHz """
         )
     if f_r > 80 or f_p > 80 or gamma > 2000:
+        print(
+            f"f_r={f_r:.2f}\tf_p={f_p:.2f}\tgamma={gamma:.2f}\tc={c:.2f}\tf3dB={f3dB}\n*Changed to None*"
+        )
         f_r, f_p, c, gamma, f3dB = None, None, None, None, None
-        print(
-            f"""
-            f_r={f_r:.2f}\tf_p={f_p:.2f}\tgamma={gamma:.2f}\tc={c:.2f}\tf3dB={f3dB}
-            *Changed to None*
-            """
-        )
-    if f_r2 > 80 or f_p2 > 80 or gamma2 > 2000:
-        f_r2, f_p2, c2, gamma2, f3dB2 = None, None, None, None, None
-        print(
-            f"""
-            f_r2={f_r:.2f}\tf_p2={f_p2:.2f}\tgamma2={gamma2:.2f}\tc2={c2:.2f}\tf3dB2={f3dB2}
-            *Changed to None*
-            """
-        )
+    if fp_fixed:
+        if f_r2 > 80 or f_p2 > 80 or gamma2 > 2000:
+            print(
+                f"f_r2={f_r2:.2f}\tf_p2={f_p2:.2f}\tgamma2={gamma2:.2f}\tc2={c2:.2f}\tf3dB2={f3dB2}\n*Changed to None*"
+            )
+            f_r2, f_p2, c2, gamma2, f3dB2 = None, None, None, None, None
     return (
         L,
         R_p,
