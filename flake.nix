@@ -48,6 +48,8 @@
                 pyserial
                 psutil
                 zeroconf
+                pyfiglet
+                rich
 
               ]))
           ];
