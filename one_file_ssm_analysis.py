@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from sklearn.metrics import mean_squared_error
 
-# from pysmithplot_fork.smithplot import SmithAxes
+from pysmithplot_fork.smithplot import SmithAxes
 
 
 def one_file_approximation(
@@ -406,31 +406,30 @@ def one_file_approximation(
     ax2_s11im.minorticks_on()
     ax2_s11im.set_ylim([-1, 1])
 
-    # TODO fix smith chart plot
-    # # plot the S11 Smith Chart
-    # ax3_s11_smith = fig.add_subplot(
-    #     323,
-    #     projection="smith",
-    # )
-    # # ax3_s11_smith.update_scParams(axes_impedance=50)
-    # ax3_s11_smith.plot(
-    #     S11_Real,
-    #     np.real(S11_Imag),
-    #     "k",
-    #     label="S11 measured",
-    #     alpha=0.6,
-    # )
-    # ax3_s11_smith.plot(
-    #     np.real(S11_Fit), np.imag(S11_Fit), "b", label="S11 fit", alpha=0.6
-    # )
-    # ax3_s11_smith.set_title("S11 Smith chart")
-    # # ax3_s11_smith.set_ylabel("Im(S11)")
-    # # ax3_s11_smith.set_xlabel("Re(S11)")
-    # # ax3_s11_smith.legend()
-    # # ax3_s11_smith.grid(which="both")
-    # # ax3_s11_smith.minorticks_on()
-    # # ax3_s11_smith.set_ylim([-1, 1])
-    # # ax3_s11_smith.set_xlim([-1, 1])
+    # plot the S11 Smith Chart
+    ax3_s11_smith = fig.add_subplot(
+        323,
+        projection="smith",
+    )
+    # ax3_s11_smith.update_scParams(axes_impedance=50)
+    ax3_s11_smith.plot(
+        S11_Real,
+        np.real(S11_Imag),
+        "k",
+        label="S11 measured",
+        alpha=0.6,
+    )
+    ax3_s11_smith.plot(
+        np.real(S11_Fit), np.imag(S11_Fit), "b", label="S11 fit", alpha=0.6
+    )
+    ax3_s11_smith.set_title("S11 Smith chart")
+    # ax3_s11_smith.set_ylabel("Im(S11)")
+    # ax3_s11_smith.set_xlabel("Re(S11)")
+    # ax3_s11_smith.legend()
+    # ax3_s11_smith.grid(which="both")
+    # ax3_s11_smith.minorticks_on()
+    # ax3_s11_smith.set_ylim([-1, 1])
+    # ax3_s11_smith.set_xlim([-1, 1])
 
     # H^2(f)
     ax4_h2 = fig.add_subplot(324)

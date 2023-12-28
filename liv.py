@@ -439,6 +439,7 @@ def measure_liv(
             )
 
         # deal with set/measured current mismatch
+        round_to=2
         current_error = abs(current_set - current_measured)
         if np.float64(round(current_measured, round_to)) != np.float64(
             round(current_set, round_to)

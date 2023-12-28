@@ -472,24 +472,26 @@ class SmithAxes(Axes):
             label.set_bbox(self._get_key("axes.xlabel.fancybox"))
             self.add_artist(label)  # if not readded, labels are drawn behind grid
 
-        for tick, loc in zip(
-            self.yaxis.get_major_ticks(), self.yaxis.get_majorticklocs()
+        for tick, loc, label in zip(
+            self.yaxis.get_major_ticks(),
+            self.yaxis.get_majorticklocs(),
+            self.yaxis.get_majorticklabels(),
         ):
             # workaround for fixing to small infinity symbol
             if abs(loc) > self._near_inf:
-                tick.label.set_size(
-                    tick.label.get_size() + self._get_key("symbol.infinity.correction")
+                label.set_fontsize(
+                    label.get_fontsize() + self._get_key("symbol.infinity.correction")
                 )
 
-            tick.label.set_verticalalignment("center")
+            label.set_verticalalignment("center")
 
             x = np.real(self._moebius_z(loc * 1j))
             if x < -0.1:
-                tick.label.set_horizontalalignment("right")
+                label.set_horizontalalignment("right")
             elif x > 0.1:
-                tick.label.set_horizontalalignment("left")
+                label.set_horizontalalignment("left")
             else:
-                tick.label.set_horizontalalignment("center")
+                label.set_horizontalalignment("center")
 
         self.yaxis.set_major_formatter(self.ImagFormatter(self))
         self.xaxis.set_major_formatter(self.RealFormatter(self))
@@ -550,10 +552,11 @@ class SmithAxes(Axes):
         return self._yaxis_transform
 
     def get_yaxis_text1_transform(self, pixelPad):
-        if hasattr(self, "yaxis") and len(self.yaxis.majorTicks) > 0:
-            font_size = self.yaxis.majorTicks[0].label.get_size()
-        else:
-            font_size = self._get_key("font.size")
+        # if hasattr(self, "yaxis") and len(self.yaxis.majorTicks) > 0:
+        #     font_size = self.yaxis.majorTicks[0].label.get_size()
+        # else:
+        #     font_size = self._get_key("font.size")
+        font_size = 18  # TODO
 
         offset = self._get_key("axes.ylabel.correction")[2]
         return (

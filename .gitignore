@@ -7,7 +7,17 @@ reports/
 __pycache__/
 shell.nix
 
+# Rainer Michalzik-2013-VCSEL Fundamentals DOI: 10.1007/978-3-642-24986-0
 resources/Michalzik-2013-VCSEL Fundamentals.pdf
+# Hui Li "Temperature-stable, energy-efficient, and high bit-rate /980/ nm VCSELs"
+# https://doi.org/10.14279/depositonce-4598
+# https://depositonce.tu-berlin.de/items/1a251546-3723-4450-9e94-a7ba4d154a14
 resources/Li_Hui.pdf
+# Alex Mutig "High speed VCSELs for optical interconnects"
+# DOI: 10.1007/978-3-642-16570-2
+# https://link.springer.com/10.1007/978-3-642-16570-2
 resources/Mutig-2011-High Speed VCSELs for Optical Inter.pdf
+# Nick Gamroth "S-Parameters and Smith Charts" Oct |2004|
+# https://studylib.net/doc/8837889/s-parameters-and-smith-charts
+# https://pdf4pro.com/view/s-parameters-and-smith-charts-thebeekeeper-net-38491e.html
 resources/sparams.pdf
