@@ -112,8 +112,8 @@ def buildplt_all(
     fig.suptitle(f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-{powermeter}")
     ax1 = fig.add_subplot(221)  # subplot for set current
     ax12 = ax1.twinx()
-    ax2 = fig.add_subplot(222)  # subplot for measured current
-    ax22 = ax2.twinx()
+    ax2 = fig.add_subplot(222)  # subplot for L/P
+    ax22 = ax2.twinx()  # derivative
     ax3 = fig.add_subplot(223)  # subplot for power
     ax32 = ax3.twinx()
     ax4 = fig.add_subplot(224)  # subplot for power
@@ -129,17 +129,21 @@ def buildplt_all(
     ax4.grid(which="both")  # adding grid
     # Adding labels
     ax1.set_xlabel("Current set, mA")
-    ax2.set_xlabel("Current measured, mA")
-    ax3.set_xlabel("Current measured, mA")
-    ax4.set_xlabel("Current measured, mA")
     ax1.set_ylabel("Output power, mW", color="blue")
-    ax2.set_ylabel("Output power, mW", color="blue")
-    ax3.set_ylabel("Power, mW")
-    ax4.set_ylabel("dP_out/dI, mW/mA", color="blue")
     ax12.set_ylabel("Voltage, V", color="red")
-    ax22.set_ylabel("Voltage, V", color="red")
+
+    ax2.set_xlabel("Power consumption, mW")
+    ax2.set_ylabel("Output power, mW", color="blue")
+    ax22.set_ylabel("P_out/P_in", color="red")
+
+    ax3.set_xlabel("Current measured, mA")
+    ax3.set_ylabel("Power, mW")
     ax32.set_ylabel("Power conversion efficiency, %", color="red")
+
+    ax4.set_xlabel("Current measured, mA")
+    ax4.set_ylabel("dP_out/dI, mW/mA", color="blue")
     ax42.set_ylabel("dV/dI, V/mA", color="red")
+
     ax1.minorticks_on()
     ax2.minorticks_on()
     ax12.minorticks_on()
@@ -162,26 +166,27 @@ def buildplt_all(
         e = dataframe["Power conversion efficiency, %"]
 
     # Plotting
-    lns11 = ax1.plot(seti, l, "-", label="Output power, mW")
-    lns21 = ax2.plot(i, l, "-", label="Output power, mW")
-    lns41 = ax4.plot(i, np.gradient(l, i), "-", label="dP_out/dI, mW/mA")
-    # Creating Twin axes
-    lns12 = ax12.plot(seti, v, "-r", label="Voltage, V")
-    lns22 = ax22.plot(i, v, "-r", label="Voltage, V")
-
+    lns11 = ax1.plot(i, l, "-", label="Output power, mW")
+    lns12 = ax12.plot(i, v, "-r", label="Voltage, V")
     # annotate maximum output power
-    annotate_max_L(seti, l, ax=ax1)
-    annotate_max_L(i, l, ax=ax2)
-    annotate_threshold(seti, l, ax=ax1)
-    threshold = annotate_threshold(i, l, ax=ax2)
+    annotate_max_L(i, l, ax=ax1)
+    # annotate_max_L(i, l, ax=ax2)
+    threshold = annotate_threshold(i, l, ax=ax1)
+    above_threshold = threshold + 0.02
     print(f"threshold {threshold:.2f}")
 
-    lns42 = ax42.plot(
-        i.loc[i >= threshold],
-        np.gradient(v.loc[i >= threshold], i.loc[i >= threshold]),
+    zbul = seti >= above_threshold
+
+    z = (l.loc[zbul] - l.loc[zbul].iloc[0]) / (p.loc[zbul] - p.loc[zbul].iloc[0])
+
+    lns21 = ax2.plot(p, l, "-", label="Output power, mW")
+    lns22 = ax22.plot(
+        p.loc[zbul],
+        z,
         "-r",
-        label="dV/dI, V/mA",
+        label="(P_out-P_out(@threshold))/(P_in-P_in(@threshold))",
     )
+
     lns31 = ax3.plot(i, l, "-", label="Output power, mW")
     lns32 = ax3.plot(i, p, "-b", label="Power consumption, mW")
     lns33 = ax32.plot(
@@ -192,16 +197,27 @@ def buildplt_all(
     )
     annotate_max_ef(i, e, threshold=threshold, ax=ax32)
 
+    lns41 = ax4.plot(i, np.gradient(l, i), "-", label="dP_out/dI, mW/mA")
+    lns42 = ax42.plot(
+        i.loc[i >= threshold],
+        np.gradient(v.loc[i >= threshold], i.loc[i >= threshold]),
+        "-r",
+        label="dV/dI, V/mA",
+    )
+
     # Setting limits
+    ax1.set_xlim(left=0)  # Current
     ax1.set_ylim(bottom=0)  # Power
-    ax1.set_xlim(left=0)  # Current set
     ax12.set_ylim(bottom=0)  # Voltage
-    ax2.set_ylim(bottom=0)  # Power
-    ax2.set_xlim(left=0)  # Current
-    ax22.set_ylim(bottom=0)  # Voltage
-    ax3.set_ylim(bottom=0)  # Voltage
+
+    ax2.set_xlim(left=0)  # Power input
+    ax2.set_ylim(bottom=0)  # Power output
+    ax22.set_ylim(0, 1)  # Derivative
+
     ax3.set_xlim(left=0)  # Current
+    ax3.set_ylim(bottom=0)  # Voltage
     ax32.set_ylim(0, 100)  # Power conversion efficiency
+
     ax4.set_xlim(left=0)  # Current
     # ax4.set_ylim((0, 2))  # Current
     # ax42.set_ylim((0, 0.4))  # Current
@@ -210,12 +226,15 @@ def buildplt_all(
     lns = lns11 + lns12
     labs = [l.get_label() for l in lns]
     ax1.legend(lns, labs, loc=4)
+
     lns = lns21 + lns22
     labs = [l.get_label() for l in lns]
-    ax2.legend(lns, labs, loc=4)
+    ax2.legend(lns, labs, loc=7)
+
     lns = lns31 + lns32 + lns33
     labs = [l.get_label() for l in lns]
     ax3.legend(lns, labs, loc=7, prop={"size": 9})
+
     lns = lns41 + lns42
     labs = [l.get_label() for l in lns]
     ax4.legend(lns, labs, loc=0)
