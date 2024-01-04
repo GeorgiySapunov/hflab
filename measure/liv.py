@@ -30,7 +30,7 @@ from configparser import ConfigParser
 
 
 def annotate_threshold(x, y, ax=None):  # TODO
-    decision_level = 1
+    decision_level = 2
     first_der = np.gradient(y, x)
     second_der = np.gradient(first_der, x)
     # print(f"max second der = {second_der.max()}")
@@ -134,7 +134,8 @@ def buildplt_all(
 
     ax2.set_xlabel("Power consumption, mW")
     ax2.set_ylabel("Output power, mW", color="blue")
-    ax22.set_ylabel("P_out/P_in", color="red")
+    ax22.set_ylabel("dP_out/dP_in", color="red")
+    # ax22.set_ylabel("P_out/P_in", color="red")
 
     ax3.set_xlabel("Current measured, mA")
     ax3.set_ylabel("Power, mW")
@@ -172,19 +173,21 @@ def buildplt_all(
     annotate_max_L(i, l, ax=ax1)
     # annotate_max_L(i, l, ax=ax2)
     threshold = annotate_threshold(i, l, ax=ax1)
-    above_threshold = threshold + 0.02
     print(f"threshold {threshold:.2f}")
 
-    zbul = seti >= above_threshold
-
-    z = (l.loc[zbul] - l.loc[zbul].iloc[0]) / (p.loc[zbul] - p.loc[zbul].iloc[0])
+    # above_threshold = threshold + 0.02
+    # zbul = seti >= above_threshold
+    # z = (l.loc[zbul] - l.loc[zbul].iloc[0]) / (p.loc[zbul] - p.loc[zbul].iloc[0])
+    z = np.gradient(l.loc[i >= threshold], p.loc[i >= threshold])
 
     lns21 = ax2.plot(p, l, "-", label="Output power, mW")
     lns22 = ax22.plot(
-        p.loc[zbul],
+        p.loc[i >= threshold],
+        # p.loc[zbul],
         z,
         "-r",
-        label="(P_out-P_out(@threshold))/(P_in-P_in(@threshold))",
+        # label="(P_out-P_out(@threshold))/(P_in-P_in(@threshold))",
+        label="dP_out/dP_in",
     )
 
     lns31 = ax3.plot(i, l, "-", label="Output power, mW")
@@ -219,7 +222,7 @@ def buildplt_all(
     ax32.set_ylim(0, 100)  # Power conversion efficiency
 
     ax4.set_xlim(left=0)  # Current
-    # ax4.set_ylim((0, 2))  # Current
+    ax4.set_ylim(bottom=0)  # Current
     # ax42.set_ylim((0, 0.4))  # Current
 
     # legends
@@ -233,14 +236,16 @@ def buildplt_all(
 
     lns = lns31 + lns32 + lns33
     labs = [l.get_label() for l in lns]
-    ax3.legend(lns, labs, loc=7, prop={"size": 9})
+    ax3.legend(lns, labs, loc=7, prop={"size": 8})
 
     lns = lns41 + lns42
     labs = [l.get_label() for l in lns]
     ax4.legend(lns, labs, loc=0)
 
 
-def buildplt_tosave(dataframe, waferid, wavelength, coordinates, temperature):
+def buildplt_tosave(
+    dataframe, waferid, wavelength, coordinates, temperature, powermeter
+):
     # Creating figure
     fig = plt.figure(figsize=(11.69, 8.27))
     ax = fig.add_subplot(111)
@@ -254,9 +259,9 @@ def buildplt_tosave(dataframe, waferid, wavelength, coordinates, temperature):
         + str(coordinates)
         + " "
         + str(temperature)
-        + " °C"
+        + " °C "
         # + " "
-        # + powermeter
+        + str(powermeter)
     )  # Adding title
 
     ax.grid(which="both")  # adding grid
@@ -371,12 +376,14 @@ def measure_liv(
     if pm100_toggle:
         PM100USB.write(f"sense:corr:wav {wavelength}")  # set wavelength
         PM100USB.write("power:dc:unit W")  # set power units
+        sleep_time = 0.03
     elif keysight_8163B_toggle:
         Keysight_8163B.write("*RST")  # reset
         # set wavelength
         Keysight_8163B.write(f"SENS1:CHAN{k_port}:POW:WAV {wavelength}nm")
         # set power units
         Keysight_8163B.write(f"SENS1:CHAN{k_port}:POW:UNIT W")
+        sleep_time = 0.2
 
     Keysight_B2901A.write(
         ":SOUR:FUNC:MODE CURR"
@@ -407,7 +414,7 @@ def measure_liv(
     for current_set in current_list:
         # Outputs {current_set} mA immediately
         Keysight_B2901A.write(":SOUR:CURR " + str(current_set / 1000))
-        time.sleep(0.03)
+        time.sleep(sleep_time)
         # measure Voltage, V
         voltage = float(Keysight_B2901A.query("MEAS:VOLT?"))
         # measure Current, A

@@ -23,10 +23,10 @@ def measure_osa(
     config = ConfigParser()
     config.read("config.ini")
     # instruments_config = config["INSTRUMENTS"]
-    # liv_config = config["LIV"]
+    liv_config = config["LIV"]
     osa_config = config["OSA"]
     # other_config = config["OTHER"]
-    max_current = float(osa_config["max_current"])
+    max_current = float(liv_config["max_current"])
     osa_span = float(osa_config["osa_span"])
     current_increment_OSA = float(osa_config["current_increment_OSA"])
 

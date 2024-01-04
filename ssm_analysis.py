@@ -15,7 +15,7 @@ from analysis.one_file_ssm_analysis import one_file_approximation
 
 # Settings
 S21_MSE_threshold = 5
-probe_port = 1
+probe_port = 2
 fit_freqlimit = 40  # GHz
 #
 i_th_fixed = None  # mA

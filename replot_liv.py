@@ -66,6 +66,7 @@ def makefigs(directory):
             wavelength=wavelength,
             coordinates=coordinates,
             temperature=temperature,
+            powermeter=powermeter,
         )
         plt.savefig(
             filepath + f"_Ith={i_threshold:.2f}_Iro={i_rollover:.2f}.png", dpi=300
