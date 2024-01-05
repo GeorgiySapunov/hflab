@@ -376,7 +376,7 @@ def measure_liv(
     if pm100_toggle:
         PM100USB.write(f"sense:corr:wav {wavelength}")  # set wavelength
         PM100USB.write("power:dc:unit W")  # set power units
-        sleep_time = 0.03
+        sleep_time = 0
     elif keysight_8163B_toggle:
         Keysight_8163B.write("*RST")  # reset
         # set wavelength

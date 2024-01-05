@@ -21,6 +21,48 @@ from measure.liv import measure_liv
 from measure.osa import measure_osa
 
 
+def update_att_temperature(ATT_A160CMI, set_temperature):
+    temp_for_att = ""
+    if set_temperature >= 0 and set_temperature < 10:
+        temp_for_att = "+00" + str(int(round(set_temperature, ndigits=2) * 100))
+    elif set_temperature >= 10 and set_temperature < 100:
+        temp_for_att = "+0" + str(int(round(set_temperature, ndigits=2) * 100))
+    elif set_temperature >= 100 and set_temperature <= float(
+        other_config["temperature_limit"]
+    ):
+        temp_for_att = "+" + str(int(round(set_temperature, ndigits=2) * 100))
+    else:
+        ATT_A160CMI.write("TA=+02500")
+        Exception("Temperature is set too high!")
+    while len(temp_for_att) < 6:  # TODO check whether we need it
+        temp_for_att = temp_for_att + "0"
+    ATT_A160CMI.write(f"TS={temp_for_att}")
+    stable = False
+    counter_stability = 0
+    sign = 0
+    while not stable:
+        time.sleep(3)
+        current_temperature_str = str(ATT_A160CMI.query("TA?"))
+        if current_temperature_str[3] == "+":
+            sign = 1
+        elif current_temperature_str[3] == "-":
+            sign = -1
+        current_temperature = sign * (
+            float(current_temperature_str[4:7])
+            + float(current_temperature_str[8:9]) / 10
+        )
+        error = abs(current_temperature - set_temperature)
+        if error < 0.05:
+            counter_stability += 1
+        else:
+            counter_stability = 0
+        if counter_stability == 10:
+            stable = True
+        print(
+            f"Temperature set to {set_temperature},\t measured {current_temperature},\t stabilizing [{counter_stability}/10]"
+        )
+
+
 def main():
     config = ConfigParser()
     config.read("config.ini")
@@ -44,46 +86,33 @@ def main():
             except pyvisa.VisaIOError:
                 pass
 
-        print()
-        print("Make sure addresses in the programm are correct!")
         print(
-            f"Keysight_B2901A_address is set to       {instruments_config['Keysight_B2901A_address']}"
-        )
-        print(
-            f"Thorlabs_PM100USB_address is set to     {instruments_config['Thorlabs_PM100USB_address']}"
-        )
-        print(
-            f"Keysight_8163B_address is set to        {instruments_config['Keysight_8163B_address']}"
-        )
-        print(
-            f"Yokogawa_AQ6370D_adress is set to       {instruments_config['YOKOGAWA_AQ6370D_address']}"
-        )
-        print(
-            f"ATT_A160CMI_address is set to           {instruments_config['ATT_A160CMI_address']}"
-        )
-        print()
-        print("following arguments are needed:")
-        print("Equipment_choice WaferID Wavelength(nm) Coordinates Temperature(°C)")
-        print("e.g. run 'python measure.py k2 gs15 1550 00C9 25'")
-        print()
-        print("for equipment choice use:")
-        print("t    for Thorlabs PM100USB Power and energy meter")
-        print("k1   for Keysight 8163B Lightwave Multimeter port 1")
-        print("k2   for Keysight 8163B Lightwave Multimeter port 2")
-        print("y    for YOKOGAWA AQ6370D Optical Spectrum Analyzer")
-        print()
-        print(
-            "for multiple temperature you need to specify start, stop and step temperature values:"
-        )
-        print(
-            "Equipment_choice WaferID Wavelength(nm) Coordinates Start_Temperature(°C) Stop_Temperature(°C) Temperature_Increment(°C)"
-        )
-        print("'-' is not allowed!")
-        print("e.g. run 'python measure.py t gs15 1550 00C9 25 85 40'")
-        print("in this case you will get LIVs for 25, 65 and 85 degrees")
-        print()
+            f"""Make sure addresses in the programm are correct!
+        Keysight_B2901A_address is set to       {instruments_config['Keysight_B2901A_address']}
+        Thorlabs_PM100USB_address is set to     {instruments_config['Thorlabs_PM100USB_address']}
+        Keysight_8163B_address is set to        {instruments_config['Keysight_8163B_address']}
+        Yokogawa_AQ6370D_adress is set to       {instruments_config['YOKOGAWA_AQ6370D_address']}
+        ATT_A160CMI_address is set to           {instruments_config['ATT_A160CMI_address']}
 
-    elif len(sys.argv) == 6:
+        following arguments are needed:
+        Equipment_choice WaferID Wavelength(nm) Coordinates Temperature(°C)
+        e.g. run 'python measure.py k2 gs15 1550 00C9 25'
+
+        for equipment choice use:
+        t    for Thorlabs PM100USB Power and energy meter
+        k1   for Keysight 8163B Lightwave Multimeter port 1
+        k2   for Keysight 8163B Lightwave Multimeter port 2
+        y    for YOKOGAWA AQ6370D Optical Spectrum Analyzer
+
+        for multiple temperature you need to specify start, stop and step temperature values:
+        Equipment_choice WaferID Wavelength(nm) Coordinates Start_Temperature(°C) Stop_Temperature(°C) Temperature_Increment(°C)
+        '-' is not allowed!
+        e.g. run 'python measure.py t gs15 1550 00C9 25 85 40'
+        in this case you will get LIVs for 25, 65 and 85 degrees
+        """
+        )
+
+    elif len(sys.argv) == 6 or len(sys.argv) == 8:
         # parameters
         equipment = sys.argv[1]
         waferid = sys.argv[2]
@@ -93,13 +122,13 @@ def main():
         temperature_list = [float(temperature_start)]
         if len(sys.argv) == 8:
             temperature_end = sys.argv[6]
-            temperature_increment = sys.argv[8]
+            temperature_increment = sys.argv[7]
             temperature_list = [float(temperature_start)]
             while temperature_list[-1] < float(temperature_end) - float(
                 temperature_increment
             ):
                 temperature_list.append(
-                    float(temperature_list[-1] + float(temperature_increment))
+                    round(float(temperature_list[-1] + float(temperature_increment)), 2)
                 )
             temperature_list.append(float(temperature_end))
             temperature_list = [
@@ -107,6 +136,7 @@ def main():
                 for t in temperature_list
                 if t <= float(other_config["temperature_limit"])
             ]
+            print(f"temperature list: {temperature_list}")
 
         for arg in sys.argv[1:]:
             if "-" in arg:
@@ -176,32 +206,9 @@ def main():
             )
 
         for i, set_temperature in enumerate(temperature_list):
-            print(f"[{i}/{len(temperature_list)}] {set_temperature} degree Celsius")
-            if len(temperature_list) != 1:  # TODO
-                ATT_A160CMI_address.write("RS=1")
-                ATT_A160CMI_address.write(f"TA=+{set_temperature:3.2f}")
-                stable = False
-                counter_stability = 0
-                sign = 0
-                time.sleep(120)
-                while not stable:
-                    time.sleep(3)
-                    current_temperature_str = str(ATT_A160CMI_address.query("TA?"))
-                    if current_temperature_str[4] == "+":
-                        sign = 1
-                    elif current_temperature_str[4] == "-":
-                        sign = -1
-                    current_temperature = sign * (
-                        float(current_temperature_str[4:6])
-                        + float(current_temperature_str[7:8]) / 100
-                    )
-                    error = abs(current_temperature - set_temperature)
-                    if error < 0.05:
-                        counter_stability += 1
-                    else:
-                        counter_stability = 0
-                    if counter_stability == 10:
-                        stable = True
+            print(f"[{i+1}/{len(temperature_list)}] {set_temperature} degree Celsius")
+            if len(temperature_list) != 1:
+                update_att_temperature(ATT_A160CMI, set_temperature)
             if powermeter:
                 filepath, alarm = measure_liv(
                     waferid,
@@ -230,14 +237,14 @@ def main():
                     YOKOGAWA_AQ6370D=YOKOGAWA_AQ6370D,
                 )
 
-            if alarm:
+            if alarm and len(temperature_list) != 1:
                 time.sleep(1)
-                ATT_A160CMI_address.write("TA=+02500")
+                ATT_A160CMI.write("TA=+02500")
                 break
 
         if len(temperature_list) != 1:
             time.sleep(1)
-            ATT_A160CMI_address.write("TA=+02500")
+            ATT_A160CMI.write("TA=+02500")
 
 
 # Run main when the script is run by passing it as a command to the Python interpreter (just a good practice)
