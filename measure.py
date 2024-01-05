@@ -21,7 +21,20 @@ from measure.liv import measure_liv
 from measure.osa import measure_osa
 
 
-def update_att_temperature(ATT_A160CMI, set_temperature):
+def update_att_temperature(set_temperature, ATT_A160CMI=None):
+    config = ConfigParser()
+    config.read("config.ini")
+    other_config = config["OTHER"]
+    if not ATT_A160CMI:
+        instruments_config = config["INSTRUMENTS"]
+        rm = pyvisa.ResourceManager()
+        # rm = pyvisa.ResourceManager('@py') # for pyvisa-py
+        ATT_A160CMI = rm.open_resource(
+            instruments_config["ATT_A160CMI_address"],
+            write_termination="\r\n",
+            read_termination="\n",
+        )
+
     temp_for_att = ""
     if set_temperature >= 0 and set_temperature < 10:
         temp_for_att = "+00" + str(int(round(set_temperature, ndigits=2) * 100))
@@ -34,8 +47,8 @@ def update_att_temperature(ATT_A160CMI, set_temperature):
     else:
         ATT_A160CMI.write("TA=+02500")
         Exception("Temperature is set too high!")
-    while len(temp_for_att) < 6:  # TODO check whether we need it
-        temp_for_att = temp_for_att + "0"
+    # while len(temp_for_att) < 6:  # TODO check whether we need it
+    #     temp_for_att = temp_for_att + "0"
     ATT_A160CMI.write(f"TS={temp_for_att}")
     stable = False
     counter_stability = 0
@@ -59,7 +72,7 @@ def update_att_temperature(ATT_A160CMI, set_temperature):
         if counter_stability == 10:
             stable = True
         print(
-            f"Temperature set to {set_temperature},\t measured {current_temperature},\t stabilizing [{counter_stability}/10]"
+            f"Temperature set to {set_temperature},\t measured {current_temperature},\t stabilizing [{counter_stability}/10]\r"
         )
 
 
@@ -88,28 +101,28 @@ def main():
 
         print(
             f"""Make sure addresses in the programm are correct!
-        Keysight_B2901A_address is set to       {instruments_config['Keysight_B2901A_address']}
-        Thorlabs_PM100USB_address is set to     {instruments_config['Thorlabs_PM100USB_address']}
-        Keysight_8163B_address is set to        {instruments_config['Keysight_8163B_address']}
-        Yokogawa_AQ6370D_adress is set to       {instruments_config['YOKOGAWA_AQ6370D_address']}
-        ATT_A160CMI_address is set to           {instruments_config['ATT_A160CMI_address']}
+            Keysight_B2901A_address is set to       {instruments_config['Keysight_B2901A_address']}
+            Thorlabs_PM100USB_address is set to     {instruments_config['Thorlabs_PM100USB_address']}
+            Keysight_8163B_address is set to        {instruments_config['Keysight_8163B_address']}
+            Yokogawa_AQ6370D_adress is set to       {instruments_config['YOKOGAWA_AQ6370D_address']}
+            ATT_A160CMI_address is set to           {instruments_config['ATT_A160CMI_address']}
 
-        following arguments are needed:
-        Equipment_choice WaferID Wavelength(nm) Coordinates Temperature(°C)
-        e.g. run 'python measure.py k2 gs15 1550 00C9 25'
+            following arguments are needed:
+            Equipment_choice WaferID Wavelength(nm) Coordinates Temperature(°C)
+            e.g. run 'python measure.py k2 gs15 1550 00C9 25'
 
-        for equipment choice use:
-        t    for Thorlabs PM100USB Power and energy meter
-        k1   for Keysight 8163B Lightwave Multimeter port 1
-        k2   for Keysight 8163B Lightwave Multimeter port 2
-        y    for YOKOGAWA AQ6370D Optical Spectrum Analyzer
+            for equipment choice use:
+            t    for Thorlabs PM100USB Power and energy meter
+            k1   for Keysight 8163B Lightwave Multimeter port 1
+            k2   for Keysight 8163B Lightwave Multimeter port 2
+            y    for YOKOGAWA AQ6370D Optical Spectrum Analyzer
 
-        for multiple temperature you need to specify start, stop and step temperature values:
-        Equipment_choice WaferID Wavelength(nm) Coordinates Start_Temperature(°C) Stop_Temperature(°C) Temperature_Increment(°C)
-        '-' is not allowed!
-        e.g. run 'python measure.py t gs15 1550 00C9 25 85 40'
-        in this case you will get LIVs for 25, 65 and 85 degrees
-        """
+            for multiple temperature you need to specify start, stop and step temperature values:
+            Equipment_choice WaferID Wavelength(nm) Coordinates Start_Temperature(°C) Stop_Temperature(°C) Temperature_Increment(°C)
+            '-' is not allowed!
+            e.g. run 'python measure.py t gs15 1550 00C9 25 85 40'
+            in this case you will get LIVs for 25, 65 and 85 degrees
+            """
         )
 
     elif len(sys.argv) == 6 or len(sys.argv) == 8:
@@ -190,7 +203,7 @@ def main():
                 write_termination="\r\n",
                 read_termination="\n",
             )
-            powermeter = "Keysight_8163B_port" + k_port
+            powermeter = "Keysight_8163B_port" + str(k_port)
         elif YOKOGAWA_AQ6370D_toggle:
             YOKOGAWA_AQ6370D = rm.open_resource(
                 instruments_config["YOKOGAWA_AQ6370D_address"],
@@ -208,7 +221,7 @@ def main():
         for i, set_temperature in enumerate(temperature_list):
             print(f"[{i+1}/{len(temperature_list)}] {set_temperature} degree Celsius")
             if len(temperature_list) != 1:
-                update_att_temperature(ATT_A160CMI, set_temperature)
+                update_att_temperature(set_temperature, ATT_A160CMI=ATT_A160CMI)
             if powermeter:
                 filepath, alarm = measure_liv(
                     waferid,
