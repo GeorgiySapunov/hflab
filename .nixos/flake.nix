@@ -35,21 +35,19 @@
             (python.withPackages (ps:
               with ps; [
               
-                scikit-rf
-                numpy
                 pandas
-                scipy
-                scikit-learn
                 matplotlib
                 seaborn
-                pyvisa
-                pyvisa-py
-                pyusb
-                pyserial
-                psutil
-                zeroconf
+                scikit-learn
+                pyyaml
+                pyvisa pyvisa-py
+                scikit-rf
                 pyfiglet
-                rich
+                rich # Render rich text, tables, progress bars, syntax highlighting, markdown and more to the terminal
+
+                click # Command Line Interface Creation Kit
+                icecream # never use print() to debug again.
+                setuptools # Packaging and distributing projects
 
               ]))
           ];

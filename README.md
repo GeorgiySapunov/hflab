@@ -3,6 +3,7 @@
     - Thorlabs PM100USB Power and energy meter
     - Keysight 8163B Lightwave Multimeter
     - YOKOGAWA AQ6370D Optical Spectrum Analyzer
+    - Advanced Temperature Test (ATT) Chuck System A160 CMI
 2. Script to approximate small signal modulation signal (S-parameters) at
    different currents stored in multiple .s2p files
 3. Script to calculate and plot thermal resistance of a VCSEL
@@ -37,35 +38,19 @@ for equipment choice use:
 <!-- ``` -->
 <!-- in this case you will get LIVs for 25, 65 and 85 degrees -->
 
-## *To approximate S-parameters* run 
-```zsh
-python ssm_analysis.py *directories with .s2p files (or with PNA directory with .s2p files)*
-```
-for example: 
-```zsh
-python smm_analysis.py data/test-1550nm/0000/PNA/
-```
-or 
-```zsh
-python smm_analysis.py data/test-1550nm/*
-```
-Filenames should be \{WaferID\}-\{Wavelength\}-\{Coordinates\}-\{Current\}mA.s2p, e.g.
-Sample1-850-0022-1.0mA.s2p
+## Analysis
+    Usage: analyze.py [OPTIONS] [PATHS]...
 
-## *To calculate thermal resistance* run 
-```zsh 
-python thermal_resistance.py *directories with LIV and OSA directories inside*
-``` 
-for example:
-```zsh
-python thermal_resistance.py data/test-1550nm/0000/
-```
-or 
-```zsh
-python thermal_resistance.py data/test-1550nm/*
-```
+    Options:
+    -l, --replot_liv       Replot LIV figures
+    -s, --ssm              Analyze small signal modulation data (.s2p files or
+                            automatic system reports)
+    -r, --rin              Analyze RIN data (automatic system reports)
+    -o, --optical_spectra  Plot optical spectra
+    -y, --yaml_project     Read and analize according to settings in YAML files
+    --help                 Show this message and exit.
 
-# Required python libraries
+# Required python libraries (TODO: update)
 ```zsh
 pip install numpy scikit-rf pandas scipy scikit-learn matplotlib seaborn pyvisa pyvisa-py pyusb pyserial psutil zeroconf
 ```

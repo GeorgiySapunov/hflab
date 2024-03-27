@@ -1,0 +1,33 @@
+algorithm_name: ssm
+# directories:
+#   -
+#   -
+
+title:
+additional_report_directory: reports
+# Settings
+S21_MSE_threshold: 5
+probe_port: 2
+threshold_decision_level: 2
+# GHz
+fit_freqlimit: 40
+#
+# mA
+i_th_fixed:
+fp_fixed: false
+# 1st row
+figure_ec_ind_max: 100
+figure_ec_res_max: 200
+figure_ec_cap_max: 300
+#
+# mA
+figure_max_current: 12
+# GHz
+figure_max_freq: 25
+# 2nd row
+figure_max_gamma: 100
+figure_max_f_r2_for_gamma: 500
+# 4th row
+figure_K_max: 0.2
+figure_gamma0_max: 20
+figure_D_MCEF_max: 20

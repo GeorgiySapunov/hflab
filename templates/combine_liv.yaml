@@ -1,0 +1,22 @@
+algorithm_name: combine_liv
+title: ~
+legend_dict:
+  "25 °C": data/PW2024-1550nm/57M6GSG/LIV/PW2024-1550nm-57M6GSG-25.0°C-20230824-121432-PM100USB.csv
+  "35 °C": data/PW2024-1550nm/57M6GSG/LIV/PW2024-1550nm-57M6GSG-35.0°C-20230824-121845-PM100USB.csv
+  "45 °C": data/PW2024-1550nm/57M6GSG/LIV/PW2024-1550nm-57M6GSG-45.0°C-20230824-122213-PM100USB.csv
+  "55 °C": data/PW2024-1550nm/57M6GSG/LIV/PW2024-1550nm-57M6GSG-55.0°C-20230824-123119-PM100USB.csv
+  "65 °C": data/PW2024-1550nm/57M6GSG/LIV/PW2024-1550nm-57M6GSG-65.0°C-20230824-123512-PM100USB.csv
+  "75 °C": data/PW2024-1550nm/57M6GSG/LIV/PW2024-1550nm-57M6GSG-75.0°C-20230824-133308-PM100USB.csv
+  "85 °C": data/PW2024-1550nm/57M6GSG/LIV/PW2024-1550nm-57M6GSG-85.0°C-20230824-133709-PM100USB.csv
+# Limits
+power_limit: [0, 5.5]
+voltage_limit: [0, 3.2]
+current_limit: [0, 38]
+#
+figure_size: [8, 5]
+legend_fontsize: 10
+label_size: 13 # fontsize of the x and y labels
+title_size: 20 # fontsize of the axes title
+legend_location: 0
+alpha: 0.6
+figure_dpi: 600

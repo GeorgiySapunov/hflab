@@ -7,6 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from sklearn.metrics import mean_squared_error
+from pathlib import Path
 
 from resources.pysmithplot_fork.smithplot import SmithAxes
 
@@ -14,27 +15,23 @@ from resources.pysmithplot_fork.smithplot import SmithAxes
 def one_file_approximation(
     directory=None,
     report_directory=None,
-    freqlimit=40,
-    file_name=None,
+    title=None,
+    freqlimit=40,  # GHz
+    file_path=None,
     probe_port=None,
     waferid=None,
     wavelength=None,
     coordinates=None,
     current=None,
     temperature=25,
-    frequency=None,
-    # s11mag=None,
-    # s11deg=None,
-    # s11deg_rad=None,
+    frequency=None,  # Hz
     s11re=None,
     s11im=None,
     s21mag=None,
-    # s21deg=None,
     S21_MSE_threshold=3,
     fp_fixed=True,
 ):
-    if file_name is not None:
-        full_path = directory + "/" + file_name
+    if file_path is not None:
         if probe_port == 1:
             optical_port = 2
         elif probe_port == 2:
@@ -42,7 +39,12 @@ def one_file_approximation(
         else:
             raise Exception("probe_port is unclear")
 
-        vcsel_ntwk = rf.Network(full_path)
+        if isinstance(report_directory, str):
+            report_directory = Path(report_directory)
+        report_directory.mkdir(exist_ok=True)
+
+        file_name = file_path.stem
+        vcsel_ntwk = rf.Network(file_path)
         photodiode = rf.Network("resources/T3K7V9_DXM30BF_U00162.s2p")
         # ntwk = rf.pna_csv_2_ntwks3(
         #     "745.csv"
@@ -56,54 +58,55 @@ def one_file_approximation(
         vcsel_df["s11_im"] = vcsel_df[f"s {probe_port}{probe_port}"].values.imag
         vcsel_df["s21_re"] = vcsel_df[f"s {optical_port}{probe_port}"].values.real
         vcsel_df["s21_im"] = vcsel_df[f"s {optical_port}{probe_port}"].values.imag
-        f = vcsel_df.index.values
-        # fixing index in photodiodes .s2p file
-        pd_df.index = pd_df.index.values * 10**9
+        f = vcsel_df.index.values  # Hz
         # Split the measurements into a real and imaginary part
-        S21_Real = vcsel_df["s21_re"]
-        S21_Imag = vcsel_df["s21_im"]
-        S21_Magnitude = 10 * np.log10(S21_Real**2 + S21_Imag**2)
+        S21_Real = vcsel_df["s21_re"].values
+        S21_Imag = vcsel_df["s21_im"].values
 
         # substracting photodiode S21
         pd_df["pd_s21_re"] = pd_df["s 21"].values.real
         pd_df["pd_s21_im"] = pd_df["s 21"].values.imag
-        vcsel_df = vcsel_df.join(pd_df[["pd_s21_re", "pd_s21_im"]], how="outer")
-        vcsel_df["pd_s21_re"] = vcsel_df["pd_s21_re"].interpolate()
-        vcsel_df["pd_s21_im"] = vcsel_df["pd_s21_im"].interpolate()
+        pd_df["pd_s21_logmag"] = 10 * np.log10(
+            pd_df["pd_s21_re"] ** 2 + pd_df["pd_s21_im"] ** 2
+        )
+        vcsel_df = vcsel_df.join(pd_df[["pd_s21_logmag"]], how="outer")
+        vcsel_df["pd_s21_logmag"] = vcsel_df["pd_s21_logmag"].interpolate()
         vcsel_df = vcsel_df.dropna()
-        pd_Real = vcsel_df["pd_s21_re"]
-        pd_Imag = vcsel_df["pd_s21_im"]
-        pd_Magnitude = 10 * np.log10(pd_Real**2 + pd_Imag**2)
+        pd_Magnitude = vcsel_df["pd_s21_logmag"].values
+        S21_Magnitude = 10 * np.log10(S21_Real**2 + S21_Imag**2)
         S21_Magnitude_to_fit = S21_Magnitude - pd_Magnitude
-        S11_Real = vcsel_df["s11_re"]
-        S11_Imag = vcsel_df["s11_im"]
+        S11_Real = vcsel_df["s11_re"].values
+        S11_Imag = vcsel_df["s11_im"].values
     else:  # working with automatic system data
         # For DB: let $mag = 10**($a/20), such that:
         # $complex = $mag*cos($b*pi()/180) + $mag*sin($b*pi()/180) j
-        f = frequency
+
+        # TODO delete this line after fixing the automatic system!!!!!!!
+        frequency = pd.read_csv("resources/801point_10MHz-40GHz.csv")["Frequency, Hz"]
+        #
+
+        f = pd.Series(frequency)  # Hz
         file_name = f"{waferid}-{wavelength}-{coordinates}-{temperature}°C-{current}mA"
         sdict = {"s11_re": s11re, "s11_im": s11im, "s21_mag": s21mag}
         vcsel_df = pd.DataFrame(sdict, index=f)
         vcsel_df = vcsel_df[vcsel_df.index <= freqlimit * 10**9]
-        S11_Real = vcsel_df["s11_re"]
-        S11_Imag = vcsel_df["s11_im"]
-        S21_Magnitude = vcsel_df["s21_mag"]
-        # fixing index in photodiodes .s2p file
         # Subtract PD
         photodiode = rf.Network("resources/T3K7V9_DXM30BF_U00162.s2p")
         pd_df = photodiode.to_dataframe("s")
-        pd_df.index = pd_df.index.values * 10**9
         # subtracting photodiode S21
         pd_df["pd_s21_re"] = pd_df["s 21"].values.real
         pd_df["pd_s21_im"] = pd_df["s 21"].values.imag
-        vcsel_df = vcsel_df.join(pd_df[["pd_s21_re", "pd_s21_im"]], how="outer")
-        vcsel_df["pd_s21_re"] = vcsel_df["pd_s21_re"].interpolate()
-        vcsel_df["pd_s21_im"] = vcsel_df["pd_s21_im"].interpolate()
+        pd_df["pd_s21_logmag"] = 10 * np.log10(
+            pd_df["pd_s21_re"] ** 2 + pd_df["pd_s21_im"] ** 2
+        )
+        vcsel_df = vcsel_df.join(pd_df[["pd_s21_logmag"]], how="outer")
+        vcsel_df["pd_s21_logmag"] = vcsel_df["pd_s21_logmag"].interpolate()
         vcsel_df = vcsel_df.dropna()
-        pd_Real = vcsel_df["pd_s21_re"]
-        pd_Imag = vcsel_df["pd_s21_im"]
-        pd_Magnitude = 10 * np.log10(pd_Real**2 + pd_Imag**2)
+        pd_Magnitude = vcsel_df["pd_s21_logmag"].values
+        S21_Magnitude = vcsel_df["s21_mag"].values
         S21_Magnitude_to_fit = S21_Magnitude - pd_Magnitude
+        S11_Real = vcsel_df["s11_re"].values
+        S11_Imag = vcsel_df["s11_im"].values
 
     #  ____  _ _
     # / ___|/ / |
@@ -205,7 +208,7 @@ def one_file_approximation(
     H2_f_dB0 = 10 * np.log10(H2_ext0)
 
     if (
-        np.where(H2_ext / H2_ext0 < 0.5) == True
+        np.where(H2_ext / H2_ext0 < 0.5) == True  # TODO False??!
     ):  # TODO fix it! turn on and off S11 fitting?
         f_par_Hz = f_h[np.where(H2_ext / H2_ext0 < 0.5)[0][0]]
         f_p2 = f_par_Hz * 10**-9
@@ -362,7 +365,10 @@ def one_file_approximation(
     #          |___/
     fig = plt.figure(figsize=(2.5 * 11.69, 2.5 * 8.27))
 
-    fig.suptitle(file_name)
+    if title:
+        fig.suptitle(title)
+    else:
+        fig.suptitle(file_name)
 
     ax1_s11re = fig.add_subplot(321)
     ax1_s11re.plot(f * 10**-9, S11_Real, "k.", label="Experiment S11 Real", alpha=0.6)
@@ -509,13 +515,10 @@ def one_file_approximation(
         )
     ax6_s21.legend(fontsize=10)
 
-    # plt.tight_layout()
-    # plt.show()
-    if not os.path.exists(report_directory):  # make directories
-        os.makedirs(report_directory)
-    plt.savefig(
-        report_directory + file_name.removesuffix(".s2p") + ".png"
-    )  # save figure
+    if report_directory:
+        plt.savefig(
+            report_directory / (file_name.removesuffix(".s2p") + ".png")
+        )  # save figure
     plt.close()
 
     # print and return the results
@@ -535,14 +538,19 @@ def one_file_approximation(
         print(
             f"f_r={f_r:.2f}\tf_p={f_p:.2f}\tgamma={gamma:.2f}\tc={c:.2f}\tf3dB={f3dB}\n*Changed to None*"
         )
-        f_r, f_p, c, gamma, f3dB = None, None, None, None, None
+        f_r, f_p, gamma, f3dB = None, None, None, None
     if fp_fixed:
         if f_r2 > 80 or f_p2 > 80 or gamma2 > 2000:
             print(
                 f"f_r2={f_r2:.2f}\tf_p2={f_p2:.2f}\tgamma2={gamma2:.2f}\tc2={c2:.2f}\tf3dB2={f3dB2}\n*Changed to None*"
             )
-            f_r2, f_p2, c2, gamma2, f3dB2 = None, None, None, None, None
+            f_r2, f_p2, gamma2, f3dB2 = None, None, None, None
     return (
+        f * 10**-9,
+        S11_Real,
+        S11_Imag,
+        S21_Magnitude_to_fit,
+        S21_Fit,
         L,
         R_p,
         R_m,

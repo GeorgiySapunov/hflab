@@ -1,0 +1,36 @@
+algorithm_name: combine_ssm
+title: ~
+
+dict_of_report_directories:
+  data/1550nm/T25C_57M6/PNA_reports(s2p): 25 ℃
+  data/1550nm/T45C_57M6/PNA_reports(s2p): 45 ℃
+  data/1550nm/T65C_57M6/PNA_reports(s2p): 65 ℃
+  data/1550nm/T85C_57M6/PNA_reports(s2p): 85 ℃
+
+# Settings
+# S21_MSE_threshold: 5
+# probe_port: 2
+# fit_freqlimit: 40  # GHz
+
+# i_th_fixed:  # mA
+# fp_fixed: false
+
+# 1st row
+figure_ec_ind_max: 100
+figure_ec_res_max: 200
+figure_ec_cap_max: 300
+#
+figure_max_current: 20  # mA
+figure_max_freq: 25  # GHz
+# 2nd row
+figure_max_gamma: 100
+figure_max_f_r2_for_gamma: 180
+# 4th row
+figure_K_max: 1.5
+figure_gamma0_max: 20
+figure_D_MCEF_max: 10
+
+figure_size: [35, 25]
+subtitle_fontsize: 40
+legend_font_size: 10
+figure_dpi: 300

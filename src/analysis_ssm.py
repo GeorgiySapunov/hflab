@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
+#
+# name convention for .s2p files:
+# WaferID-wavelength-coordinates-currentmA
+# e.g. HuiLi-850-0032-0.5mA
 
 import sys
 import re
 import os
+import yaml
 import skrf as rf
 import numpy as np
 import pandas as pd
@@ -10,89 +15,79 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from sklearn.metrics import mean_squared_error
 from sklearn import linear_model
+from pathlib import Path
 
-from analysis.one_file_ssm_analysis import one_file_approximation
+# from builtins import str
 
-# Settings
-S21_MSE_threshold = 5
-probe_port = 2
-fit_freqlimit = 40  # GHz
-#
-i_th_fixed = None  # mA
-fp_fixed = False
-# 1st row
-fig_ec_ind_max = 100
-fig_ec_res_max = 200
-fig_ec_cap_max = 300
-#
-fig_max_current = 12  # mA
-fig_max_freq = 25  # GHz
-# 2nd row
-fig_max_gamma = 100
-fig_max_f_r2_for_gamma = 500
-# 4th row
-fig_K_max = 0.2
-fig_gamma0_max = 20
-fig_D_MCEF_max = 20
+from src.analysis_ssm_one_file import one_file_approximation
+
+
+def name_from_directory(directory):
+    name_from_dir = list(directory.parts)
+    if name_from_dir[0] == "data":
+        del name_from_dir[0]
+    if name_from_dir[-1] == "PNA":
+        del name_from_dir[-1]
+    name_from_dir = "-".join(name_from_dir)
+    return name_from_dir
 
 
 # directory, file_name, probe_port, limit
 # one_file_approximation("data", "745.s2p", 2, 50)
-def analyse(
+def analyze_ssm(
     directory,
+    title=None,
     s2p=True,
-    probe_port=probe_port,
-    freqlimit=fit_freqlimit,
-    S21_MSE_threshold=S21_MSE_threshold,
+    probe_port=1,
+    threshold_decision_level=2,
+    freqlimit=40,
+    S21_MSE_threshold=5,
+    i_th_fixed=False,
     fp_fixed=True,
+    report_dir="PNA_reports",  # TODO
 ):
-    if directory[-1] != "/":  # TODO check it
-        directory = directory + "/"
+    if isinstance(directory, str):
+        directory = Path(directory)
     start_directory = directory
-    report_dir = start_directory + "PNA_reports/"
-    print(report_dir)
+    report_dir = directory / report_dir
     # get filenames and currents
-    walk = list(os.walk(directory))
     if not s2p:
-        # first check if you have a csv file from automatic system
-        string_for_re = ".*\\.csv$"
-        r = re.compile(string_for_re)
-        files = walk[0][2]
-        matched_csv_files = list(filter(r.match, files))
+        matched_csv_files = sorted(
+            directory.glob("*.csv")
+        )  # TODO don't forget to iterate through files!
+        matched_csv_files_stems = (
+            f"{n}: " + i.stem for n, i in enumerate(matched_csv_files, start=1)
+        )
         if matched_csv_files:
-            matched_csv_files.sort()
-            matched_csv_file = [matched_csv_files[0]][0]
-            print(f"Matched .csv file: {matched_csv_file}")
+            auto_file_path = matched_csv_files[0]
+            print(
+                f"Matched .csv files: {len(matched_csv_files)}",
+                *matched_csv_files_stems,
+                sep="\n",
+            )
+            print(f"Processing .csv file: {auto_file_path.stem}")
         else:
             return None, directory, report_dir
     elif s2p:
         # check for .s2p files
-        string_for_re = ".*\\.s2p"
-        r = re.compile(string_for_re)
-        files = walk[0][2]
-        matched_files = list(filter(r.match, files))
-        if not matched_files:
-            print("No matching files, checking /PNA directory")
-            directory = directory + "PNA/"
-            # get filenames and currents
-            walk = list(os.walk(directory))
-            if not walk:
+        matched_s2p_files = sorted(directory.glob("*.s2p"))
+        if not matched_s2p_files:
+            print("Checking /PNA directory")
+            directory = directory / "PNA"
+            if not directory.is_dir():
                 print(f"Can't find PNA data in {directory}")
                 return None, directory, report_dir
-            string_for_re = ".*\\.s2p"
-            r = re.compile(string_for_re)
-            files = walk[0][2]
-            matched_files = list(filter(r.match, files))
-            matched_files.sort()
-        matched_files.sort()
-        print(f"Matched .s2p files: {matched_files}")
+            matched_s2p_files = sorted(directory.glob("*.s2p"))
+        matched_s2p_files_stems = (
+            f"{n}: " + i.stem for n, i in enumerate(matched_s2p_files, start=1)
+        )
+        print(
+            f"Matched .s2p files: {len(matched_s2p_files)}",
+            *matched_s2p_files_stems,
+            sep="\n",
+        )
 
-    name_from_dir = (
-        directory.replace("/", "-")
-        .removesuffix("-")
-        .removesuffix("-PNA")
-        .removeprefix("data-")
-    )
+    name_from_dir = name_from_directory(directory)
 
     df = pd.DataFrame(
         columns=[
@@ -105,12 +100,12 @@ def analyse(
             "C_a, fF",
             "f_r, GHz",
             "f_p, GHz",
-            "gamma",
+            "gamma, 1/ns",
             "c",
             "f_3dB, GHz",
             "f_p(fixed), GHz",
             "f_r(f_p fixed), GHz",
-            "gamma(f_p fixed)",
+            "gamma(f_p fixed), 1/ns",
             "c(f_p fixed)",
             "f_3dB(f_p fixed), GHz",
             "Temperature, °C",
@@ -118,10 +113,18 @@ def analyse(
         ]
     )
 
+    dict = {}
+
     if s2p:
-        report_dir = start_directory + "PNA_reports(s2p)/"
-        for file in matched_files:
+        report_dir = start_directory / "PNA_reports(s2p)"
+        report_dir.mkdir(exist_ok=True)
+        for file in matched_s2p_files:
             (
+                f_GHz,
+                S11_Real,
+                S11_Imag,
+                S21_Magnitude_to_fit,
+                S21_Magnitude_fit,
                 L,
                 R_p,
                 R_m,
@@ -141,25 +144,47 @@ def analyse(
             ) = one_file_approximation(
                 directory=directory,
                 report_directory=report_dir,
+                title=title,
                 freqlimit=freqlimit,
-                file_name=file,
+                file_path=file,
                 probe_port=probe_port,
                 S21_MSE_threshold=S21_MSE_threshold,
                 fp_fixed=fp_fixed,
             )
 
-            file_name_parser = file.split("-")
+            # parce file name for current and temperature
+            file_name_parser = str(file.stem).split("-")
             r2 = re.compile(".*mA")
             current = list(filter(r2.match, file_name_parser))[0]
-            current = float(current.removesuffix(".s2p").removesuffix("mA"))
+            current = float(current.removesuffix("mA"))
             print(f"current={current}")
             r2 = re.compile(".*°C")
             filt = list(filter(r2.match, file_name_parser))
             if filt:
                 temperature = filt[0]
-                temperature = float(temperature.removesuffix(".s2p").removesuffix("°C"))
+                temperature = float(temperature.removesuffix("°C"))
             else:
                 temperature = 25.0
+
+            if len(S21_Magnitude_fit) < len(f_GHz):
+                S21_Magnitude_fit = np.concatenate(
+                    (
+                        S21_Magnitude_fit - c,
+                        np.array([None] * (len(f_GHz) - len(S21_Magnitude_fit))),
+                    )
+                )
+            S21_Magnitude_to_fit = S21_Magnitude_to_fit - c
+
+            S11r_name = f"{current} mA, {temperature} °C S11 Real "
+            S11im_name = f"{current} mA, {temperature} °C S11 Imaginary"
+            S21mag_name = f"{current} mA, {temperature} °C S21 LogMagnitude (dB)"
+            S21mag_fit_name = (
+                f"{current} mA, {temperature} °C S21 LogMagnitude Fit (dB)"
+            )
+            dict[S11r_name] = S11_Real
+            dict[S11im_name] = S11_Imag
+            dict[S21mag_name] = S21_Magnitude_to_fit
+            dict[S21mag_fit_name] = S21_Magnitude_fit
 
             df.loc[len(df)] = [
                 current,
@@ -187,47 +212,40 @@ def analyse(
         df.reset_index(drop=True, inplace=True)
 
         if i_th_fixed:
-            df[
-                "Threshold current, mA"
-            ].loc[  # saturable absorber manual threshold current
-                df["Temperature, °C"] == temperature
-            ] = float(
-                i_th_fixed
+            df["Threshold current, mA"].loc[df["Temperature, °C"] == temperature] = (
+                float(i_th_fixed)
             )
         else:
             temperature_list = df["Temperature, °C"].unique()
-            liv_dir = directory.removesuffix("/PNA/") + "/LIV/"
-            print(f"liv dir {liv_dir}")
-            have_liv_dir = os.path.exists(liv_dir)
-            if have_liv_dir:
-                walk = list(os.walk(liv_dir))
-                string_for_re = ".*\\.csv$"
-                r = re.compile(string_for_re)
-                files = walk[0][2]
-                matched_files = list(filter(r.match, files))
-                matched_files.sort()
-                print(f"Matched LIV files: {matched_files}")
+            liv_dir = start_directory / "LIV"
+            if liv_dir.is_dir():
                 for temperature in temperature_list:
-                    string_for_re = f".*-{temperature}°C"
-                    r = re.compile(string_for_re)
-                    files = walk[0][2]
-                    matched_files = list(filter(r.match, matched_files))
-                    matched_files.sort()
-                    if matched_files:
-                        file = matched_files[0]
-                        liv = pd.read_csv(liv_dir + file)
+                    matched_liv_files = sorted(liv_dir.glob(f"*-{temperature}°C*.csv"))
+                    matched_liv_files_stems = (
+                        f"{n}: " + i.stem
+                        for n, i in enumerate(matched_liv_files, start=1)
+                    )
+                    print(
+                        f"Matched LIV files: {len(matched_liv_files)}",
+                        *matched_liv_files_stems,
+                        sep="\n",
+                    )
+                    if matched_liv_files:
+                        file = matched_liv_files[0]
+                        liv = pd.read_csv(file)
                         i = liv["Current, mA"]
                         l = liv["Output power, mW"]
                         first_der = np.gradient(l, i)
                         second_der = np.gradient(first_der, i)
-                        if second_der.max() >= 5:
-                            i_threshold = i[np.argmax(second_der >= 5)]  # mA
+                        if second_der.max() >= threshold_decision_level:
+                            i_threshold = i[
+                                np.argmax(second_der >= threshold_decision_level)
+                            ]  # mA
                             # l_threshold = l[np.argmax(second_der >= 5)]
-                            df["Threshold current, mA"].loc[
-                                df["Temperature, °C"] == temperature
+                            df.loc[
+                                df["Temperature, °C"] == temperature,
+                                "Threshold current, mA",
                             ] = float(i_threshold)
-                        else:
-                            i_threshold = None
                     else:
                         i_threshold = None
                     print(f"I_threshold={i_threshold}")
@@ -236,14 +254,16 @@ def analyse(
             df["Current, mA"] - df["Threshold current, mA"]
         )
 
-        if not os.path.exists(report_dir):  # make directories
-            os.makedirs(report_dir)
-        df.to_csv(report_dir + name_from_dir + "-report(s2p).csv", index=False)
+        df.to_csv(report_dir / (name_from_dir + "-report(s2p).csv"), index=False)
+
+        dict = pd.DataFrame(dict, index=f_GHz)
+        dict.index.name = "Frequency, GHz"
+        dict.to_csv((report_dir / name_from_dir).with_suffix(".csv"))
+
     elif not s2p:  # automatic system csv file parsing and processing
-        report_dir = start_directory + "PNA_reports(auto)/"
-        auto_file = pd.read_csv(
-            directory + matched_csv_file, header=[0, 1, 2], sep="\t"
-        )
+        report_dir = start_directory / f"PNA_reports({auto_file_path.stem})"
+        report_dir.mkdir(exist_ok=True)
+        auto_file = pd.read_csv(auto_file_path, header=[0, 1, 2], sep="\t")
         # print(auto_file.head())
         currents = (
             auto_file["VNA Current"][auto_file["VNA Current"] > 0]
@@ -255,7 +275,7 @@ def analyse(
         re_s11 = auto_file["Abs(S21)"].values.reshape(-1)
         im_s11 = auto_file["Phase(S21)"].values.reshape(-1)
         points = np.where(abs_s21 == -999999999)[0][0]
-        waferid_wl, coordinates, _ = matched_csv_file.split("_")
+        waferid_wl, coordinates, _ = auto_file_path.stem.split("_")
         waferid, wavelength = waferid_wl.split("-")
         coordinates = coordinates[:2] + coordinates[3:]
         temperature = 25.0
@@ -265,6 +285,11 @@ def analyse(
             start = i * points + i
             stop = (i + 1) * points + i
             (
+                f_GHz,
+                S11_Real,
+                S11_Imag,
+                S21_Magnitude_to_fit,
+                S21_Magnitude_fit,
                 L,
                 R_p,
                 R_m,
@@ -284,8 +309,9 @@ def analyse(
             ) = one_file_approximation(
                 directory=directory,
                 report_directory=report_dir,
+                title=title,
                 freqlimit=freqlimit,
-                file_name=None,
+                file_path=None,
                 probe_port=None,
                 waferid=waferid,
                 wavelength=wavelength,
@@ -293,15 +319,32 @@ def analyse(
                 current=current,
                 #     temperature=None,
                 frequency=frequency[0:points],
-                # s11mag=abs_s11[start:stop], # TODO del
-                # s11deg_rad=phase_s11[start:stop], # TODO del
                 s11re=re_s11[start:stop],
                 s11im=im_s11[start:stop],
                 s21mag=abs_s21[start:stop],
-                # s21deg=phase_s11[start:stop],
                 S21_MSE_threshold=S21_MSE_threshold,
                 fp_fixed=fp_fixed,
             )
+
+            if len(S21_Magnitude_fit) < len(f_GHz):
+                S21_Magnitude_fit = np.concatenate(
+                    (
+                        S21_Magnitude_fit - c,
+                        np.array([None] * (len(f_GHz) - len(S21_Magnitude_fit))),
+                    )
+                )
+            S21_Magnitude_to_fit = S21_Magnitude_to_fit - c
+
+            S11r_name = f"{current} mA, {temperature} °C S11 Real"
+            S11im_name = f"{current} mA, {temperature} °C S11 Imaginary"
+            S21mag_name = f"{current} mA, {temperature} °C S21 LogMagnitude (dB)"
+            S21mag_fit_name = (
+                f"{current} mA, {temperature} °C S21 LogMagnitude Fit (dB)"
+            )
+            dict[S11r_name] = S11_Real
+            dict[S11im_name] = S11_Imag
+            dict[S21mag_name] = S21_Magnitude_to_fit
+            dict[S21mag_fit_name] = S21_Magnitude_fit
 
             df.loc[len(df)] = [
                 current,
@@ -330,7 +373,7 @@ def analyse(
 
         temperature_list = df["Temperature, °C"].unique()
 
-        df["Threshold current, mA"].loc[df["Temperature, °C"] == temperature] = float(
+        df.loc[df["Temperature, °C"] == temperature, "Threshold current, mA"] = float(
             auto_I_th
         )
 
@@ -338,9 +381,11 @@ def analyse(
             df["Current, mA"] - df["Threshold current, mA"]
         )
 
-        if not os.path.exists(report_dir):  # make directories
-            os.makedirs(report_dir)
-        df.to_csv(report_dir + name_from_dir + "-report(auto).csv", index=False)
+        df.to_csv(report_dir / (name_from_dir + "-report(auto).csv"), index=False)
+
+        dict = pd.DataFrame(dict, index=f_GHz)
+        dict.index.name = "Frequency, GHz"
+        dict.to_csv((report_dir / name_from_dir).with_suffix(".csv"))
 
     print(df)
     return df, directory, report_dir
@@ -350,7 +395,7 @@ def calc_K_D_MCEF(
     df,
     col_f_r="f_r, GHz",
     col_f_3dB="f_3dB, GHz",
-    col_gamma="gamma",
+    col_gamma="gamma, 1/ns",
     calc_i_limit=np.inf,
 ):
     newdf = (
@@ -393,7 +438,9 @@ def calc_K_D_MCEF(
         return max_sqrtI, f_r_max**2, MCEF, D_par, K_par, gamma0
 
 
-def collect_K_D_MCEF(df, col_f_r="f_r, GHz", col_f_3dB="f_3dB, GHz", col_gamma="gamma"):
+def collect_K_D_MCEF(
+    df, col_f_r="f_r, GHz", col_f_3dB="f_3dB, GHz", col_gamma="gamma, 1/ns"
+):
     K_D_MCEF_df = pd.DataFrame(
         columns=[
             "max sqrt(I-I_th), sqrt(mA)",
@@ -401,7 +448,7 @@ def collect_K_D_MCEF(df, col_f_r="f_r, GHz", col_f_3dB="f_3dB, GHz", col_gamma="
             "MCEF",
             "D factor",
             "K factor, ns",
-            "gamma0",
+            "gamma0, 1/ns",
         ]
     ).dropna(subset=["max sqrt(I-I_th), sqrt(mA)"])
     if df is not None:
@@ -428,42 +475,44 @@ def collect_K_D_MCEF(df, col_f_r="f_r, GHz", col_f_3dB="f_3dB, GHz", col_gamma="
 def makefigs(
     df,
     directory,
-    s2p,
-    i_th_fixed,
-    fig_ec_ind_max,
-    fig_ec_res_max,
-    fig_ec_cap_max,
-    fig_max_current,
-    fig_max_freq,
-    fig_max_gamma,
-    fig_max_f_r2_for_gamma,
-    fig_K_max,
-    fig_gamma0_max,
-    fig_D_MCEF_max,
     K_D_MCEF_df,
     K_D_MCEF_df2,
+    title=None,
+    additional_report_directory=None,
+    figure_ec_ind_max=None,
+    figure_ec_res_max=None,
+    figure_ec_cap_max=None,
+    figure_max_current=None,
+    figure_max_freq=None,
+    figure_max_gamma=None,
+    figure_max_f_r2_for_gamma=None,
+    figure_K_max=None,
+    figure_gamma0_max=None,
+    figure_D_MCEF_max=None,
+    fp_fixed=None,
 ):
     if df is None:
         return
 
-    name_from_dir = (
-        directory.replace("/", "-")
-        .removesuffix("-")
-        .removesuffix("-PNA")
-        .removeprefix("data-")
-    )
+    if isinstance(directory, str):
+        directory = Path(directory)
+
+    name_from_dir = name_from_directory(directory)
 
     fig = plt.figure(figsize=(3 * 11.69, 3 * 8.27))
-    fig.suptitle(name_from_dir)
+    if title:
+        fig.suptitle(title)
+    else:
+        fig.suptitle(name_from_dir)
 
     # 1-st row
     ax1_l = fig.add_subplot(461)
     ax1_l.set_title("Inductance of the equivalent circuit")
     ax1_l.plot(df["Current, mA"], df["L, pH"], marker="o")
-    ax1_l.set_ylabel("L, pH")
     ax1_l.set_xlabel("Current, mA")
-    ax1_l.set_ylim([0, fig_ec_ind_max])
-    ax1_l.set_xlim([0, fig_max_current])
+    ax1_l.set_ylabel("L, pH")
+    ax1_l.set_xlim(left=0, right=figure_max_current)
+    ax1_l.set_ylim(bottom=0, top=figure_ec_ind_max)
     ax1_l.grid(which="both")
     ax1_l.minorticks_on()
 
@@ -472,10 +521,10 @@ def makefigs(
     ax2_r.plot(df["Current, mA"], df["R_p, Om"], label="R_p", marker="o")
     ax2_r.plot(df["Current, mA"], df["R_m, Om"], label="R_m", marker="o")
     ax2_r.plot(df["Current, mA"], df["R_a, Om"], label="R_a", marker="o")
-    ax2_r.set_ylabel("Resistance, Om")
     ax2_r.set_xlabel("Current, mA")
-    ax2_r.set_ylim([0, fig_ec_res_max])
-    ax2_r.set_xlim([0, fig_max_current])
+    ax2_r.set_ylabel("Resistance, Om")
+    ax2_r.set_xlim(left=0, right=figure_max_current)
+    ax2_r.set_ylim(bottom=0, top=figure_ec_res_max)
     ax2_r.grid(which="both")
     ax2_r.minorticks_on()
     ax2_r.legend()
@@ -486,8 +535,8 @@ def makefigs(
     ax3_c.plot(df["Current, mA"], df["C_a, fF"], label="C_a", marker="o")
     ax3_c.set_ylabel("Capacitance, fF")
     ax3_c.set_xlabel("Current, mA")
-    ax3_c.set_xlim([0, fig_max_current])
-    ax3_c.set_ylim([0, fig_ec_cap_max])
+    ax3_c.set_xlim(left=0, right=figure_max_current)
+    ax3_c.set_ylim(bottom=0, top=figure_ec_cap_max)
     ax3_c.grid(which="both")
     ax3_c.minorticks_on()
     ax3_c.legend()
@@ -497,23 +546,23 @@ def makefigs(
     ax7_gamma.set_title("ɣ from S21 approximation")
     ax7_gamma.plot(
         df["Current, mA"],
-        df["gamma"],
-        label="ɣ",
+        df["gamma, 1/ns"],
+        label="ɣ, 1/ns",
         marker="o",
         alpha=0.5,
     )
     if fp_fixed:
         ax7_gamma.plot(
             df["Current, mA"],
-            df["gamma(f_p fixed)"],
-            label="ɣ(f_p fixed)",
+            df["gamma(f_p fixed), 1/ns"],
+            label="ɣ(f_p fixed), 1/ns",
             alpha=0.5,
             marker="o",
         )
-    ax7_gamma.set_ylabel("ɣ")
+    ax7_gamma.set_ylabel("ɣ, 1/ns")
     ax7_gamma.set_xlabel("Current, mA")
-    ax7_gamma.set_xlim([0, fig_max_current])
-    ax7_gamma.set_ylim([0, fig_max_gamma])
+    ax7_gamma.set_xlim(left=0, right=figure_max_current)
+    ax7_gamma.set_ylim(bottom=0, top=figure_max_gamma)
     ax7_gamma.grid(which="both")
     ax7_gamma.minorticks_on()
     if fp_fixed:
@@ -540,8 +589,8 @@ def makefigs(
         )
     ax8_fp.set_ylabel("f_p, GHz")
     ax8_fp.set_xlabel("Current, mA")
-    ax8_fp.set_xlim([0, fig_max_current])
-    ax8_fp.set_ylim([0, fig_max_freq])
+    ax8_fp.set_xlim(left=0, right=figure_max_current)
+    ax8_fp.set_ylim(bottom=0, top=figure_max_freq)
     ax8_fp.grid(which="both")
     ax8_fp.minorticks_on()
     if fp_fixed:
@@ -566,8 +615,8 @@ def makefigs(
         )
     ax9_fr.set_ylabel("f_r, GHz")
     ax9_fr.set_xlabel("Current, mA")
-    ax9_fr.set_xlim([0, fig_max_current])
-    ax9_fr.set_ylim([0, fig_max_freq])
+    ax9_fr.set_xlim(left=0, right=figure_max_current)
+    ax9_fr.set_ylim(bottom=0, top=figure_max_freq)
     ax9_fr.grid(which="both")
     ax9_fr.minorticks_on()
     if fp_fixed:
@@ -592,9 +641,8 @@ def makefigs(
         )
     ax10_f3db.set_ylabel("f_3dB, GHz")
     ax10_f3db.set_xlabel("Current, mA")
-    # ax10_f3db.set_xlim(left=0)
-    ax10_f3db.set_xlim([0, fig_max_current])
-    ax10_f3db.set_ylim([0, fig_max_freq])
+    ax10_f3db.set_xlim(left=0, right=figure_max_current)
+    ax10_f3db.set_ylim(bottom=0, top=figure_max_freq)
     ax10_f3db.grid(which="both")
     ax10_f3db.minorticks_on()
 
@@ -603,23 +651,23 @@ def makefigs(
     ax11_sqrt_gamma.set_title("ɣ vs f_r^2")
     ax11_sqrt_gamma.plot(
         df["f_r, GHz"] ** 2,
-        df["gamma"],
-        label="ɣ",
+        df["gamma, 1/ns"],
+        label="ɣ, 1/ns",
         marker="o",
         alpha=0.5,
     )
     if fp_fixed:
         ax11_sqrt_gamma.plot(
             df["f_r(f_p fixed), GHz"] ** 2,
-            df["gamma(f_p fixed)"],
-            label="ɣ(f_p fixed)",
+            df["gamma(f_p fixed), 1/ns"],
+            label="ɣ(f_p fixed), 1/ns",
             marker="o",
             alpha=0.5,
         )
-    ax11_sqrt_gamma.set_ylabel("ɣ")
+    ax11_sqrt_gamma.set_ylabel("ɣ, 1/ns")
     ax11_sqrt_gamma.set_xlabel("f_r^2, GHz^2")
-    ax11_sqrt_gamma.set_xlim(left=0, right=fig_max_f_r2_for_gamma)
-    ax11_sqrt_gamma.set_ylim(bottom=0, top=fig_max_gamma)
+    ax11_sqrt_gamma.set_xlim(left=0, right=figure_max_f_r2_for_gamma)
+    ax11_sqrt_gamma.set_ylim(bottom=0, top=figure_max_gamma)
     ax11_sqrt_gamma.grid(which="both")
     ax11_sqrt_gamma.minorticks_on()
     if fp_fixed:
@@ -644,8 +692,11 @@ def makefigs(
         )
     ax13_fr_for_D.set_ylabel("f_r, GHz")
     ax13_fr_for_D.set_xlabel("sqrt(I-I_th), sqrt(mA)")
-    ax13_fr_for_D.set_xlim(left=0, right=np.sqrt(fig_max_current))
-    ax13_fr_for_D.set_ylim(bottom=0, top=fig_max_freq)
+    if figure_max_current:
+        ax13_fr_for_D.set_xlim(left=0, right=np.sqrt(figure_max_current))
+    else:
+        ax13_fr_for_D.set_xlim(left=0)
+    ax13_fr_for_D.set_ylim(bottom=0, top=figure_max_freq)
     ax13_fr_for_D.grid(which="both")
     ax13_fr_for_D.minorticks_on()
     if fp_fixed:
@@ -670,8 +721,11 @@ def makefigs(
         )
     ax14_f3dB_for_MCEF.set_ylabel("f_3dB, GHz")
     ax14_f3dB_for_MCEF.set_xlabel("sqrt(I-I_th), sqrt(mA)")
-    ax14_f3dB_for_MCEF.set_xlim(left=0, right=np.sqrt(fig_max_current))
-    ax14_f3dB_for_MCEF.set_ylim(bottom=0, top=fig_max_freq)
+    if figure_max_current:
+        ax14_f3dB_for_MCEF.set_xlim(left=0, right=np.sqrt(figure_max_current))
+    else:
+        ax14_f3dB_for_MCEF.set_xlim(left=0)
+    ax14_f3dB_for_MCEF.set_ylim(bottom=0, top=figure_max_freq)
     ax14_f3dB_for_MCEF.grid(which="both")
     ax14_f3dB_for_MCEF.minorticks_on()
     if fp_fixed:
@@ -697,8 +751,8 @@ def makefigs(
         )
     ax15_K.set_ylabel("K factor, ns")
     ax15_K.set_xlabel("max f_r^2, GHz^2")
-    ax15_K.set_xlim(left=0, right=fig_max_f_r2_for_gamma)
-    ax15_K.set_ylim(bottom=0, top=fig_K_max)
+    ax15_K.set_xlim(left=0, right=figure_max_f_r2_for_gamma)
+    ax15_K.set_ylim(bottom=0, top=figure_K_max)
     ax15_K.grid(which="both")
     ax15_K.minorticks_on()
     ax15_K.legend()
@@ -707,24 +761,24 @@ def makefigs(
     ax16_gamma0.set_title("ɣ0 for different appoximation limits")
     ax16_gamma0.plot(
         K_D_MCEF_df["f_r_2_max"],
-        K_D_MCEF_df["gamma0"],
-        label="ɣ_0",
+        K_D_MCEF_df["gamma0, 1/ns"],
+        label="ɣ_0, 1/ns",
         marker="o",
         alpha=0.5,
     )
     if fp_fixed:
         ax16_gamma0.plot(
             K_D_MCEF_df2["f_r_2_max"],
-            K_D_MCEF_df2["gamma0"],
-            label="ɣ_0(f_p fixed)",
+            K_D_MCEF_df2["gamma0, 1/ns"],
+            label="ɣ_0(f_p fixed), 1/ns",
             marker="o",
             alpha=0.5,
         )
 
-    ax16_gamma0.set_ylabel("ɣ_0")
+    ax16_gamma0.set_ylabel("ɣ_0, 1/ns")
     ax16_gamma0.set_xlabel("max f_r^2, GHz^2")
-    ax16_gamma0.set_xlim(left=0, right=fig_max_f_r2_for_gamma)
-    ax16_gamma0.set_ylim(bottom=0, top=fig_gamma0_max)
+    ax16_gamma0.set_xlim(left=0, right=figure_max_f_r2_for_gamma)
+    ax16_gamma0.set_ylim(bottom=0, top=figure_gamma0_max)
     ax16_gamma0.grid(which="both")
     ax16_gamma0.minorticks_on()
     ax15_K.legend()
@@ -749,8 +803,11 @@ def makefigs(
 
     ax17_D.set_ylabel("D factor, GHz/sqrt(mA)")
     ax17_D.set_xlabel("max sqrt(I-I_th), sqrt(mA)")
-    ax17_D.set_xlim(left=0, right=np.sqrt(fig_max_current))
-    ax17_D.set_ylim(bottom=0, top=fig_D_MCEF_max)
+    if figure_max_current:
+        ax17_D.set_xlim(left=0, right=np.sqrt(figure_max_current))
+    else:
+        ax17_D.set_xlim(left=0)
+    ax17_D.set_ylim(bottom=0, top=figure_D_MCEF_max)
     ax17_D.grid(which="both")
     ax17_D.minorticks_on()
     ax17_D.legend()
@@ -775,8 +832,11 @@ def makefigs(
 
     ax18_MCEF.set_ylabel("MCEF, GHz/sqrt(mA)")
     ax18_MCEF.set_xlabel("max sqrt(I-I_th), sqrt(mA)")
-    ax18_MCEF.set_xlim(left=0, right=np.sqrt(fig_max_current))
-    ax18_MCEF.set_ylim(bottom=0, top=fig_D_MCEF_max)
+    if figure_max_current:
+        ax18_MCEF.set_xlim(left=0, right=np.sqrt(figure_max_current))
+    else:
+        ax18_MCEF.set_xlim(left=0)
+    ax18_MCEF.set_ylim(bottom=0, top=figure_D_MCEF_max)
     ax18_MCEF.grid(which="both")
     ax18_MCEF.minorticks_on()
     ax18_MCEF.legend()
@@ -804,125 +864,112 @@ def makefigs(
     if fp_fixed:
         ax10_f3db.legend(loc=2)
 
-    if not os.path.exists(directory):  # make directories
-        os.makedirs(directory)
-    plt.savefig(directory + name_from_dir + ".png")  # save figure
+    directory.mkdir(exist_ok=True)
+    plt.savefig(directory / (name_from_dir + ".png"))  # save figure
 
-    if not os.path.exists("reports/"):  # make directories
-        os.makedirs("reports/")
-    plt.savefig("reports/" + name_from_dir + ".png")  # save figure
+    if additional_report_directory:
+        if isinstance(additional_report_directory, str):
+            additional_report_directory = Path(additional_report_directory)
+        additional_report_directory.mkdir(exist_ok=True)
+        plt.savefig(
+            additional_report_directory / (name_from_dir + ".png")
+        )  # save figure
+
     plt.close()
 
 
-for i, directory in enumerate(sys.argv[1:]):
-    le = len(sys.argv[1:])
-    print(f"[{i+1}/{le}] {directory}")
-    # s2p=True
-    df, dir, report_dir = analyse(
-        directory,
-        s2p=True,
-        probe_port=probe_port,
-        freqlimit=fit_freqlimit,
-        S21_MSE_threshold=S21_MSE_threshold,
-        fp_fixed=fp_fixed,
-    )
-    K_D_MCEF_df = collect_K_D_MCEF(
-        df, col_f_r="f_r, GHz", col_f_3dB="f_3dB, GHz", col_gamma="gamma"
-    )
+# for i, directory in enumerate(sys.argv[1:]):
+#     le = len(sys.argv[1:])
+#     print(f"[{i+1}/{le}] {directory}")
+def analyze_ssm_function(directory, settings=None):
+    if isinstance(directory, str):
+        directory = Path(directory)
+    if settings is None:
+        with open(Path("templates") / "ssm.yaml") as fh:
+            settings = yaml.safe_load(fh)
+    print(directory)
+    print(settings)
 
-    name_from_dir = (
-        directory.replace("/", "-")
-        .removesuffix("-")
-        .removesuffix("-PNA")
-        .removeprefix("data-")
-    )
-    if K_D_MCEF_df is not None:
-        K_D_MCEF_df.to_csv(report_dir + name_from_dir + "-K_D_MCEF.csv", index=False)
+    title = settings["title"]
+    additional_report_directory = settings["additional_report_directory"]
+    S21_MSE_threshold = settings["S21_MSE_threshold"]
+    probe_port = settings["probe_port"]
+    fit_freqlimit = settings["fit_freqlimit"]
+    i_th_fixed = settings["i_th_fixed"]
+    fp_fixed = settings["fp_fixed"]
+    threshold_decision_level = settings["threshold_decision_level"]
+    figure_ec_ind_max = settings["figure_ec_ind_max"]
+    figure_ec_res_max = settings["figure_ec_res_max"]
+    figure_ec_cap_max = settings["figure_ec_cap_max"]
+    figure_max_current = settings["figure_max_current"]
+    figure_max_freq = settings["figure_max_freq"]
+    figure_max_gamma = settings["figure_max_gamma"]
+    figure_max_f_r2_for_gamma = settings["figure_max_f_r2_for_gamma"]
+    figure_K_max = settings["figure_K_max"]
+    figure_gamma0_max = settings["figure_gamma0_max"]
+    figure_D_MCEF_max = settings["figure_D_MCEF_max"]
 
-    if fp_fixed:
-        K_D_MCEF_df2 = collect_K_D_MCEF(
-            df,
-            col_f_r="f_r(f_p fixed), GHz",
-            col_f_3dB="f_3dB(f_p fixed), GHz",
-            col_gamma="gamma(f_p fixed)",
+    for s2p in (True, False):
+        df, dir, report_dir = analyze_ssm(
+            directory,
+            title=title,
+            s2p=s2p,
+            probe_port=probe_port,
+            threshold_decision_level=threshold_decision_level,
+            freqlimit=fit_freqlimit,
+            S21_MSE_threshold=S21_MSE_threshold,
+            i_th_fixed=i_th_fixed,
+            fp_fixed=fp_fixed,
         )
-        if K_D_MCEF_df2 is not None:
-            K_D_MCEF_df2.to_csv(
-                report_dir + name_from_dir + "-K_D_MCEF(f_p fixed).csv", index=False
-            )
-    else:
-        K_D_MCEF_df2 = None
-    makefigs(
-        df,
-        report_dir,
-        s2p=True,
-        i_th_fixed=i_th_fixed,
-        fig_ec_ind_max=fig_ec_ind_max,
-        fig_ec_res_max=fig_ec_res_max,
-        fig_ec_cap_max=fig_ec_cap_max,
-        fig_max_current=fig_max_current,
-        fig_max_freq=fig_max_freq,
-        fig_max_gamma=fig_max_gamma,
-        fig_max_f_r2_for_gamma=fig_max_f_r2_for_gamma,
-        fig_K_max=fig_K_max,
-        fig_gamma0_max=fig_gamma0_max,
-        fig_D_MCEF_max=fig_D_MCEF_max,
-        K_D_MCEF_df=K_D_MCEF_df,
-        K_D_MCEF_df2=K_D_MCEF_df2,
-    )
-    print(".s2p")
-    print("K_D_MCEF_df")
-    print(K_D_MCEF_df)
-    print("\nK_D_MCEF_df2")
-    print(K_D_MCEF_df2)
-
-    # s2p=False (automatic system .csv)
-    df, dir, report_dir = analyse(
-        directory,
-        s2p=False,
-        probe_port=probe_port,
-        freqlimit=fit_freqlimit,
-        S21_MSE_threshold=S21_MSE_threshold,
-        fp_fixed=fp_fixed,
-    )
-    K_D_MCEF_df = collect_K_D_MCEF(
-        df, col_f_r="f_r, GHz", col_f_3dB="f_3dB, GHz", col_gamma="gamma"
-    )
-    if K_D_MCEF_df is not None:
-        K_D_MCEF_df.to_csv(report_dir + name_from_dir + "-K_D_MCEF.csv", index=False)
-    if fp_fixed:
-        K_D_MCEF_df2 = collect_K_D_MCEF(
-            df,
-            col_f_r="f_r(f_p fixed), GHz",
-            col_f_3dB="f_3dB(f_p fixed), GHz",
-            col_gamma="gamma(f_p fixed)",
+        K_D_MCEF_df = collect_K_D_MCEF(
+            df, col_f_r="f_r, GHz", col_f_3dB="f_3dB, GHz", col_gamma="gamma, 1/ns"
         )
-        if K_D_MCEF_df2 is not None:
-            K_D_MCEF_df2.to_csv(
-                report_dir + name_from_dir + "-K_D_MCEF(f_p fixed).csv", index=False
+
+        name_from_dir = name_from_directory(directory)
+
+        if K_D_MCEF_df is not None:
+            K_D_MCEF_df.to_csv(
+                report_dir / (name_from_dir + "-K_D_MCEF.csv"), index=False
             )
-    else:
-        K_D_MCEF_df2 = None
-    makefigs(
-        df,
-        report_dir,
-        s2p=False,
-        i_th_fixed=i_th_fixed,
-        fig_ec_ind_max=fig_ec_ind_max,
-        fig_ec_res_max=fig_ec_res_max,
-        fig_ec_cap_max=fig_ec_cap_max,
-        fig_max_current=fig_max_current,
-        fig_max_freq=fig_max_freq,
-        fig_max_gamma=fig_max_gamma,
-        fig_max_f_r2_for_gamma=fig_max_f_r2_for_gamma,
-        fig_K_max=fig_K_max,
-        fig_gamma0_max=fig_gamma0_max,
-        fig_D_MCEF_max=fig_D_MCEF_max,
-        K_D_MCEF_df=K_D_MCEF_df,
-        K_D_MCEF_df2=K_D_MCEF_df2,
-    )
-    print("auto .csv")
-    print("K_D_MCEF_df")
-    print(K_D_MCEF_df)
-    print("\nK_D_MCEF_df2")
-    print(K_D_MCEF_df2)
+
+        if fp_fixed:
+            K_D_MCEF_df2 = collect_K_D_MCEF(
+                df,
+                col_f_r="f_r(f_p fixed), GHz",
+                col_f_3dB="f_3dB(f_p fixed), GHz",
+                col_gamma="gamma(f_p fixed), 1/ns",
+            )
+            if K_D_MCEF_df2 is not None:
+                K_D_MCEF_df2.to_csv(
+                    report_dir / (name_from_dir + "-K_D_MCEF(f_p fixed).csv"),
+                    index=False,
+                )
+        else:
+            K_D_MCEF_df2 = None
+        makefigs(
+            df,
+            report_dir,
+            K_D_MCEF_df=K_D_MCEF_df,
+            K_D_MCEF_df2=K_D_MCEF_df2,
+            title=title,
+            additional_report_directory=additional_report_directory,
+            figure_ec_ind_max=figure_ec_ind_max,
+            figure_ec_res_max=figure_ec_res_max,
+            figure_ec_cap_max=figure_ec_cap_max,
+            figure_max_current=figure_max_current,
+            figure_max_freq=figure_max_freq,
+            figure_max_gamma=figure_max_gamma,
+            figure_max_f_r2_for_gamma=figure_max_f_r2_for_gamma,
+            figure_K_max=figure_K_max,
+            figure_gamma0_max=figure_gamma0_max,
+            figure_D_MCEF_max=figure_D_MCEF_max,
+            fp_fixed=fp_fixed,
+        )
+        if s2p:
+            print(".s2p")
+        else:
+            print("automatic system .csv")
+        print("K_D_MCEF_df")
+        print(K_D_MCEF_df)
+        print("\nK_D_MCEF_df2")
+        print(K_D_MCEF_df2)

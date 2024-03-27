@@ -9,6 +9,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from configparser import ConfigParser
+from pathlib import Path
 
 # from settings import settings
 
@@ -29,14 +30,13 @@ from configparser import ConfigParser
 #          |___/
 
 
-def annotate_threshold(x, y, ax=None):  # TODO
-    decision_level = 2
+def annotate_threshold(x, y, threshold_decision_level, ax=None):  # TODO
     first_der = np.gradient(y, x)
     second_der = np.gradient(first_der, x)
     # print(f"max second der = {second_der.max()}")
-    if second_der.max() >= decision_level:
-        x_threshold = x[np.argmax(second_der >= decision_level)]
-        y_threshold = y[np.argmax(second_der >= decision_level)]
+    if second_der.max() >= threshold_decision_level:
+        x_threshold = x[np.argmax(second_der >= threshold_decision_level)]
+        y_threshold = y[np.argmax(second_der >= threshold_decision_level)]
 
         text = f"I_th={x_threshold:.2f} mA"
         if not ax:
@@ -78,7 +78,6 @@ def annotate_max_L(x, y, ax=None):
 
 
 def annotate_max_ef(x, y, threshold=0, ax=None):
-    # thresholdx = int(threshold / current_increment_LIV)  # TODO
     thresholdx = np.argmax(x == threshold)
     xmax = x[np.argmax(y[thresholdx:]) + thresholdx]
     ymax = y[thresholdx:].max()
@@ -100,16 +99,23 @@ def annotate_max_ef(x, y, threshold=0, ax=None):
 
 
 # functions to build graphs
-def buildplt_all(
+def buildplt_everything(
     dataframe,
     waferid,
     wavelength,
     coordinates,
     temperature,
     powermeter,
+    threshold_decision_level,
+    title=None,
+    title_fontsize=30,
+    everithing_figsize=(21.042, 14.886),  # (1.8 * 11.69, 1.8 * 8.27)
+    pce_legendsize=8,
 ):
-    fig = plt.figure(figsize=(1.8 * 11.69, 1.8 * 8.27))
-    fig.suptitle(f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-{powermeter}")
+    if title == None:
+        title = f"{waferid} {wavelength}nm {coordinates} {temperature}°C {powermeter}"
+    fig = plt.figure(figsize=everithing_figsize)
+    fig.suptitle(title, fontsize=30)
     ax1 = fig.add_subplot(221)  # subplot for set current
     ax12 = ax1.twinx()
     ax2 = fig.add_subplot(222)  # subplot for L/P
@@ -172,7 +178,7 @@ def buildplt_all(
     # annotate maximum output power
     annotate_max_L(i, l, ax=ax1)
     # annotate_max_L(i, l, ax=ax2)
-    threshold = annotate_threshold(i, l, ax=ax1)
+    threshold = annotate_threshold(i, l, threshold_decision_level, ax=ax1)
     print(f"threshold {threshold:.2f}")
 
     # above_threshold = threshold + 0.02
@@ -236,33 +242,32 @@ def buildplt_all(
 
     lns = lns31 + lns32 + lns33
     labs = [l.get_label() for l in lns]
-    ax3.legend(lns, labs, loc=7, prop={"size": 8})
+    ax3.legend(lns, labs, loc=7, prop={"size": pce_legendsize})
 
     lns = lns41 + lns42
     labs = [l.get_label() for l in lns]
     ax4.legend(lns, labs, loc=0)
 
 
-def buildplt_tosave(
-    dataframe, waferid, wavelength, coordinates, temperature, powermeter
+def buildplt_liv(
+    dataframe,
+    waferid,
+    wavelength,
+    coordinates,
+    temperature,
+    powermeter,
+    threshold_decision_level,
+    title=None,
+    liv_figsize=(11.69, 8.27),
 ):
+    if title == None:
+        title = f"{waferid} {wavelength}nm {coordinates} {temperature}°C {powermeter}"
     # Creating figure
-    fig = plt.figure(figsize=(11.69, 8.27))
+    fig = plt.figure(figsize=liv_figsize)
     ax = fig.add_subplot(111)
     ax2 = ax.twinx()
 
-    plt.title(
-        str(waferid)
-        + " "
-        + str(wavelength)
-        + " nm "
-        + str(coordinates)
-        + " "
-        + str(temperature)
-        + " °C "
-        # + " "
-        + str(powermeter)
-    )  # Adding title
+    plt.title(title)  # Adding title
 
     ax.grid(which="both")  # adding grid
 
@@ -297,7 +302,7 @@ def buildplt_tosave(
 
     # annotate maximum output power
     i_rollover, l_rollover = annotate_max_L(i, l, ax=ax)
-    i_threshold = annotate_threshold(i, l, ax=ax)
+    i_threshold = annotate_threshold(i, l, threshold_decision_level, ax=ax)
     # legend
     lns = lns1 + lns2
     labs = [l.get_label() for l in lns]
@@ -323,28 +328,19 @@ def measure_liv(
 ):
     config = ConfigParser()
     config.read("config.ini")
-    # instruments_config = config["INSTRUMENTS"]
     liv_config = config["LIV"]
-    # osa_config = config["OSA"]
-    # other_config = config["OTHER"]
     current_increment_LIV = float(liv_config["current_increment_LIV"])
     max_current = float(liv_config["max_current"])
     beyond_rollover_stop_cond = float(liv_config["beyond_rollover_stop_cond"])
     current_limit1 = float(liv_config["current_limit1"])
     current_limit2 = float(liv_config["current_limit2"])
+    threshold_decision_level = float(liv_config["threshold_decision_level"])
+    liv_dpi = int(liv_config["liv_dpi"])
 
     current_list = [0.0]
     round_to = max(0, int(np.ceil(np.log10(1 / current_increment_LIV))))
     while current_list[-1] <= max_current - current_increment_LIV:
         current_list.append(round(current_list[-1] + current_increment_LIV, round_to))
-    # current_list = np.arange(
-    #     0,
-    #     max_current + current_increment_LIV,
-    #     current_increment_LIV,
-    #     dtype=np.float64,
-    # )  # mA
-    # round_to = max(0, int(np.ceil(np.log10(1 / current_increment_LIV))))
-    # current_list = np.array([round(i, round_to) for i in current_list])
 
     pm100_toggle = False
     keysight_8163B_toggle = False
@@ -355,7 +351,8 @@ def measure_liv(
         keysight_8163B_toggle = True
         powermeter = "Keysight_8163B_port" + str(k_port)
 
-    dirpath = f"data/{waferid}-{wavelength}nm/{coordinates}/"
+    dirpath = Path.cwd() / "data" / f"{waferid}-{wavelength}nm" / f"{coordinates}"
+    # dirpath = f"data/{waferid}-{wavelength}nm/{coordinates}/"
 
     print(f"Measuring LIV using {powermeter}")
     # initiate pandas Data Frame
@@ -517,46 +514,48 @@ def measure_liv(
     Keysight_B2901A.write(f":SOUR:CURR 0.001")
 
     timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
-    filepath = (
-        dirpath
-        + "LIV/"
-        + f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-{timestr}-{powermeter}"
+
+    livdirpath = dirpath / "LIV"
+    livdirpath.mkdir(exit_ok=True)
+    filepath = dirpath / "LIV/"
+    filename = (
+        f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-{timestr}-{powermeter}"
     )
-
-    if not os.path.exists(dirpath + "LIV"):  # make directories
-        os.makedirs(dirpath + "LIV")
-
-    iv.to_csv(filepath + ".csv", index=False)  # save DataFrame to csv file
+    iv.to_csv(
+        (filepath / filename).with_suffix(".csv"), index=False
+    )  # save DataFrame to csv file
 
     # save figures
-    buildplt_all(
+    buildplt_everything(
         dataframe=iv,
         waferid=waferid,
         wavelength=wavelength,
         coordinates=coordinates,
         temperature=temperature,
         powermeter=powermeter,
-    )
-    plt.savefig(filepath + "-all.png", dpi=300)  # save figure
-    i_threshold, i_rollover = buildplt_tosave(
-        dataframe=iv,
-        waferid=waferid,
-        wavelength=wavelength,
-        coordinates=coordinates,
-        temperature=temperature,
-        powermeter=powermeter,
+        threshold_decision_level=threshold_decision_level,
     )
     plt.savefig(
-        filepath + f"_Ith={i_threshold:.2f}_Iro={i_rollover:.2f}.png", dpi=300
+        (filepath / (filename + "-everything")).with_suffix(".png"), dpi=liv_dpi
     )  # save figure
-    # plt.show()
+    i_threshold, i_rollover = buildplt_liv(
+        dataframe=iv,
+        waferid=waferid,
+        wavelength=wavelength,
+        coordinates=coordinates,
+        temperature=temperature,
+        powermeter=powermeter,
+        threshold_decision_level=threshold_decision_level,
+    )
+    plt.savefig(
+        (
+            filepath / (filename + f"_Ith={i_threshold:.2f}_Iro={i_rollover:.2f}")
+        ).with_suffix(".png"),
+        dpi=liv_dpi,
+    )  # save figure
     plt.close("all")
-    # show figure
-    # image = mpimg.imread(filepath + "-all.png")
-    # plt.imshow(image)
-    # plt.show()
     print(f"Warnings: {len(warnings)}")
     if warnings:
         print(*warnings, sep="\n")
 
-    return filepath, alarm
+    return filepath, filename, alarm

@@ -27,7 +27,9 @@ def measure_osa(
     osa_config = config["OSA"]
     # other_config = config["OTHER"]
     max_current = float(liv_config["max_current"])
+    osa_resolution = float(osa_config["osa_resolution"])
     osa_span = float(osa_config["osa_span"])
+    osa_points = float(osa_config["osa_points"])
     current_increment_OSA = float(osa_config["current_increment_OSA"])
 
     alarm = False
@@ -91,10 +93,12 @@ def measure_osa(
     YOKOGAWA_AQ6370D.write(":CALibration:ZERO once")
     YOKOGAWA_AQ6370D.write("FORMAT:DATA ASCII")
     YOKOGAWA_AQ6370D.write(":TRAC:ACT TRA")
-    YOKOGAWA_AQ6370D.write(":SENSe:BANDwidth:RESolution 0.032nm")  # TODO it changes
+    YOKOGAWA_AQ6370D.write(
+        f":SENSe:BANDwidth:RESolution {osa_resolution}nm"
+    )  # TODO it changes
     YOKOGAWA_AQ6370D.write(f":SENSe:WAVelength:CENTer {wavelength}nm")
     YOKOGAWA_AQ6370D.write(f":SENSe:WAVelength:SPAN {osa_span}nm")
-    YOKOGAWA_AQ6370D.write(":SENSe:SWEep:POINts 2000")
+    YOKOGAWA_AQ6370D.write(f":SENSe:SWEep:POINts {osa_points}")
     # YOKOGAWA_AQ6370D.write(":sens:sweep:points:auto on")
     YOKOGAWA_AQ6370D.write(":SENSe:SENSe MID")
     YOKOGAWA_AQ6370D.write(":INITiate:SMODe SINGle")
@@ -154,16 +158,20 @@ def measure_osa(
                 f"WARNING! Current set is {current_set}, while current measured is {current_measured}"
             )
 
-        voltage_measured_along_liv = liv_dataframe.loc[
-            "Current set, mA" == current_set
-        ]["Voltage, V"]
+        voltage_measured_along_liv = float(
+            (
+                liv_dataframe.loc[liv_dataframe["Current set, mA"] == current_set][
+                    "Voltage, V"
+                ]
+            ).iloc[0]
+        )
         voltage_error = abs(voltage_measured_along_osa - voltage_measured_along_liv)
         if round(voltage_measured_along_osa, 2) != round(voltage_measured_along_liv, 2):
             warnings.append(
-                f"voltage measured along osa={voltage_measured_along_osa} mA, voltage measured along liv={voltage_measured_along_liv} mA"
+                f"Voltage measured along osa={voltage_measured_along_osa} V, voltage measured along liv={voltage_measured_along_liv} V"
             )
             print(
-                f"WARNING! Voltage measured along osa={voltage_measured_along_osa} mA, voltage measured along liv={voltage_measured_along_liv} mA"
+                f"WARNING! Voltage measured along osa={voltage_measured_along_osa} V, voltage measured along liv={voltage_measured_along_liv} V"
             )
 
         if current_error >= 0.03:
@@ -176,18 +184,20 @@ def measure_osa(
         if voltage_error >= 0.1:
             alarm = True
             print(
-                f"ALARM! Voltage measured along osa={voltage_measured_along_osa} mA, voltage measured along liv={voltage_measured_along_liv} mA\tBreaking the measurements!"
+                f"ALARM! Voltage measured along osa={voltage_measured_along_osa} V, voltage measured along liv={voltage_measured_along_liv} V\tBreaking the measurements!"
             )
             break  # break the loop
 
     YOKOGAWA_AQ6370D.write("*CLS")
 
     # slowly decrease current
-    current_measured = float(Keysight_B2901A.query("MEAS:CURR?"))  # measure current
+    current_measured = (
+        float(Keysight_B2901A.query("MEAS:CURR?")) * 1000
+    )  # measure current in mA
     for current_set in np.arange(current_measured, 0, -0.1):
         Keysight_B2901A.write(
             ":SOUR:CURR " + str(current_set / 1000)
-        )  # Outputs i mA immediately
+        )  # Outputs current_set mA immediately
         print(f"Current set: {current_set:3.1f} mA")
         time.sleep(0.01)  # 0.01 sec for a step, 1 sec for 10 mA
 

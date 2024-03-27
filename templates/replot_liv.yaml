@@ -1,0 +1,17 @@
+algorithm_name: replot_liv
+# directories:
+#   -
+#   -
+
+title: ~
+title_fontsize: 30
+threshold_decision_level: 2
+figure_dpi: 300
+everithing_figsize: 
+  - 21.042 
+  - 14.886
+pce_legendsize: 8
+liv_figsize:
+  - 11.69
+  - 8.27
+

@@ -17,8 +17,8 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from configparser import ConfigParser
 
-from measure.liv import measure_liv
-from measure.osa import measure_osa
+from src.measure_liv import measure_liv
+from src.measure_optical_spectra import measure_osa
 
 
 def update_att_temperature(set_temperature, ATT_A160CMI=None):
@@ -45,7 +45,7 @@ def update_att_temperature(set_temperature, ATT_A160CMI=None):
     ):
         temp_for_att = "+" + str(int(round(set_temperature, ndigits=2) * 100))
     else:
-        ATT_A160CMI.write("TA=+02500")
+        ATT_A160CMI.write("TS=+02500")
         Exception("Temperature is set too high!")
     # while len(temp_for_att) < 6:  # TODO check whether we need it
     #     temp_for_att = temp_for_att + "0"
@@ -54,7 +54,7 @@ def update_att_temperature(set_temperature, ATT_A160CMI=None):
     counter_stability = 0
     sign = 0
     while not stable:
-        time.sleep(3)
+        time.sleep(10)
         current_temperature_str = str(ATT_A160CMI.query("TA?"))
         if current_temperature_str[3] == "+":
             sign = 1
@@ -62,14 +62,14 @@ def update_att_temperature(set_temperature, ATT_A160CMI=None):
             sign = -1
         current_temperature = sign * (
             float(current_temperature_str[4:7])
-            + float(current_temperature_str[8:9]) / 10
+            + float(current_temperature_str[7:9]) / 100
         )
         error = abs(current_temperature - set_temperature)
         if error < 0.05:
             counter_stability += 1
         else:
             counter_stability = 0
-        if counter_stability == 10:
+        if counter_stability == 3:
             stable = True
         print(
             f"Temperature set to {set_temperature},\t measured {current_temperature},\t stabilizing [{counter_stability}/10]\r"
@@ -223,7 +223,7 @@ def main():
             if len(temperature_list) != 1:
                 update_att_temperature(set_temperature, ATT_A160CMI=ATT_A160CMI)
             if powermeter:
-                filepath, alarm = measure_liv(
+                filepath, filename, alarm = measure_liv(
                     waferid,
                     wavelength,
                     coordinates,
@@ -235,7 +235,9 @@ def main():
                 )
                 if len(temperature_list) == 1:
                     # show figure
-                    image = mpimg.imread(filepath + "-all.png")
+                    image = mpimg.imread(
+                        (filepath / (filename + "-everything")).with_suffix(".png")
+                    )
                     plt.imshow(image)
                     plt.axis("off")
                     plt.show()
@@ -252,12 +254,12 @@ def main():
 
             if alarm and len(temperature_list) != 1:
                 time.sleep(1)
-                ATT_A160CMI.write("TA=+02500")
+                ATT_A160CMI.write("TS=+02500")
                 break
 
         if len(temperature_list) != 1:
             time.sleep(1)
-            ATT_A160CMI.write("TA=+02500")
+            ATT_A160CMI.write("TS=+02500")
 
 
 # Run main when the script is run by passing it as a command to the Python interpreter (just a good practice)

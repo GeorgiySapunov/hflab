@@ -1,0 +1,21 @@
+algorithm_name: optical_spectra
+# directories:
+#   -
+#   -
+
+# report_directory: reports
+title: ~
+photodiode: PM100USB
+# photodiode: Keysight_8163B_port2
+# photodiode: Keysight_8163B_port1
+liv_threshold_decision_level: 2
+plot_optical_spectra: True
+spectra_figsize:
+  - 23.138
+  - 16.52
+# spectra_xlim:
+#   - 1560
+#   - 1580
+spectra_xlim: ~
+optical_spectra_dpi: 100
+increment_current_heatmap: 0.5

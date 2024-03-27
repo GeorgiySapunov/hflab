@@ -1,0 +1,13 @@
+algorithm_name: rin
+# directories:
+#   -
+#   -
+
+title: ~
+fit_freqlimit: [0, 40]
+# GHz
+#
+columns_in_figure: 9
+xlim: [0, 25]
+ylim: [-170, -80]
+figure_size: [18, 12]
