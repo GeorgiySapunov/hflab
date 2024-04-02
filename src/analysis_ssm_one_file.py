@@ -207,16 +207,17 @@ def one_file_approximation(
     H2_ext0 = np.abs(H_ext0) ** 2
     H2_f_dB0 = 10 * np.log10(H2_ext0)
 
-    if (
-        np.where(H2_ext / H2_ext0 < 0.5) == True  # TODO False??!
+    if np.any(
+        np.where((H2_ext / H2_ext0) < 0.5)
     ):  # TODO fix it! turn on and off S11 fitting?
-        f_par_Hz = f_h[np.where(H2_ext / H2_ext0 < 0.5)[0][0]]
+        f_par_Hz = f_h[np.where((H2_ext / H2_ext0) < 0.5)[0][0]]
         f_p2 = f_par_Hz * 10**-9
     else:
-        f_par_Hz = 10 * 10**9
-        f_p2 = f_par_Hz * 10**-9
+        # f_par_Hz = 10 * 10**9
+        # f_p2 = f_par_Hz * 10**-9
+        f_par_Hz, f_p2 = None, None
         print(
-            "WARNING!: np.where(H2_ext / H2_ext0 < 0.5) == True\tf_parasitic set to 10!"
+            "WARNING!: np.where(H2_ext / H2_ext0 < 0.5) == False\tf_parasitic set to None!"
         )
 
     #  ____ ____  _
@@ -378,7 +379,7 @@ def one_file_approximation(
         "b-.",
         label=f"""Best fit S11
         Real L={L:.2f} pH, R_p={R_p:.2f} Om, R_m={R_m:.2f} Om, R_a={R_a:.2f} Om, C_p={C_p:.2f} fF, C_a={C_a:.2f} fF
-        MSE*10^4={S11_Fit_MSE*10**4:.2f}, MSE_real*10^4={S11_Fit_MSE_real*10**4:.2f}, fit to {freqlimit} GHz""",
+        MSE={S11_Fit_MSE:.6f}, MSE_real={S11_Fit_MSE_real:.6f}, fit to {freqlimit} GHz""",
         alpha=1,
     )
     ax1_s11re.set_ylabel("Re(S11)")
@@ -402,7 +403,7 @@ def one_file_approximation(
         "b-.",
         label=f"""Best fit S11
         Imaginary L={L:.2f} pH, R_p={R_p:.2f} Om, R_m={R_m:.2f} Om, R_a={R_a:.2f} Om, C_p={C_p:.2f} fF, C_a={C_a:.2f} fF
-        MSE*10^4={S11_Fit_MSE*10**4:.2f}, MSE_real*10^4={S11_Fit_MSE_real*10**4:.2f}, fit to {freqlimit} GHz""",
+        MSE={S11_Fit_MSE:.6f}, MSE_real={S11_Fit_MSE_real:.6f}, fit to {freqlimit} GHz""",
         alpha=1,
     )
     ax2_s11im.set_ylabel("Im(S11)")
@@ -459,12 +460,13 @@ def one_file_approximation(
     # ax4_vout.axvline(
     #     x=f3dB_vout, color="y", linestyle="-.", label=f"f3dB_Vout={f3dB_vout:.2f}"
     # )
-    ax4_h2.axvline(
-        x=f_p2,
-        color="r",
-        linestyle=":",
-        label=f"f3dB_parasitic={f_p2:.2f} GHz",
-    )
+    if f_p2:
+        ax4_h2.axvline(
+            x=f_p2,
+            color="r",
+            linestyle=":",
+            label=f"f3dB_parasitic={f_p2:.2f} GHz",
+        )
     ax4_h2.legend()
 
     # plot the S21 results
@@ -526,13 +528,13 @@ def one_file_approximation(
         print(
             f"""L={L:.2f} pH, R_p={R_p:.2f} Om, R_m={R_m:.2f}\tR_a={R_a:.2f}\tC_p={C_p:.2f}\tC_a={C_a:.2f}
             f_r={f_r:.2f}\tf_p={f_p:.2f}\tgamma={gamma:.2f}\tc={c:.2f}\tf3dB={f3dB:.2f}
-            MSE_S21={S21_Fit_MSE:.2f}, MSE_S11*10^4={S11_Fit_MSE*10**4:.2f}, MSE_imag*10^4={S11_Fit_MSE_imag*10**4:.2f}, MSE_real*10^4={S11_Fit_MSE_real*10**4:.2f}, fit to {freqlimit} GHz """
+            MSE_S21={S21_Fit_MSE:.2f}, MSE_S11={S11_Fit_MSE:.6f}, MSE_imag={S11_Fit_MSE_imag:.6f}, MSE_real={S11_Fit_MSE_real:.6f}, fit to {freqlimit} GHz """
         )
     else:
         print(
             f"""L={L:.2f} pH, R_p={R_p:.2f} Om, R_m={R_m:.2f}\tR_a={R_a:.2f}\tC_p={C_p:.2f}\tC_a={C_a:.2f}
             f_r={f_r:.2f}\tf_p={f_p:.2f}\tgamma={gamma:.2f}\tc={c:.2f}\tf3dB={f3dB}
-            MSE_S21={S21_Fit_MSE:.2f}, MSE_S11*10^4={S11_Fit_MSE*10**4:.2f}, MSE_imag*10^4={S11_Fit_MSE_imag*10**4:.2f}, MSE_real*10^4={S11_Fit_MSE_real*10**4:.2f}, fit to {freqlimit} GHz """
+            MSE_S21={S21_Fit_MSE:.2f}, MSE_S11={S11_Fit_MSE:.6f}, MSE_imag={S11_Fit_MSE_imag:.6f}, MSE_real={S11_Fit_MSE_real:.6f}, fit to {freqlimit} GHz """
         )
     if f_r > 80 or f_p > 80 or gamma > 2000:
         print(

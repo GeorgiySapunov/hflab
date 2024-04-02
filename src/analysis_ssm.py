@@ -501,9 +501,9 @@ def makefigs(
 
     fig = plt.figure(figsize=(3 * 11.69, 3 * 8.27))
     if title:
-        fig.suptitle(title)
+        fig.suptitle(title, fontsize=40)
     else:
-        fig.suptitle(name_from_dir)
+        fig.suptitle(name_from_dir, fontsize=40)
 
     # 1-st row
     ax1_l = fig.add_subplot(461)
@@ -910,6 +910,7 @@ def analyze_ssm_function(directory, settings=None):
     figure_D_MCEF_max = settings["figure_D_MCEF_max"]
 
     for s2p in (True, False):
+        print(f"s2p: {s2p}")
         df, dir, report_dir = analyze_ssm(
             directory,
             title=title,
