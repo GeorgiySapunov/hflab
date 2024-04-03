@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from configparser import ConfigParser
 from pathlib import Path
+from termcolor import colored
 
 # from settings import settings
 
@@ -429,6 +430,9 @@ def measure_liv(
 
         if output_power > max_output_power:  # track max power
             max_output_power = output_power
+            color = "light_green"
+        else:
+            color = "light_blue"
 
         # add current, measured current, voltage, output power, power consumption, power conversion efficiency to the DataFrame
         iv.loc[len(iv)] = [
@@ -449,11 +453,17 @@ def measure_liv(
             voltage * current_measured
         ):
             print(
-                f"{current_set:3.2f} mA: {current_measured:10.5f} mA, {voltage:8.5f} V, {output_power:8.5f} mW, 0 %"
+                colored(
+                    f"{current_set:3.2f} mA: {current_measured:10.5f} mA, {voltage:8.5f} V, {output_power:8.5f} mW, 0 %",
+                    color,
+                )
             )
         else:
             print(
-                f"{current_set:3.2f} mA: {current_measured:10.5f} mA, {voltage:8.5f} V, {output_power:8.5f} mW, {(100*output_power)/(voltage*current_measured):8.2f} %"
+                colored(
+                    f"{current_set:3.2f} mA: {current_measured:10.5f} mA, {voltage:8.5f} V, {output_power:8.5f} mW, {(100*output_power)/(voltage*current_measured):8.2f} %",
+                    color,
+                )
             )
             iv.iloc[-1]["Power conversion efficiency, %"] = (100 * output_power) / (
                 voltage * current_measured
@@ -465,16 +475,25 @@ def measure_liv(
             round(current_set, round_to)
         ):
             warnings.append(
-                f"Current set={current_set} mA, current measured={current_measured} mA"
+                colored(
+                    f"Current set={current_set} mA, current measured={current_measured} mA",
+                    "yellow",
+                )
             )
             print(
-                f"WARNING! Current set is {current_set} mA, while current measured is {current_measured} mA"
+                colored(
+                    f"WARNING! Current set is {current_set} mA, while current measured is {current_measured} mA",
+                    "yellow",
+                )
             )
 
         if current_error >= 0.03:
             alarm = True
             print(
-                f"ALARM! Current set is {current_set}, while current measured is {current_measured}\tBreaking the measurements!"
+                colored(
+                    f"ALARM! Current set is {current_set}, while current measured is {current_measured}\tBreaking the measurements!",
+                    "red",
+                )
             )
             break  # break the loop
 
@@ -486,14 +505,20 @@ def measure_liv(
             ):  # check conditions to stop the measurements
                 if output_power <= 0.01:
                     print(
-                        f"Current reached {current_limit1} mA, but the output_power is less then 0.01 mW\tbreaking the loop"
+                        colored(
+                            f"Current reached {current_limit1} mA, but the output_power is less then 0.01 mW\tbreaking the loop",
+                            "red",
+                        )
                     )
                     alarm = True
                 break  # break the loop
         if max_output_power <= 0.5:
             if current_set > current_limit2:  # if current is more then limit2 mA
                 print(
-                    f"Current reached {current_limit2} mA, but the output_power is less then 0.5 mW\tbreaking the loop"
+                    colored(
+                        f"Current reached {current_limit2} mA, but the output_power is less then 0.5 mW\tbreaking the loop",
+                        "red",
+                    )
                 )
                 alarm = True
                 break  # break the loop
@@ -506,7 +531,7 @@ def measure_liv(
         Keysight_B2901A.write(
             f":SOUR:CURR {str(current_set/1000)}"
         )  # Outputs i A immediately
-        print(f"Current set: {current_set:3.1f} mA")
+        print(f"Current set: {current_set:3.1f} mA\r")
         time.sleep(0.01)  # 0.01 sec for a step, 1 sec for 10 mA
 
     # Measurement is stopped by the :OUTP OFF command.
@@ -516,7 +541,7 @@ def measure_liv(
     timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
 
     livdirpath = dirpath / "LIV"
-    livdirpath.mkdir(exit_ok=True)
+    livdirpath.mkdir(exist_ok=True)
     filepath = dirpath / "LIV/"
     filename = (
         f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-{timestr}-{powermeter}"
@@ -554,8 +579,8 @@ def measure_liv(
         dpi=liv_dpi,
     )  # save figure
     plt.close("all")
-    print(f"Warnings: {len(warnings)}")
     if warnings:
-        print(*warnings, sep="\n")
+        print(colored(f"Warnings: {len(warnings)}", "yellow"))
+        print(*[colored(warning, "yellow") for warning in warnings], sep="\n")
 
     return filepath, filename, alarm

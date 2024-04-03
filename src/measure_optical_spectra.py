@@ -10,6 +10,14 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from configparser import ConfigParser
+from termcolor import colored
+from pathlib import Path
+
+
+def check_maximum_current(livfile: Path):
+    liv_dataframe = pd.read_csv(livfile)
+    max_current = liv_dataframe.iloc[-1]["Current set, mA"]
+    return max_current, liv_dataframe
 
 
 def measure_osa(
@@ -29,7 +37,7 @@ def measure_osa(
     max_current = float(liv_config["max_current"])
     osa_resolution = float(osa_config["osa_resolution"])
     osa_span = float(osa_config["osa_span"])
-    osa_points = float(osa_config["osa_points"])
+    # osa_points = float(osa_config["osa_points"]) # TODO del
     current_increment_OSA = float(osa_config["current_increment_OSA"])
 
     alarm = False
@@ -38,23 +46,23 @@ def measure_osa(
         YOKOGAWA_AQ6370D_toggle = True
         osa = "YOKOGAWA_AQ6370D"
 
-    dirpath = f"data/{waferid}-{wavelength}nm/{coordinates}/"  # get the directory path
+    dirpath = (
+        Path("data") / f"{waferid}-{wavelength}nm" / f"{coordinates}"
+    )  # get the directory path
 
     # read LIV .csv file
-    walk = list(os.walk(dirpath + "LIV"))
-    string_for_re = (
-        f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C".replace(".", "\.")
-        + ".*\\.csv"
+    livdir = dirpath / "LIV"
+    livfiles = sorted(
+        livdir.glob(f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-*.csv"),
+        reverse=True,
     )
-    r = re.compile(string_for_re)
-    files = walk[0][2]
-    matched_files = list(filter(r.match, files))
-    matched_files.sort(reverse=True)
-    file = matched_files[0]
-    liv_dataframe = pd.read_csv(dirpath + "LIV/" + file)
-
-    # get maximum current from LIV file
-    max_current = liv_dataframe.iloc[-1]["Current set, mA"]
+    if len(livfiles) > 1:
+        print(colored(f"{len(livfiles)} LIV files found:", "red"))
+    for fileindex, file in enumerate(livfiles, start=1):
+        max_current, liv_dataframe = check_maximum_current(file)
+        print(
+            f"[{fileindex}/{len(livfiles)}] {file.stem}\tMax current: {max_current} mA"
+        )
 
     # make a list of currents for spectra measurements
     osa_current_list = [0.0]
@@ -63,14 +71,7 @@ def measure_osa(
         osa_current_list.append(
             round(osa_current_list[-1] + current_increment_OSA, round_to)
         )
-    # osa_current_list = np.arange(
-    #     0,
-    #     max_current,
-    #     current_increment_OSA,
-    # )
-    # round_to = max(0, int(np.ceil(np.log10(1 / current_increment_OSA))))
-    # osa_current_list = np.array([round(i, round_to) for i in osa_current_list])
-    print(f"to {osa_current_list[-1]} mA")
+    max_current = osa_current_list[-1]
 
     # make a data frame for additional IV measurements (.csv file in OSA directory)
     iv = pd.DataFrame(
@@ -97,9 +98,9 @@ def measure_osa(
         f":SENSe:BANDwidth:RESolution {osa_resolution}nm"
     )  # TODO it changes
     YOKOGAWA_AQ6370D.write(f":SENSe:WAVelength:CENTer {wavelength}nm")
+    # YOKOGAWA_AQ6370D.write(f":SENSe:SWEep:POINts {osa_points}")
+    YOKOGAWA_AQ6370D.write(":SENs:SWEep:POINts:auto on")
     YOKOGAWA_AQ6370D.write(f":SENSe:WAVelength:SPAN {osa_span}nm")
-    YOKOGAWA_AQ6370D.write(f":SENSe:SWEep:POINts {osa_points}")
-    # YOKOGAWA_AQ6370D.write(":sens:sweep:points:auto on")
     YOKOGAWA_AQ6370D.write(":SENSe:SENSe MID")
     YOKOGAWA_AQ6370D.write(":INITiate:SMODe SINGle")
     YOKOGAWA_AQ6370D.write("*CLS")
@@ -125,7 +126,7 @@ def measure_osa(
 
         # print data to the terminal
         print(
-            f"{current_set:3.2f} mA: {current_measured:10.5f} mA, {voltage_measured_along_osa:8.5f} V"
+            f"[{current_set:3.2f}/{max_current:3.2f} mA] {current_measured:10.5f} mA, {voltage_measured_along_osa:8.5f} V"
         )
 
         # YOKOGAWA_AQ6370D.write("*CLS")
@@ -155,7 +156,10 @@ def measure_osa(
                 f"Current set={current_set} mA, current measured={current_measured} mA"
             )
             print(
-                f"WARNING! Current set is {current_set}, while current measured is {current_measured}"
+                colored(
+                    f"WARNING! Current set is {current_set}, while current measured is {current_measured}",
+                    "yellow",
+                )
             )
 
         voltage_measured_along_liv = float(
@@ -171,20 +175,29 @@ def measure_osa(
                 f"Voltage measured along osa={voltage_measured_along_osa} V, voltage measured along liv={voltage_measured_along_liv} V"
             )
             print(
-                f"WARNING! Voltage measured along osa={voltage_measured_along_osa} V, voltage measured along liv={voltage_measured_along_liv} V"
+                colored(
+                    f"WARNING! Voltage measured along osa={voltage_measured_along_osa} V, voltage measured along liv={voltage_measured_along_liv} V",
+                    "yellow",
+                )
             )
 
         if current_error >= 0.03:
             alarm = True
             print(
-                f"ALARM! Current set is {current_set}, while current measured is {current_measured}\tBreaking the measurements!"
+                colored(
+                    f"ALARM! Current set is {current_set}, while current measured is {current_measured}\tBreaking the measurements!",
+                    "red",
+                )
             )
             break  # break the loop
 
         if voltage_error >= 0.1:
             alarm = True
             print(
-                f"ALARM! Voltage measured along osa={voltage_measured_along_osa} V, voltage measured along liv={voltage_measured_along_liv} V\tBreaking the measurements!"
+                colored(
+                    f"ALARM! Voltage measured along osa={voltage_measured_along_osa} V, voltage measured along liv={voltage_measured_along_liv} V\tBreaking the measurements!",
+                    "red",
+                )
             )
             break  # break the loop
 
@@ -206,21 +219,16 @@ def measure_osa(
     Keysight_B2901A.write(f":SOUR:CURR 0.001")
 
     timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
-    if not os.path.exists(dirpath + "OSA"):  # make directories
-        os.makedirs(dirpath + "OSA")
+    osadir = dirpath / "OSA"
+    osadir.mkdir(exist_ok=True)
 
-    # get a filepath and save .csv files
-    filepath = (
-        dirpath
-        + "OSA/"
-        + f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-{timestr}-{osa}"
-    )
+    filename = f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-{timestr}-{osa}"
 
-    iv.to_csv(filepath + "-IV.csv", index=False)
-    spectra.to_csv(filepath + "-OS.csv", index=False)
+    iv.to_csv(osadir / (filename + "-IV.csv"), index=False)
+    spectra.to_csv(osadir / (filename + "-OS.csv"), index=False)
 
-    print(f"Warnings: {len(warnings)}")
     if warnings:
-        print(*warnings, sep="\n")
+        print(colored(f"Warnings: {len(warnings)}", "yellow"))
+        print(*[colored(warning, "yellow") for warning in warnings], sep="\n")
 
     return alarm

@@ -96,7 +96,7 @@ def analyze(replot_liv, ssm, rin, optical_spectra, yaml_project, paths):
                         analyze_ssm_function(path_in_yaml, settings=settings)
                     if algorithm_name == "rin":
                         analyze_rin_function(path_in_yaml, settings=settings)
-                    if algorithm_name == "optical_spectra":
+                    if algorithm_name == "optical_spectra":  # TODO fix it!
                         analyze_os_function(path_in_yaml, settings=settings)
             else:
                 if algorithm_name == "combine_liv":
