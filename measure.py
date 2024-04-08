@@ -138,6 +138,7 @@ def main():
             temperature_end = sys.argv[6]
             temperature_increment = sys.argv[7]
             temperature_list = [float(temperature_start)]
+            temp_list_len = 1
             while temperature_list[-1] < float(temperature_end) - float(
                 temperature_increment
             ):
@@ -150,6 +151,8 @@ def main():
                 for t in temperature_list
                 if t <= float(other_config["temperature_limit"])
             ]
+            temp_list_len = len(temperature_list)
+            temperature_list = list(set(temperature_list))
             print(f"temperature list: {temperature_list}")
 
         for arg in sys.argv[1:]:
@@ -212,7 +215,7 @@ def main():
                 read_termination="\n",
             )
             osa = "YOKOGAWA_AQ6370D"
-        if len(temperature_list) != 1:
+        if temp_list_len != 1:
             ATT_A160CMI = rm.open_resource(
                 instruments_config["ATT_A160CMI_address"],
                 write_termination="\r\n",
@@ -221,7 +224,7 @@ def main():
 
         for i, set_temperature in enumerate(temperature_list):
             print(f"[{i+1}/{len(temperature_list)}] {set_temperature} degree Celsius")
-            if len(temperature_list) != 1:
+            if temp_list_len != 1:
                 update_att_temperature(set_temperature, ATT_A160CMI=ATT_A160CMI)
             if powermeter:
                 filepath, filename, alarm = measure_liv(

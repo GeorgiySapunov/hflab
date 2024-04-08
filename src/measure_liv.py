@@ -541,8 +541,8 @@ def measure_liv(
     timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
 
     livdirpath = dirpath / "LIV"
-    livdirpath.mkdir(exist_ok=True)
-    filepath = dirpath / "LIV/"
+    livdirpath.mkdir(exist_ok=True, parents=True)
+    filepath = dirpath / "LIV"
     filename = (
         f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-{timestr}-{powermeter}"
     )

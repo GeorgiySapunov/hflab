@@ -45,6 +45,15 @@ def analyze_ssm(
     i_th_fixed=False,
     fp_fixed=True,
     report_dir="PNA_reports",  # TODO
+    L_bounds=[0, np.inf],
+    R_p_high_bounds=[0, np.inf],
+    R_m_bounds=[0, np.inf],
+    R_a_bounds=[0, np.inf],
+    C_p_low_bounds=[0, np.inf],
+    C_a_bounds=[0, np.inf],
+    f1_bounds=[0, np.inf],
+    f2_bounds=[0, np.inf],
+    f3_bounds=[0, np.inf],
 ):
     if isinstance(directory, str):
         directory = Path(directory)
@@ -93,11 +102,14 @@ def analyze_ssm(
         columns=[
             "Current, mA",
             "L, pH",
-            "R_p, Om",
+            "R_p_high, Om",
             "R_m, Om",
             "R_a, Om",
-            "C_p, fF",
+            "C_p_low, fF",
             "C_a, fF",
+            "f1, GHz",
+            "f2, GHz",
+            "f3, GHz",
             "f_r, GHz",
             "f_p, GHz",
             "gamma, 1/ns",
@@ -126,11 +138,14 @@ def analyze_ssm(
                 S21_Magnitude_to_fit,
                 S21_Magnitude_fit,
                 L,
-                R_p,
+                R_p_high,
                 R_m,
                 R_a,
-                C_p,
+                C_p_low,
                 C_a,
+                f1,
+                f2,
+                f3,
                 f_r,
                 f_p,
                 gamma,
@@ -150,6 +165,15 @@ def analyze_ssm(
                 probe_port=probe_port,
                 S21_MSE_threshold=S21_MSE_threshold,
                 fp_fixed=fp_fixed,
+                L_bounds=L_bounds,
+                R_p_high_bounds=R_p_high_bounds,
+                R_m_bounds=R_m_bounds,
+                R_a_bounds=R_a_bounds,
+                C_p_low_bounds=C_p_low_bounds,
+                C_a_bounds=C_a_bounds,
+                f1_bounds=f1_bounds,
+                f2_bounds=f2_bounds,
+                f3_bounds=f3_bounds,
             )
 
             # parce file name for current and temperature
@@ -189,11 +213,14 @@ def analyze_ssm(
             df.loc[len(df)] = [
                 current,
                 L,
-                R_p,
+                R_p_high,
                 R_m,
                 R_a,
-                C_p,
+                C_p_low,
                 C_a,
+                f1,
+                f2,
+                f3,
                 f_r,
                 f_p,
                 gamma,
@@ -291,11 +318,14 @@ def analyze_ssm(
                 S21_Magnitude_to_fit,
                 S21_Magnitude_fit,
                 L,
-                R_p,
+                R_p_high,
                 R_m,
                 R_a,
-                C_p,
+                C_p_low,
                 C_a,
+                f1,
+                f2,
+                f3,
                 f_r,
                 f_p,
                 gamma,
@@ -324,6 +354,15 @@ def analyze_ssm(
                 s21mag=abs_s21[start:stop],
                 S21_MSE_threshold=S21_MSE_threshold,
                 fp_fixed=fp_fixed,
+                L_bounds=L_bounds,
+                R_p_high_bounds=R_p_high_bounds,
+                R_m_bounds=R_m_bounds,
+                R_a_bounds=R_a_bounds,
+                C_p_low_bounds=C_p_low_bounds,
+                C_a_bounds=C_a_bounds,
+                f1_bounds=f1_bounds,
+                f2_bounds=f2_bounds,
+                f3_bounds=f3_bounds,
             )
 
             if len(S21_Magnitude_fit) < len(f_GHz):
@@ -349,11 +388,14 @@ def analyze_ssm(
             df.loc[len(df)] = [
                 current,
                 L,
-                R_p,
+                R_p_high,
                 R_m,
                 R_a,
-                C_p,
+                C_p_low,
                 C_a,
+                f1,
+                f2,
+                f3,
                 f_r,
                 f_p,
                 gamma,
@@ -482,6 +524,7 @@ def makefigs(
     figure_ec_ind_max=None,
     figure_ec_res_max=None,
     figure_ec_cap_max=None,
+    figure_ec_fitpar_max=None,
     figure_max_current=None,
     figure_max_freq=None,
     figure_max_gamma=None,
@@ -518,9 +561,9 @@ def makefigs(
 
     ax2_r = fig.add_subplot(462)
     ax2_r.set_title("Resistance of the equivalent circuit")
-    ax2_r.plot(df["Current, mA"], df["R_p, Om"], label="R_p", marker="o")
-    ax2_r.plot(df["Current, mA"], df["R_m, Om"], label="R_m", marker="o")
-    ax2_r.plot(df["Current, mA"], df["R_a, Om"], label="R_a", marker="o")
+    ax2_r.plot(df["Current, mA"], df["R_p_high, Om"], label="R_p_high", marker="o")
+    ax2_r.plot(df["Current, mA"], df["R_m, Om"], label="R_m", marker="D")
+    ax2_r.plot(df["Current, mA"], df["R_a, Om"], label="R_a", marker="*")
     ax2_r.set_xlabel("Current, mA")
     ax2_r.set_ylabel("Resistance, Om")
     ax2_r.set_xlim(left=0, right=figure_max_current)
@@ -531,8 +574,8 @@ def makefigs(
 
     ax3_c = fig.add_subplot(463)
     ax3_c.set_title("Capacitance of the equivalent circuit")
-    ax3_c.plot(df["Current, mA"], df["C_p, fF"], label="C_p", marker="o")
-    ax3_c.plot(df["Current, mA"], df["C_a, fF"], label="C_a", marker="o")
+    ax3_c.plot(df["Current, mA"], df["C_p_low, fF"], label="C_p_low", marker="o")
+    ax3_c.plot(df["Current, mA"], df["C_a, fF"], label="C_a", marker="D")
     ax3_c.set_ylabel("Capacitance, fF")
     ax3_c.set_xlabel("Current, mA")
     ax3_c.set_xlim(left=0, right=figure_max_current)
@@ -540,6 +583,19 @@ def makefigs(
     ax3_c.grid(which="both")
     ax3_c.minorticks_on()
     ax3_c.legend()
+
+    ax4_f = fig.add_subplot(464)
+    ax4_f.set_title("Fitting parameters of the equivalent circuit")
+    ax4_f.plot(df["Current, mA"], df["f1, GHz"], label="f1", marker="o")
+    ax4_f.plot(df["Current, mA"], df["f2, GHz"], label="f2", marker="D")
+    ax4_f.plot(df["Current, mA"], df["f3, GHz"], label="f3", marker="*")
+    ax4_f.set_ylabel("Fitting parameters, GHz")
+    ax4_f.set_xlabel("Current, mA")
+    ax4_f.set_xlim(left=0, right=figure_max_current)
+    ax4_f.set_ylim(bottom=0, top=figure_ec_fitpar_max)
+    ax4_f.grid(which="both")
+    ax4_f.minorticks_on()
+    ax4_f.legend()
 
     # 2-nd row
     ax7_gamma = fig.add_subplot(445)
@@ -901,6 +957,7 @@ def analyze_ssm_function(directory, settings=None):
     figure_ec_ind_max = settings["figure_ec_ind_max"]
     figure_ec_res_max = settings["figure_ec_res_max"]
     figure_ec_cap_max = settings["figure_ec_cap_max"]
+    figure_ec_fitpar_max = settings["figure_ec_fitpar_max"]
     figure_max_current = settings["figure_max_current"]
     figure_max_freq = settings["figure_max_freq"]
     figure_max_gamma = settings["figure_max_gamma"]
@@ -908,6 +965,15 @@ def analyze_ssm_function(directory, settings=None):
     figure_K_max = settings["figure_K_max"]
     figure_gamma0_max = settings["figure_gamma0_max"]
     figure_D_MCEF_max = settings["figure_D_MCEF_max"]
+    L_bounds = settings["L_bounds"]
+    R_p_high_bounds = settings["R_p_high_bounds"]
+    R_m_bounds = settings["R_m_bounds"]
+    R_a_bounds = settings["R_a_bounds"]
+    C_p_low_bounds = settings["C_p_low_bounds"]
+    C_a_bounds = settings["C_a_bounds"]
+    f1_bounds = settings["f1_bounds"]
+    f2_bounds = settings["f2_bounds"]
+    f3_bounds = settings["f3_bounds"]
 
     for s2p in (True, False):
         print(f"s2p: {s2p}")
@@ -921,6 +987,15 @@ def analyze_ssm_function(directory, settings=None):
             S21_MSE_threshold=S21_MSE_threshold,
             i_th_fixed=i_th_fixed,
             fp_fixed=fp_fixed,
+            L_bounds=L_bounds,
+            R_p_high_bounds=R_p_high_bounds,
+            R_m_bounds=R_m_bounds,
+            R_a_bounds=R_a_bounds,
+            C_p_low_bounds=C_p_low_bounds,
+            C_a_bounds=C_a_bounds,
+            f1_bounds=f1_bounds,
+            f2_bounds=f2_bounds,
+            f3_bounds=f3_bounds,
         )
         K_D_MCEF_df = collect_K_D_MCEF(
             df, col_f_r="f_r, GHz", col_f_3dB="f_3dB, GHz", col_gamma="gamma, 1/ns"
@@ -957,6 +1032,7 @@ def analyze_ssm_function(directory, settings=None):
             figure_ec_ind_max=figure_ec_ind_max,
             figure_ec_res_max=figure_ec_res_max,
             figure_ec_cap_max=figure_ec_cap_max,
+            figure_ec_fitpar_max=figure_ec_fitpar_max,
             figure_max_current=figure_max_current,
             figure_max_freq=figure_max_freq,
             figure_max_gamma=figure_max_gamma,

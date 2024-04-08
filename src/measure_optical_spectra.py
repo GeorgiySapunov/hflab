@@ -39,6 +39,7 @@ def measure_osa(
     osa_span = float(osa_config["osa_span"])
     # osa_points = float(osa_config["osa_points"]) # TODO del
     current_increment_OSA = float(osa_config["current_increment_OSA"])
+    osa_force_wavelength = float(osa_config["osa_force_wavelength"])
 
     alarm = False
     warnings = []
@@ -97,9 +98,14 @@ def measure_osa(
     YOKOGAWA_AQ6370D.write(
         f":SENSe:BANDwidth:RESolution {osa_resolution}nm"
     )  # TODO it changes
-    YOKOGAWA_AQ6370D.write(f":SENSe:WAVelength:CENTer {wavelength}nm")
+    osa_force_wavelength
     # YOKOGAWA_AQ6370D.write(f":SENSe:SWEep:POINts {osa_points}")
     YOKOGAWA_AQ6370D.write(":SENs:SWEep:POINts:auto on")
+    if osa_force_wavelength:
+        YOKOGAWA_AQ6370D.write(f":SENSe:WAVelength:CENTer {osa_force_wavelength}nm")
+    else:
+        YOKOGAWA_AQ6370D.write(f":SENSe:WAVelength:CENTer {wavelength}nm")
+    YOKOGAWA_AQ6370D.write(f":SENSe:WAVelength:CENTer {wavelength}nm")
     YOKOGAWA_AQ6370D.write(f":SENSe:WAVelength:SPAN {osa_span}nm")
     YOKOGAWA_AQ6370D.write(":SENSe:SENSe MID")
     YOKOGAWA_AQ6370D.write(":INITiate:SMODe SINGle")

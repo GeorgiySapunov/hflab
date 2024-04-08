@@ -11,7 +11,7 @@ from configparser import ConfigParser
 import tkinter as tk
 from tkinter import ttk
 
-comand_line = False
+comand_line = True
 
 config = ConfigParser()
 config.read("config.ini")
