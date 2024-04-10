@@ -55,7 +55,7 @@ def measure_osa(
     # read LIV .csv file
     livdir = dirpath / "LIV"
     livfiles = sorted(
-        livdir.glob(f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-*.csv"),
+        livdir.glob(f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-*PM100USB.csv"),
         reverse=True,
     )
     if len(livfiles) > 1:
@@ -103,10 +103,10 @@ def measure_osa(
     # YOKOGAWA_AQ6370D.write(f":SENSe:SWEep:POINts {osa_points}")
     YOKOGAWA_AQ6370D.write(":SENs:SWEep:POINts:auto on")
     if osa_force_wavelength:
+        print(f"{osa_force_wavelength}nm is OSA center wavelength")
         YOKOGAWA_AQ6370D.write(f":SENSe:WAVelength:CENTer {osa_force_wavelength}nm")
     else:
         YOKOGAWA_AQ6370D.write(f":SENSe:WAVelength:CENTer {wavelength}nm")
-    YOKOGAWA_AQ6370D.write(f":SENSe:WAVelength:CENTer {wavelength}nm")
     YOKOGAWA_AQ6370D.write(f":SENSe:WAVelength:SPAN {osa_span}nm")
     YOKOGAWA_AQ6370D.write(":SENSe:SENSe MID")
     YOKOGAWA_AQ6370D.write(":INITiate:SMODe SINGle")
@@ -133,7 +133,7 @@ def measure_osa(
 
         # print data to the terminal
         print(
-            f"[{current_set:3.2f}/{max_current:3.2f} mA] {current_measured:10.5f} mA, {voltage_measured_along_osa:8.5f} V"
+            f"[{current_set:3.2f}/{max_current:3.2f} mA] {current_measured:10.5f} mA, {voltage_measured_along_osa:8.5f} V", end="\r"
         )
 
         # YOKOGAWA_AQ6370D.write("*CLS")
@@ -155,6 +155,9 @@ def measure_osa(
         intensity = YOKOGAWA_AQ6370D.query(":TRACE:Y? TRA").strip().split(",")
         column_spectra = f"Intensity at {current_set:.2f} mA, dBm"
         spectra[column_spectra] = pd.Series(intensity).astype("float64")
+        intensity_max = spectra[column_spectra].max()
+        intensity_max_wavelength = spectra["Wavelength, nm"][spectra[column_spectra].argmax()]
+        print(f"[{current_set:3.2f}/{max_current:3.2f} mA] {current_measured:10.5f} mA, {voltage_measured_along_osa:8.5f} V, {intensity_max:3.1f} dBm, {intensity_max_wavelength:3.3f} nm")
 
         # deal with set/measured current mismatch
         current_error = abs(current_set - current_measured)
@@ -165,7 +168,7 @@ def measure_osa(
             print(
                 colored(
                     f"WARNING! Current set is {current_set}, while current measured is {current_measured}",
-                    "yellow",
+                    "cyan",
                 )
             )
 
@@ -184,7 +187,7 @@ def measure_osa(
             print(
                 colored(
                     f"WARNING! Voltage measured along osa={voltage_measured_along_osa} V, voltage measured along liv={voltage_measured_along_liv} V",
-                    "yellow",
+                    "cyan",
                 )
             )
 
@@ -218,7 +221,7 @@ def measure_osa(
         Keysight_B2901A.write(
             ":SOUR:CURR " + str(current_set / 1000)
         )  # Outputs current_set mA immediately
-        print(f"Current set: {current_set:3.1f} mA")
+        print(f"Current set: {current_set:3.1f} mA", end="\r")
         time.sleep(0.01)  # 0.01 sec for a step, 1 sec for 10 mA
 
     # Measurement is stopped by the :OUTP OFF command.
@@ -235,7 +238,7 @@ def measure_osa(
     spectra.to_csv(osadir / (filename + "-OS.csv"), index=False)
 
     if warnings:
-        print(colored(f"Warnings: {len(warnings)}", "yellow"))
-        print(*[colored(warning, "yellow") for warning in warnings], sep="\n")
+        print(colored(f"Warnings: {len(warnings)}", "cyan"))
+        print(*[colored(warning, "cyan") for warning in warnings], sep="\n")
 
     return alarm

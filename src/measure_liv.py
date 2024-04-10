@@ -533,7 +533,7 @@ def measure_liv(
         Keysight_B2901A.write(
             f":SOUR:CURR {str(current_set/1000)}"
         )  # Outputs i A immediately
-        print(f"Current set: {current_set:3.1f} mA\r")
+        print(f"Current set: {current_set:3.1f} mA", end="\r")
         time.sleep(0.01)  # 0.01 sec for a step, 1 sec for 10 mA
 
     # Measurement is stopped by the :OUTP OFF command.

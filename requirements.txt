@@ -17,4 +17,5 @@ termcolor
 click
 icecream
 setuptools
+pyyaml
 # pysmithplot-fork

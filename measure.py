@@ -10,6 +10,7 @@ import sys
 import os
 import re
 import time
+import datetime
 import pyvisa
 import numpy as np
 import pandas as pd
@@ -265,4 +266,7 @@ def main():
 
 # Run main when the script is run by passing it as a command to the Python interpreter (just a good practice)
 if __name__ == "__main__":
+    start_time = datetime.datetime.now()
     main()
+    end_time = datetime.datetime.now()
+    print(f"Duration: {end_time - start_time}")
