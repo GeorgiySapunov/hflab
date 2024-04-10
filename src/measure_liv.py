@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
+import colorama
 from configparser import ConfigParser
 from pathlib import Path
 from termcolor import colored
@@ -327,6 +328,7 @@ def measure_liv(
     Keysight_8163B=None,
     k_port=None,
 ):
+    colorama.init()
     config = ConfigParser()
     config.read("config.ini")
     liv_config = config["LIV"]
@@ -446,7 +448,7 @@ def measure_liv(
 
         # add power data if pm100toggle is set to True
         if pm100_toggle or keysight_8163B_toggle:
-            iv.iloc[-1]["Output power, mW"] = output_power
+            iv.iloc[-1, iv.columns.get_loc("Output power, mW")] = output_power
 
         # print data to the terminal
         if voltage * current_measured == 0 or output_power >= (
@@ -465,9 +467,9 @@ def measure_liv(
                     color,
                 )
             )
-            iv.iloc[-1]["Power conversion efficiency, %"] = (100 * output_power) / (
-                voltage * current_measured
-            )
+            iv.iloc[-1, iv.columns.get_loc("Power conversion efficiency, %")] = (
+                100 * output_power
+            ) / (voltage * current_measured)
 
         # deal with set/measured current mismatch
         current_error = abs(current_set - current_measured)
@@ -546,9 +548,7 @@ def measure_liv(
     filename = (
         f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-{timestr}-{powermeter}"
     )
-    iv.to_csv(
-        (filepath / filename).with_suffix(".csv"), index=False
-    )  # save DataFrame to csv file
+    iv.to_csv(filepath / (filename + ".csv"), index=False)  # save DataFrame to csv file
 
     # save figures
     buildplt_everything(
@@ -560,9 +560,7 @@ def measure_liv(
         powermeter=powermeter,
         threshold_decision_level=threshold_decision_level,
     )
-    plt.savefig(
-        (filepath / (filename + "-everything")).with_suffix(".png"), dpi=liv_dpi
-    )  # save figure
+    plt.savefig(filepath / (filename + "-everything.png"), dpi=liv_dpi)  # save figure
     i_threshold, i_rollover = buildplt_liv(
         dataframe=iv,
         waferid=waferid,
@@ -573,9 +571,7 @@ def measure_liv(
         threshold_decision_level=threshold_decision_level,
     )
     plt.savefig(
-        (
-            filepath / (filename + f"_Ith={i_threshold:.2f}_Iro={i_rollover:.2f}")
-        ).with_suffix(".png"),
+        (filepath / (filename + f"_Ith={i_threshold:.2f}_Iro={i_rollover:.2f}.png")),
         dpi=liv_dpi,
     )  # save figure
     plt.close("all")

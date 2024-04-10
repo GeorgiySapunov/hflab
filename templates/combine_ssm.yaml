@@ -19,6 +19,7 @@ dict_of_report_directories:
 figure_ec_ind_max: 100
 figure_ec_res_max: 200
 figure_ec_cap_max: 300
+figure_ec_fitpar_max: 1000
 #
 figure_max_current: 20  # mA
 figure_max_freq: 25  # GHz

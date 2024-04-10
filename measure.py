@@ -35,7 +35,6 @@ def update_att_temperature(set_temperature, ATT_A160CMI=None):
             write_termination="\r\n",
             read_termination="\n",
         )
-
     temp_for_att = ""
     if set_temperature >= 0 and set_temperature < 10:
         temp_for_att = "+00" + str(int(round(set_temperature, ndigits=2) * 100))
@@ -66,14 +65,14 @@ def update_att_temperature(set_temperature, ATT_A160CMI=None):
             + float(current_temperature_str[7:9]) / 100
         )
         error = abs(current_temperature - set_temperature)
-        if error < 0.05:
+        if error < 0.04:
             counter_stability += 1
         else:
             counter_stability = 0
-        if counter_stability == 3:
+        if counter_stability == 4:
             stable = True
         print(
-            f"Temperature set to {set_temperature},\t measured {current_temperature},\t stabilizing [{counter_stability}/10]\r"
+            f"Temperature set to {set_temperature},\t measured {current_temperature},\t stabilizing [{counter_stability}/4]\r"
         )
 
 
@@ -134,11 +133,11 @@ def main():
         coordinates = sys.argv[4]
         temperature_start = sys.argv[5]
         temperature_list = [float(temperature_start)]
+        temp_list_len = 1
         if len(sys.argv) == 8:
             temperature_end = sys.argv[6]
             temperature_increment = sys.argv[7]
             temperature_list = [float(temperature_start)]
-            temp_list_len = 1
             while temperature_list[-1] < float(temperature_end) - float(
                 temperature_increment
             ):
@@ -152,7 +151,7 @@ def main():
                 if t <= float(other_config["temperature_limit"])
             ]
             temp_list_len = len(temperature_list)
-            temperature_list = list(set(temperature_list))
+            temperature_list = sorted(list(set(temperature_list)))
             print(f"temperature list: {temperature_list}")
 
         for arg in sys.argv[1:]:
@@ -239,9 +238,7 @@ def main():
                 )
                 if len(temperature_list) == 1:
                     # show figure
-                    image = mpimg.imread(
-                        (filepath / (filename + "-everything")).with_suffix(".png")
-                    )
+                    image = mpimg.imread(filepath / (filename + "-everything.png"))
                     plt.imshow(image)
                     plt.axis("off")
                     plt.show()

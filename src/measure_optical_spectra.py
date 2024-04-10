@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 import sys
 import os
 import re
@@ -9,6 +8,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
+import colorama
 from configparser import ConfigParser
 from termcolor import colored
 from pathlib import Path
@@ -28,6 +28,7 @@ def measure_osa(
     Keysight_B2901A=None,
     YOKOGAWA_AQ6370D=None,
 ):
+    colorama.init()
     config = ConfigParser()
     config.read("config.ini")
     # instruments_config = config["INSTRUMENTS"]

@@ -23,6 +23,7 @@ def combine_ssm_reports_function(path, settings=None):
     figure_ec_ind_max = settings["figure_ec_ind_max"]
     figure_ec_res_max = settings["figure_ec_res_max"]
     figure_ec_cap_max = settings["figure_ec_cap_max"]
+    figure_ec_fitpar_max = settings["figure_ec_fitpar_max"]
     figure_max_current = settings["figure_max_current"]
     figure_max_freq = settings["figure_max_freq"]
     figure_max_gamma = settings["figure_max_gamma"]
@@ -38,30 +39,39 @@ def combine_ssm_reports_function(path, settings=None):
 
     fig = plt.figure(figsize=figure_size)
 
-    ax1_l = fig.add_subplot(4, 6, 1)
-    ax2_r = fig.add_subplot(4, 6, 2)
-    ax22_r = fig.add_subplot(4, 6, 3)
-    ax23_r = fig.add_subplot(4, 6, 4)
-    ax3_c = fig.add_subplot(4, 6, 5)
-    ax32_c = fig.add_subplot(4, 6, 6)
-    ax7_gamma = fig.add_subplot(4, 4, 5)
-    ax8_fp = fig.add_subplot(4, 4, 6)
-    ax9_fr = fig.add_subplot(4, 4, 7)
-    ax10_f3db = fig.add_subplot(4, 4, 8)
-    ax11_sqrt_gamma = fig.add_subplot(4, 4, 9)
-    ax13_fr_for_D = fig.add_subplot(4, 4, 11)
-    ax14_f3dB_for_MCEF = fig.add_subplot(4, 4, 12)
-    ax15_K = fig.add_subplot(4, 4, 13)
-    ax16_gamma0 = fig.add_subplot(4, 4, 14)
-    ax17_D = fig.add_subplot(4, 4, 15)
-    ax18_MCEF = fig.add_subplot(4, 4, 16)
+    ax1_l = fig.add_subplot(5, 4, 1)
+    ax22_r_m = fig.add_subplot(5, 4, 3)
+    ax23_r_a = fig.add_subplot(5, 4, 3)
+    ax32_c = fig.add_subplot(5, 4, 4)
+
+    ax2_r_p_high = fig.add_subplot(5, 5, 6)
+    ax41_f1 = fig.add_subplot(5, 5, 7)
+    ax3_c_p_low = fig.add_subplot(5, 6, 8)
+    ax42_f2 = fig.add_subplot(5, 5, 9)
+    ax43_f3 = fig.add_subplot(5, 5, 10)
+
+    ax7_gamma = fig.add_subplot(5, 4, 9)
+    ax8_fp = fig.add_subplot(5, 4, 10)
+    ax9_fr = fig.add_subplot(5, 4, 11)
+    ax10_f3db = fig.add_subplot(5, 4, 12)
+
+    ax11_sqrt_gamma = fig.add_subplot(5, 4, 13)
+    ax13_fr_for_D = fig.add_subplot(5, 4, 15)
+    ax14_f3dB_for_MCEF = fig.add_subplot(5, 4, 16)
+    ax15_K = fig.add_subplot(5, 4, 17)
+    ax16_gamma0 = fig.add_subplot(5, 4, 18)
+    ax17_D = fig.add_subplot(5, 4, 19)
+    ax18_MCEF = fig.add_subplot(5, 4, 20)
 
     ax_list = [
         ax1_l,
-        ax2_r,
-        ax22_r,
-        ax23_r,
-        ax3_c,
+        ax22_r_m,
+        ax23_r_a,
+        ax2_r_p_high,
+        ax41_f1,
+        ax3_c_p_low,
+        ax42_f2,
+        ax43_f3,
         ax32_c,
         ax7_gamma,
         ax8_fp,
@@ -102,33 +112,35 @@ def combine_ssm_reports_function(path, settings=None):
         ax1_l.set_ylim([0, figure_ec_ind_max])
         ax1_l.set_xlim([0, figure_max_current])
 
-        ax2_r.set_title("Resistance R_p")
-        ax2_r.plot(df["Current, mA"], df["R_p, Om"], label=lable, marker="o")
-        ax2_r.set_ylabel("Resistance, Om")
-        ax2_r.set_xlabel("Current, mA")
-        ax2_r.set_ylim([0, figure_ec_res_max])
-        ax2_r.set_xlim([0, figure_max_current])
+        ax2_r_p_high.set_title("Resistance R_p")
+        ax2_r_p_high.plot(
+            df["Current, mA"], df["R_p_high, Om"], label=lable, marker="o"
+        )
+        ax2_r_p_high.set_ylabel("Resistance, Om")
+        ax2_r_p_high.set_xlabel("Current, mA")
+        ax2_r_p_high.set_ylim([0, figure_ec_res_max])
+        ax2_r_p_high.set_xlim([0, figure_max_current])
 
-        ax22_r.set_title("Resistance R_m")
-        ax22_r.plot(df["Current, mA"], df["R_m, Om"], label=lable, marker="o")
-        ax22_r.set_ylabel("Resistance, Om")
-        ax22_r.set_xlabel("Current, mA")
-        ax22_r.set_ylim([0, figure_ec_res_max])
-        ax22_r.set_xlim([0, figure_max_current])
+        ax22_r_m.set_title("Resistance R_m")
+        ax22_r_m.plot(df["Current, mA"], df["R_m, Om"], label=lable, marker="o")
+        ax22_r_m.set_ylabel("Resistance, Om")
+        ax22_r_m.set_xlabel("Current, mA")
+        ax22_r_m.set_ylim([0, figure_ec_res_max])
+        ax22_r_m.set_xlim([0, figure_max_current])
 
-        ax23_r.set_title("Resistance R_a")
-        ax23_r.plot(df["Current, mA"], df["R_a, Om"], label=lable, marker="o")
-        ax23_r.set_ylabel("Resistance, Om")
-        ax23_r.set_xlabel("Current, mA")
-        ax23_r.set_ylim([0, figure_ec_res_max])
-        ax23_r.set_xlim([0, figure_max_current])
+        ax23_r_a.set_title("Resistance R_a")
+        ax23_r_a.plot(df["Current, mA"], df["R_a, Om"], label=lable, marker="o")
+        ax23_r_a.set_ylabel("Resistance, Om")
+        ax23_r_a.set_xlabel("Current, mA")
+        ax23_r_a.set_ylim([0, figure_ec_res_max])
+        ax23_r_a.set_xlim([0, figure_max_current])
 
-        ax3_c.set_title("Capacitance C_p")
-        ax3_c.plot(df["Current, mA"], df["C_p, fF"], label=lable, marker="o")
-        ax3_c.set_ylabel("Capacitance, fF")
-        ax3_c.set_xlabel("Current, mA")
-        ax3_c.set_xlim([0, figure_max_current])
-        ax3_c.set_ylim([0, figure_ec_cap_max])
+        ax3_c_p_low.set_title("Capacitance C_p")
+        ax3_c_p_low.plot(df["Current, mA"], df["C_p_low, fF"], label=lable, marker="o")
+        ax3_c_p_low.set_ylabel("Capacitance, fF")
+        ax3_c_p_low.set_xlabel("Current, mA")
+        ax3_c_p_low.set_xlim([0, figure_max_current])
+        ax3_c_p_low.set_ylim([0, figure_ec_cap_max])
 
         ax32_c.set_title("Capacitance C_a")
         ax32_c.plot(df["Current, mA"], df["C_a, fF"], label=lable, marker="o")
@@ -138,6 +150,28 @@ def combine_ssm_reports_function(path, settings=None):
         ax32_c.set_ylim([0, figure_ec_cap_max])
 
         # 2-nd row
+        ax41_f1.set_title("Fitting parameter 1")
+        ax41_f1.plot(df["Current, mA"], df["f1, GHz"], label=lable, marker="o")
+        ax41_f1.set_ylabel("Fitting parameter, GHz")
+        ax41_f1.set_xlabel("Current, mA")
+        ax41_f1.set_xlim([0, figure_max_current])
+        ax41_f1.set_ylim([0, figure_ec_fitpar_max])
+
+        ax42_f2.set_title("Fitting parameter 2")
+        ax42_f2.plot(df["Current, mA"], df["f2, GHz"], label=lable, marker="o")
+        ax42_f2.set_ylabel("Fitting parameter, GHz")
+        ax42_f2.set_xlabel("Current, mA")
+        ax42_f2.set_xlim([0, figure_max_current])
+        ax42_f2.set_ylim([0, figure_ec_fitpar_max])
+
+        ax42_f2.set_title("Fitting parameter 3")
+        ax42_f2.plot(df["Current, mA"], df["f3, GHz"], label=lable, marker="o")
+        ax42_f2.set_ylabel("Fitting parameter, GHz")
+        ax42_f2.set_xlabel("Current, mA")
+        ax42_f2.set_xlim([0, figure_max_current])
+        ax42_f2.set_ylim([0, figure_ec_fitpar_max])
+
+        # 3-nd row
         ax7_gamma.set_title("ɣ from S21 approximation")
         ax7_gamma.plot(
             df["Current, mA"],
@@ -190,7 +224,7 @@ def combine_ssm_reports_function(path, settings=None):
         ax10_f3db.set_xlim([0, figure_max_current])
         ax10_f3db.set_ylim([0, figure_max_freq])
 
-        # 3-rd row
+        # 4-rd row
         ax11_sqrt_gamma.set_title("ɣ vs f_r^2")
         ax11_sqrt_gamma.plot(
             df["f_r, GHz"] ** 2,
@@ -230,7 +264,7 @@ def combine_ssm_reports_function(path, settings=None):
         ax14_f3dB_for_MCEF.set_xlim(left=0, right=np.sqrt(figure_max_current))
         ax14_f3dB_for_MCEF.set_ylim(bottom=0, top=figure_max_freq)
 
-        # 4-th row
+        # 5-th row
         ax15_K.set_title("K factor for different appoximation limits")
         ax15_K.plot(
             K_D_MCEF_df["f_r_2_max"],

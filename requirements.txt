@@ -7,10 +7,14 @@ matplotlib
 seaborn
 pyvisa
 pyvisa-py
-pyusb
-pyserial
-psutil
-zeroconf
+# pyusb
+# pyserial
+# psutil
+# zeroconf
 pyfiglet
 rich
+termcolor
+click
+icecream
+setuptools
 # pysmithplot-fork
