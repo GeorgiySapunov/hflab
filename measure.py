@@ -234,7 +234,7 @@ def main():
                 write_termination="\r\n",
                 read_termination="\n",
             )
-            pna = "Keysight_N5247B_adress"
+            pna = "Keysight_N5247B"
 
         if temp_list_len != 1:
             ATT_A160CMI = rm.open_resource(
@@ -274,12 +274,6 @@ def main():
                     Keysight_B2901A=Keysight_B2901A,
                     YOKOGAWA_AQ6370D=YOKOGAWA_AQ6370D,
                 )
-
-            if alarm and len(temperature_list) != 1:
-                time.sleep(1)
-                ATT_A160CMI.write("TS=+02500")
-                break
-
             elif pna:
                 alarm = measure_pna(
                     waferid,
