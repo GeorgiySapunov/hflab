@@ -16,11 +16,13 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
+import colorama
 from configparser import ConfigParser
 from pathlib import Path
 
 from src.measure_liv import measure_liv
 from src.measure_optical_spectra import measure_osa
+from src.measure_pna import measure_pna
 
 
 def update_att_temperature(set_temperature, ATT_A160CMI=None):
@@ -165,35 +167,46 @@ def main():
 
         alarm = False
         pm100_toggle = False
-        keysight_8163B_toggle = False
+        Keysight_8163B_toggle = False
         k_port = None
         YOKOGAWA_AQ6370D_toggle = False
+        Keysight_N5247B_toggle = False
 
         powermeter = None
         osa = None
         PM100USB = None
         Keysight_8163B = None
         YOKOGAWA_AQ6370D = None
+        pna = None
 
         if equipment == "t":
             pm100_toggle = True  # toggle Thorlabs PM100USB Power and energy meter
         elif equipment == "k1":
-            keysight_8163B_toggle = True  # toggle Keysight 8163B Lightwave Multimeter
+            Keysight_8163B_toggle = True  # toggle Keysight 8163B Lightwave Multimeter
             k_port = "1"
         elif equipment == "k2":
-            keysight_8163B_toggle = True  # toggle Keysight 8163B Lightwave Multimeter
+            Keysight_8163B_toggle = True  # toggle Keysight 8163B Lightwave Multimeter
             k_port = "2"
         elif equipment == "y":
             YOKOGAWA_AQ6370D_toggle = True  # toggle Keysight 8163B Lightwave Multimeter
+        elif equipment == "p":
+            Keysight_N5247B_toggle = True  # toggle Keysight 8163B Lightwave Multimeter
 
         # initiate pyvisa
         rm = pyvisa.ResourceManager()
         # set addresses for devices
-        Keysight_B2901A = rm.open_resource(
-            instruments_config["Keysight_B2901A_address"],
-            write_termination="\r\n",
-            read_termination="\n",
-        )
+        if any((pm100_toggle, Keysight_8163B_toggle, YOKOGAWA_AQ6370D_toggle)):
+            Keysight_B2901A = rm.open_resource(
+                instruments_config["Keysight_B2901A_address"],
+                write_termination="\r\n",
+                read_termination="\n",
+            )
+        elif Keysight_N5247B_toggle:
+            Keysight_B2901A = rm.open_resource(
+                instruments_config["Keysight_B2901A_2_address"],
+                write_termination="\r\n",
+                read_termination="\n",
+            )
         if pm100_toggle:
             PM100USB = rm.open_resource(
                 instruments_config["Thorlabs_PM100USB_address"],
@@ -201,7 +214,7 @@ def main():
                 read_termination="\n",
             )
             powermeter = "PM100USB"
-        elif keysight_8163B_toggle:
+        elif Keysight_8163B_toggle:
             Keysight_8163B = rm.open_resource(
                 instruments_config["Keysight_8163B_address"],
                 write_termination="\r\n",
@@ -215,6 +228,14 @@ def main():
                 read_termination="\n",
             )
             osa = "YOKOGAWA_AQ6370D"
+        elif Keysight_N5247B_toggle:
+            Keysight_N5247B = rm.open_resource(
+                instruments_config["YOKOGAWA_AQ6370D_address"],
+                write_termination="\r\n",
+                read_termination="\n",
+            )
+            pna = "Keysight_N5247B_adress"
+
         if temp_list_len != 1:
             ATT_A160CMI = rm.open_resource(
                 instruments_config["ATT_A160CMI_address"],
@@ -259,6 +280,21 @@ def main():
                 ATT_A160CMI.write("TS=+02500")
                 break
 
+            elif pna:
+                alarm = measure_pna(
+                    waferid,
+                    wavelength,
+                    coordinates,
+                    set_temperature,
+                    Keysight_B2901A=Keysight_B2901A,
+                    Keysight_N5247B=Keysight_N5247B,
+                )
+
+            if alarm and len(temperature_list) != 1:
+                time.sleep(1)
+                ATT_A160CMI.write("TS=+02500")
+                break
+
         if len(temperature_list) != 1:
             time.sleep(1)
             ATT_A160CMI.write("TS=+02500")
@@ -266,6 +302,7 @@ def main():
 
 # Run main when the script is run by passing it as a command to the Python interpreter (just a good practice)
 if __name__ == "__main__":
+    colorama.init()
     start_time = datetime.datetime.now()
     main()
     end_time = datetime.datetime.now()

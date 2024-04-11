@@ -9,6 +9,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import colorama
+import skrf as rf
 from configparser import ConfigParser
 from termcolor import colored
 from pathlib import Path
@@ -16,41 +17,36 @@ from pathlib import Path
 
 def check_maximum_current(livfile: Path):
     liv_dataframe = pd.read_csv(livfile)
-    livfile_max_current = liv_dataframe.iloc[-1]["Current set, mA"]
-    return livfile_max_current, liv_dataframe
+    max_current = liv_dataframe.iloc[-1]["Current set, mA"]
+    return max_current, liv_dataframe
 
 
-def measure_osa(
+def measure_pna(
     waferid,
     wavelength,
     coordinates,
     temperature,
     Keysight_B2901A=None,
-    YOKOGAWA_AQ6370D=None,
+    Keysight_N5247B=None,
 ):
     colorama.init()
     config = ConfigParser()
     config.read("config.ini")
     # instruments_config = config["INSTRUMENTS"]
-    liv_config = config["LIV"]
-    osa_config = config["OSA"]
-    # other_config = config["OTHER"]
-    max_current = float(liv_config["max_current"])
-    osa_resolution = float(osa_config["osa_resolution"])
-    osa_span = float(osa_config["osa_span"])
-    # osa_points = float(osa_config["osa_points"]) # TODO del
-    current_increment_OSA = float(osa_config["current_increment_OSA"])
-    osa_force_wavelength = float(osa_config["osa_force_wavelength"])
+    pna_config = config["PNA"]
+    current_increment_PNA = float(pna_config["current_increment_PNA"])
 
     alarm = False
     warnings = []
-    if YOKOGAWA_AQ6370D:
+    if Keysight_N5247B:
         YOKOGAWA_AQ6370D_toggle = True
-        osa = "YOKOGAWA_AQ6370D"
+        pna = "YOKOGAWA_AQ6370D"
 
     dirpath = (
         Path("data") / f"{waferid}-{wavelength}nm" / f"{coordinates}"
     )  # get the directory path
+    pnadir = dirpath / "PNA"
+    pnadir.mkdir(exist_ok=True)
 
     # read LIV .csv file
     livdir = dirpath / "LIV"
@@ -61,6 +57,7 @@ def measure_osa(
         reverse=True,
     )
     if len(livfiles) > 1:
+        livfile = True
         print(colored(f"{len(livfiles)} LIV files found:", "red"))
         for fileindex, file in enumerate(livfiles, start=1):
             livfile_max_current, liv_dataframe = check_maximum_current(file)
@@ -68,63 +65,43 @@ def measure_osa(
                 f"[{fileindex}/{len(livfiles)}] {file.stem}\tMax current: {livfile_max_current} mA"
             )
     else:
-        alarm = True
-        print(
-            colored(
-                f"ALARM! LIV file in not found!",
-                "red",
-            )
+        livfile_max_current = input(
+            "LIV file is not found! Please, input max_current (mA):"
         )
-        return
 
     # make a list of currents for spectra measurements
-    osa_current_list = [0.0]
-    round_to = max(0, int(np.ceil(np.log10(1 / current_increment_OSA))))
-    while osa_current_list[-1] <= livfile_max_current - current_increment_OSA:
-        osa_current_list.append(
-            round(osa_current_list[-1] + current_increment_OSA, round_to)
+    pna_current_list = [0.0]
+    round_to = max(0, int(np.ceil(np.log10(1 / current_increment_PNA))))
+    while pna_current_list[-1] <= livfile_max_current - current_increment_PNA:
+        pna_current_list.append(
+            round(pna_current_list[-1] + current_increment_PNA, round_to)
         )
-    livfile_max_current = osa_current_list[-1]
+    livfile_max_current = pna_current_list[-1]
 
-    # make a data frame for additional IV measurements (.csv file in OSA directory)
-    iv = pd.DataFrame(
-        columns=[
-            "Current set, mA",
-            "Current, mA",
-            "Voltage, V",
-            "Power consumption, mW",
-        ]
-    )
+    if livfile:
+        # make a data frame for additional IV measurements (.csv file in OSA directory)
+        iv = pd.DataFrame(
+            columns=[
+                "Current set, mA",
+                "Current, mA",
+                "Voltage, V",
+                "Power consumption, mW",
+            ]
+        )
 
     # make a data frame for spectra measurements
     columns_spectra = ["Wavelength, nm"] + [
-        f"Intensity at {i:.2f} mA, dBm" for i in osa_current_list
+        f"Intensity at {i:.2f} mA, dBm" for i in pna_current_list
     ]
     spectra = pd.DataFrame(columns=columns_spectra, dtype="float64")
 
-    # initial setings for OSA
-    YOKOGAWA_AQ6370D.write("*RST")
-    YOKOGAWA_AQ6370D.write(":CALibration:ZERO once")
-    YOKOGAWA_AQ6370D.write("FORMAT:DATA ASCII")
-    YOKOGAWA_AQ6370D.write(":TRAC:ACT TRA")
-    YOKOGAWA_AQ6370D.write(
-        f":SENSe:BANDwidth:RESolution {osa_resolution}nm"
-    )  # TODO it changes
-    # YOKOGAWA_AQ6370D.write(f":SENSe:SWEep:POINts {osa_points}")
-    YOKOGAWA_AQ6370D.write(":SENs:SWEep:POINts:auto on")
-    if osa_force_wavelength:
-        print(f"{osa_force_wavelength}nm is OSA center wavelength")
-        YOKOGAWA_AQ6370D.write(f":SENSe:WAVelength:CENTer {osa_force_wavelength}nm")
-    else:
-        YOKOGAWA_AQ6370D.write(f":SENSe:WAVelength:CENTer {wavelength}nm")
-    YOKOGAWA_AQ6370D.write(f":SENSe:WAVelength:SPAN {osa_span}nm")
-    YOKOGAWA_AQ6370D.write(":SENSe:SENSe MID")
-    YOKOGAWA_AQ6370D.write(":INITiate:SMODe SINGle")
-    YOKOGAWA_AQ6370D.write("*CLS")
+    # initial setings for PNA
+    Keysight_N5247B.write("CALC1:PAR:DEFEXT 'ch1_s22', S22")
+    Keysight_N5247B.write("CALC1:PAR:DEFEXT 'ch1_s12', S12")
     status = None
 
     # main loop for OSA measurements at different currents
-    for current_set in osa_current_list:
+    for current_set in pna_current_list:
         # Outputs i Ampere immediately
         Keysight_B2901A.write(":SOUR:CURR " + str(current_set / 1000))
         time.sleep(0.03)
@@ -144,35 +121,37 @@ def measure_osa(
         # print data to the terminal
         print(
             f"[{current_set:3.2f}/{livfile_max_current:3.2f} mA] {current_measured:10.5f} mA, {voltage_measured_along_osa:8.5f} V",
-            end="\r",
+            end="\n",
         )
 
         # YOKOGAWA_AQ6370D.write("*CLS")
-        YOKOGAWA_AQ6370D.write(":INITiate")
+        Keysight_N5247B.write("INIT1:IMM")
 
-        status = YOKOGAWA_AQ6370D.query(":STATus:OPERation:EVENt?")[0]
+        status = Keysight_N5247B.query("OPC?")[0]
 
         # loop to check whether spectrum is aquired
         while status != "1":
-            status = YOKOGAWA_AQ6370D.query(":STATus:OPERation:EVENt?")[0]
+            status = Keysight_N5247B.query("OPC?")[0]
             time.sleep(0.3)
 
-        if not current_set:  # if i == 0.0:
-            wavelength_list = YOKOGAWA_AQ6370D.query(":TRACE:X? TRA").strip().split(",")
-            spectra["Wavelength, nm"] = (
-                pd.Series(wavelength_list).astype("float64") * 10**9
-            )
-        YOKOGAWA_AQ6370D.write("*CLS")
-        intensity = YOKOGAWA_AQ6370D.query(":TRACE:Y? TRA").strip().split(",")
-        column_spectra = f"Intensity at {current_set:.2f} mA, dBm"
-        spectra[column_spectra] = pd.Series(intensity).astype("float64")
-        intensity_max = spectra[column_spectra].max()
-        intensity_max_wavelength = spectra["Wavelength, nm"][
-            spectra[column_spectra].argmax()
-        ]
-        print(
-            f"[{current_set:3.2f}/{livfile_max_current:3.2f} mA] {current_measured:10.5f} mA, {voltage_measured_along_osa:8.5f} V, {intensity_max:3.1f} dBm, {intensity_max_wavelength:3.3f} nm"
-        )
+        # Keysight_N5247B.write("*CLS")
+        Keysight_N5247B.write("CALC1:PAR:SEL 'ch1_s22'")
+        S11 = Keysight_N5247B.query("CALC1:DATA? SDATA").strip().split(",")
+        S11real, S11imag = S11[0::2], S11[1::2]
+        S11 = np.array(S11real) + 1j * np.array(S11imag)
+        Keysight_N5247B.write("CALC1:PAR:SEL 'ch1_s12'")
+        S21 = Keysight_N5247B.query("CALC1:DATA? SDATA").strip().split(",")
+        S21real, S21imag = S21[0::2], S21[1::2]
+        S21 = np.array(S21real) + 1j * np.array(S21imag)
+        f = np.array(Keysight_N5247B.query("CALC1:X?").strip().split(","))
+        S = np.zeros((len(f), 2, 2), dtype=complex)
+        S[:, 0, 0] = S11
+        S[:, 1, 0] = S21
+        # S[:,0,1] = S12
+        # S[:,1,1] = S22
+        vcsel_ntwk = rf.Network(s=S, f=f, f_unit="Hz")
+        s2pfilename = f"{waferid}-{wavelength}nm-{coordinates}-{current_set}mA-{temperature}°C-{timestr}-{pna}"
+        vcsel_ntwk.write_touchstone(filename=s2pfilename, dir=pnadir)
 
         # deal with set/measured current mismatch
         current_error = abs(current_set - current_measured)
@@ -187,24 +166,27 @@ def measure_osa(
                 )
             )
 
-        voltage_measured_along_liv = float(
-            (
-                liv_dataframe.loc[liv_dataframe["Current set, mA"] == current_set][
-                    "Voltage, V"
-                ]
-            ).iloc[0]
-        )
-        voltage_error = abs(voltage_measured_along_osa - voltage_measured_along_liv)
-        if round(voltage_measured_along_osa, 2) != round(voltage_measured_along_liv, 2):
-            warnings.append(
-                f"Voltage measured along osa={voltage_measured_along_osa} V, voltage measured along liv={voltage_measured_along_liv} V"
+        if livfile:
+            voltage_measured_along_liv = float(
+                (
+                    liv_dataframe.loc[liv_dataframe["Current set, mA"] == current_set][
+                        "Voltage, V"
+                    ]
+                ).iloc[0]
             )
-            print(
-                colored(
-                    f"WARNING! Voltage measured along osa={voltage_measured_along_osa} V, voltage measured along liv={voltage_measured_along_liv} V",
-                    "cyan",
+            voltage_error = abs(voltage_measured_along_osa - voltage_measured_along_liv)
+            if round(voltage_measured_along_osa, 2) != round(
+                voltage_measured_along_liv, 2
+            ):
+                warnings.append(
+                    f"Voltage measured along osa={voltage_measured_along_osa} V, voltage measured along liv={voltage_measured_along_liv} V"
                 )
-            )
+                print(
+                    colored(
+                        f"WARNING! Voltage measured along osa={voltage_measured_along_osa} V, voltage measured along liv={voltage_measured_along_liv} V",
+                        "cyan",
+                    )
+                )
 
         if current_error >= 0.03:
             alarm = True
@@ -216,7 +198,7 @@ def measure_osa(
             )
             break  # break the loop
 
-        if voltage_error >= 0.1:
+        if livfile and voltage_error >= 0.1:
             alarm = True
             print(
                 colored(
@@ -226,7 +208,7 @@ def measure_osa(
             )
             break  # break the loop
 
-    YOKOGAWA_AQ6370D.write("*CLS")
+    Keysight_N5247B.write("*CLS")
 
     # slowly decrease current
     current_measured = (
@@ -244,13 +226,10 @@ def measure_osa(
     Keysight_B2901A.write(f":SOUR:CURR 0.001")
 
     timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
-    osadir = dirpath / "OSA"
-    osadir.mkdir(exist_ok=True)
 
-    filename = f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-{timestr}-{osa}"
+    filename = f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-{timestr}-{pna}"
 
-    iv.to_csv(osadir / (filename + "-IV.csv"), index=False)
-    spectra.to_csv(osadir / (filename + "-OS.csv"), index=False)
+    iv.to_csv(pnadir / (filename + "-IV.csv"), index=False)
 
     if warnings:
         print(colored(f"Warnings: {len(warnings)}", "cyan"))

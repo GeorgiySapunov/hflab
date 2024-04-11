@@ -40,13 +40,13 @@ def combine_ssm_reports_function(path, settings=None):
     fig = plt.figure(figsize=figure_size)
 
     ax1_l = fig.add_subplot(5, 4, 1)
-    ax22_r_m = fig.add_subplot(5, 4, 3)
+    ax22_r_m = fig.add_subplot(5, 4, 2)
     ax23_r_a = fig.add_subplot(5, 4, 3)
     ax32_c = fig.add_subplot(5, 4, 4)
 
     ax2_r_p_high = fig.add_subplot(5, 5, 6)
     ax41_f1 = fig.add_subplot(5, 5, 7)
-    ax3_c_p_low = fig.add_subplot(5, 6, 8)
+    ax3_c_p_low = fig.add_subplot(5, 5, 8)
     ax42_f2 = fig.add_subplot(5, 5, 9)
     ax43_f3 = fig.add_subplot(5, 5, 10)
 
@@ -164,12 +164,12 @@ def combine_ssm_reports_function(path, settings=None):
         ax42_f2.set_xlim([0, figure_max_current])
         ax42_f2.set_ylim([0, figure_ec_fitpar_max])
 
-        ax42_f2.set_title("Fitting parameter 3")
-        ax42_f2.plot(df["Current, mA"], df["f3, GHz"], label=lable, marker="o")
-        ax42_f2.set_ylabel("Fitting parameter, GHz")
-        ax42_f2.set_xlabel("Current, mA")
-        ax42_f2.set_xlim([0, figure_max_current])
-        ax42_f2.set_ylim([0, figure_ec_fitpar_max])
+        ax43_f3.set_title("Fitting parameter 3")
+        ax43_f3.plot(df["Current, mA"], df["f3, GHz"], label=lable, marker="o")
+        ax43_f3.set_ylabel("Fitting parameter, GHz")
+        ax43_f3.set_xlabel("Current, mA")
+        ax43_f3.set_xlim([0, figure_max_current])
+        ax43_f3.set_ylim([0, figure_ec_fitpar_max])
 
         # 3-nd row
         ax7_gamma.set_title("ɣ from S21 approximation")

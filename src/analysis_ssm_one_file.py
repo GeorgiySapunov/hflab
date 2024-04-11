@@ -10,8 +10,6 @@ from sklearn.metrics import mean_squared_error
 from pathlib import Path
 from termcolor import colored
 
-from resources.pysmithplot_fork.smithplot import SmithAxes
-
 
 def one_file_approximation(
     directory=None,
@@ -55,12 +53,10 @@ def one_file_approximation(
 
         file_name = file_path.stem
         vcsel_ntwk = rf.Network(file_path)
-        photodiode = rf.Network("resources/T3K7V9_DXM30BF_U00162.s2p")
         # ntwk = rf.pna_csv_2_ntwks3(
         #     "745.csv"
         # )  # Read a CSV file exported from an Agilent PNA in dB/deg format
         vcsel_df = vcsel_ntwk.to_dataframe("s")
-        pd_df = photodiode.to_dataframe("s")
         vcsel_df = vcsel_df[
             vcsel_df.index <= freqlimit * 10**9
         ]  # Frequency equal or less then
@@ -72,21 +68,8 @@ def one_file_approximation(
         # Split the measurements into a real and imaginary part
         S21_Real = vcsel_df["s21_re"].values
         S21_Imag = vcsel_df["s21_im"].values
-
-        # substracting photodiode S21
-        pd_df["pd_s21_re"] = pd_df["s 21"].values.real
-        pd_df["pd_s21_im"] = pd_df["s 21"].values.imag
-        pd_df["pd_s21_logmag"] = 10 * np.log10(
-            pd_df["pd_s21_re"] ** 2 + pd_df["pd_s21_im"] ** 2
-        )
-        vcsel_df = vcsel_df.join(pd_df[["pd_s21_logmag"]], how="outer")
-        vcsel_df["pd_s21_logmag"] = vcsel_df["pd_s21_logmag"].interpolate()
-        vcsel_df = vcsel_df.dropna()
-        pd_Magnitude = vcsel_df["pd_s21_logmag"].values
         S21_Magnitude = 10 * np.log10(S21_Real**2 + S21_Imag**2)
-        S21_Magnitude_to_fit = S21_Magnitude - pd_Magnitude
-        S11_Real = vcsel_df["s11_re"].values
-        S11_Imag = vcsel_df["s11_im"].values
+
     else:  # working with automatic system data
         # For DB: let $mag = 10**($a/20), such that:
         # $complex = $mag*cos($b*pi()/180) + $mag*sin($b*pi()/180) j
@@ -98,25 +81,36 @@ def one_file_approximation(
         f = pd.Series(frequency)  # Hz
         file_name = f"{waferid}-{wavelength}-{coordinates}-{temperature}°C-{current}mA"
         sdict = {"s11_re": s11re, "s11_im": s11im, "s21_mag": s21mag}
+        # s11 = np.array(s11re) + 1j * np.array(s11im)
+        # s21 = np.array(s21re) + 1j * np.array(s11im)
+        # S = np.zeros((len(f), 2, 2), dtype=complex)
+        # S[:, 0, 0] = s11
+        # S[:, 1, 0] = s21
+        # # S[:,0,1] = S12
+        # # S[:,1,1] = S22
+        # vcsel_ntwk = rf.Network(s=S, f=f, f_unit="Hz")
+
         vcsel_df = pd.DataFrame(sdict, index=f)
         vcsel_df = vcsel_df[vcsel_df.index <= freqlimit * 10**9]
-        # Subtract PD
-        photodiode = rf.Network("resources/T3K7V9_DXM30BF_U00162.s2p")
-        pd_df = photodiode.to_dataframe("s")
-        # subtracting photodiode S21
-        pd_df["pd_s21_re"] = pd_df["s 21"].values.real
-        pd_df["pd_s21_im"] = pd_df["s 21"].values.imag
-        pd_df["pd_s21_logmag"] = 10 * np.log10(
-            pd_df["pd_s21_re"] ** 2 + pd_df["pd_s21_im"] ** 2
-        )
-        vcsel_df = vcsel_df.join(pd_df[["pd_s21_logmag"]], how="outer")
-        vcsel_df["pd_s21_logmag"] = vcsel_df["pd_s21_logmag"].interpolate()
-        vcsel_df = vcsel_df.dropna()
-        pd_Magnitude = vcsel_df["pd_s21_logmag"].values
-        S21_Magnitude = vcsel_df["s21_mag"].values
-        S21_Magnitude_to_fit = S21_Magnitude - pd_Magnitude
         S11_Real = vcsel_df["s11_re"].values
         S11_Imag = vcsel_df["s11_im"].values
+        S21_Magnitude = vcsel_df["s21_mag"].values
+
+    # Subtract PD
+    photodiode = rf.Network("resources/T3K7V9_DXM30BF_U00162.s2p")
+    pd_df = photodiode.to_dataframe("s")
+
+    # subtracting photodiode S21
+    pd_df["pd_s21_re"] = pd_df["s 21"].values.real
+    pd_df["pd_s21_im"] = pd_df["s 21"].values.imag
+    pd_df["pd_s21_logmag"] = 10 * np.log10(
+        pd_df["pd_s21_re"] ** 2 + pd_df["pd_s21_im"] ** 2
+    )
+    vcsel_df = vcsel_df.join(pd_df[["pd_s21_logmag"]], how="outer")
+    vcsel_df["pd_s21_logmag"] = vcsel_df["pd_s21_logmag"].interpolate()
+    vcsel_df = vcsel_df.dropna()
+    pd_Magnitude = vcsel_df["pd_s21_logmag"].values
+    S21_Magnitude_to_fit = S21_Magnitude - pd_Magnitude
 
     #  ____  _ _
     # / ___|/ / |
@@ -448,23 +442,43 @@ def one_file_approximation(
     ax2_s11im.minorticks_on()
     ax2_s11im.set_ylim([-1, 1])
 
+    # # plot the S11 Smith Chart
+    # ax3_s11_smith = fig.add_subplot(
+    #     423,
+    #     projection="smith",
+    # )
+    # # SmithAxes.update_scParams(axes_impedance=50)
+    # ax3_s11_smith.plot(
+    #     S11_Real,
+    #     np.real(S11_Imag),
+    #     "k",
+    #     label="S11 measured",
+    #     alpha=0.6,
+    # )
+    # ax3_s11_smith.plot(
+    #     np.real(S11_Fit), np.imag(S11_Fit), "b", label="S11 fit", alpha=0.6
+    # )
+    # ax3_s11_smith.set_title("S11 Smith chart")
+
     # plot the S11 Smith Chart
-    ax3_s11_smith = fig.add_subplot(
-        423,
-        projection="smith",
-    )
-    # SmithAxes.update_scParams(axes_impedance=50)
-    ax3_s11_smith.plot(
-        S11_Real,
-        np.real(S11_Imag),
-        "k",
-        label="S11 measured",
+    ax3_s11_smith = fig.add_subplot(423)
+    S11_complex = np.array(S11_Real) + 1j * np.array(S11_Imag)
+    rf.plotting.plot_smith(
+        s=S11_complex,
+        label="S11 experiment",
+        color="k",
         alpha=0.6,
+        title="S11 Smith Chart",
+        ax=ax3_s11_smith,
     )
-    ax3_s11_smith.plot(
-        np.real(S11_Fit), np.imag(S11_Fit), "b", label="S11 fit", alpha=0.6
+    rf.plotting.plot_smith(
+        s=S11_Fit,
+        label="S11 fit",
+        color="b",
+        linestyle="-.",
+        title="S11 Smith Chart",
+        ax=ax3_s11_smith,
     )
-    ax3_s11_smith.set_title("S11 Smith chart")
 
     # H^2(f)
     ax4_h2 = fig.add_subplot(424)

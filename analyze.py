@@ -7,6 +7,7 @@ import yaml
 import numpy as np
 import pandas as pd
 import click
+import colorama
 from pathlib import Path
 
 from src.replot_liv import replot_liv_function
@@ -110,4 +111,5 @@ def analyze(replot_liv, ssm, rin, optical_spectra, yaml_project, paths):
 
 
 if __name__ == "__main__":
+    colorama.init()
     analyze()
