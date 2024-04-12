@@ -66,8 +66,6 @@ def one_file_approximation(
         vcsel_df["s21_im"] = vcsel_df[f"s {optical_port}{probe_port}"].values.imag
         f = vcsel_df.index.values  # Hz
         # Split the measurements into a real and imaginary part
-        S21_Real = vcsel_df["s21_re"].values
-        S21_Imag = vcsel_df["s21_im"].values
         S21_Magnitude = 10 * np.log10(S21_Real**2 + S21_Imag**2)
 
     else:  # working with automatic system data
@@ -111,6 +109,8 @@ def one_file_approximation(
     vcsel_df = vcsel_df.dropna()
     pd_Magnitude = vcsel_df["pd_s21_logmag"].values
     S21_Magnitude_to_fit = S21_Magnitude - pd_Magnitude
+    S11_Real = vcsel_df["s11_re"].values
+    S11_Imag = vcsel_df["s11_im"].values
 
     #  ____  _ _
     # / ___|/ / |

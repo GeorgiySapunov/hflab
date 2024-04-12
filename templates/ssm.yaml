@@ -7,7 +7,7 @@ title:
 additional_report_directory: reports
 # Settings
 S21_MSE_threshold: 5
-probe_port: 2
+probe_port: 1
 threshold_decision_level: 2
 # GHz
 fit_freqlimit: 40

@@ -178,6 +178,7 @@ def main():
         Keysight_8163B = None
         YOKOGAWA_AQ6370D = None
         pna = None
+        CoherentSolutions_MatrIQswitch = None
 
         if equipment == "t":
             pm100_toggle = True  # toggle Thorlabs PM100USB Power and energy meter
@@ -190,7 +191,7 @@ def main():
         elif equipment == "y":
             YOKOGAWA_AQ6370D_toggle = True  # toggle Keysight 8163B Lightwave Multimeter
         elif equipment == "p":
-            Keysight_N5247B_toggle = True  # toggle Keysight 8163B Lightwave Multimeter
+            Keysight_N5247B_toggle = True  # PNA
 
         # initiate pyvisa
         rm = pyvisa.ResourceManager()
@@ -235,6 +236,14 @@ def main():
                 read_termination="\n",
             )
             pna = "Keysight_N5247B"
+            optical_switch_port = int(instruments_config["optical_switch_port"])
+            if optical_switch_port:
+                CoherentSolutions_MatrIQswitch = rm.open_resource(
+                    instruments_config["CoherentSolutions_MatrIQswitch_address"],
+                    write_termination="\r\n",
+                    read_termination="\n",
+                )
+                optical_switch = "CoherentSolutions_MatrIQswitch"
 
         if temp_list_len != 1:
             ATT_A160CMI = rm.open_resource(
@@ -282,6 +291,8 @@ def main():
                     set_temperature,
                     Keysight_B2901A=Keysight_B2901A,
                     Keysight_N5247B=Keysight_N5247B,
+                    CoherentSolutions_MatrIQswitch=CoherentSolutions_MatrIQswitch,
+                    optical_switch_port=optical_switch_port,
                 )
 
             if alarm and len(temperature_list) != 1:
