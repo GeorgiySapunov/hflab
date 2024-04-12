@@ -86,6 +86,7 @@ def main():
     # liv_config = config["LIV"]
     # osa_config = config["OSA"]
     other_config = config["OTHER"]
+    pna_config = config["PNA"]
     # if python got less then or more then 6 parameters
     if len(sys.argv) not in (6, 8):
         # initiate pyvisa
@@ -236,7 +237,7 @@ def main():
                 read_termination="\n",
             )
             pna = "Keysight_N5247B"
-            optical_switch_port = int(instruments_config["optical_switch_port"])
+            optical_switch_port = int(pna_config["optical_switch_port"])
             if optical_switch_port:
                 CoherentSolutions_MatrIQswitch = rm.open_resource(
                     instruments_config["CoherentSolutions_MatrIQswitch_address"],
@@ -292,7 +293,6 @@ def main():
                     Keysight_B2901A=Keysight_B2901A,
                     Keysight_N5247B=Keysight_N5247B,
                     CoherentSolutions_MatrIQswitch=CoherentSolutions_MatrIQswitch,
-                    optical_switch_port=optical_switch_port,
                 )
 
             if alarm and len(temperature_list) != 1:

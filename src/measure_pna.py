@@ -29,7 +29,6 @@ def measure_pna(
     Keysight_B2901A=None,
     Keysight_N5247B=None,
     CoherentSolutions_MatrIQswitch=None,
-    optical_switch_port=None,
 ):
     colorama.init()
     config = ConfigParser()
@@ -39,6 +38,7 @@ def measure_pna(
     current_increment_PNA = float(pna_config["current_increment_PNA"])
     probe_port = int(pna_config["probe_port"])
     averaging_PNA = int(pna_config["averaging_PNA"])
+    optical_switch_port = int(pna_config["optical_switch_port"])
 
     if probe_port == 1:
         optical_port = 2
@@ -49,17 +49,14 @@ def measure_pna(
 
     if optical_switch_port:
         CoherentSolutions_MatrIQswitch.write(f"ROUT1:CHAN1:STATE {optical_switch_port}")
-        status = CoherentSolutions_MatrIQswitch.query("*OPC?")
-
-        while status != "1":
-            status = CoherentSolutions_MatrIQswitch.query("*OPC?")
-            time.sleep(0.3)
+        time.sleep(0.3)
 
     alarm = False
     warnings = []
     if Keysight_N5247B:
         Keysight_N5247B_toggle = True
         pna = "Keysight_N5247B"
+        Keysight_N5247B.timeout = 20000
 
     dirpath = (
         Path("data") / f"{waferid}-{wavelength}nm" / f"{coordinates}"
@@ -109,21 +106,19 @@ def measure_pna(
     )
 
     # initial setings for PNA
-    print(Keysight_N5247B.query("CALC1:PAR:CAT:EXT? DEF"))
+    catalog = Keysight_N5247B.query("CALC1:PAR:CAT:EXT? DEF")[1:-1].split(",")
+    print(catalog)
+    if f"ch1_s{probe_port}{probe_port}" in catalog:
+        Keysight_N5247B.write(f"CALC:PAR:DEL 'ch1_s{probe_port}{probe_port}'")
+    if f"ch1_s{optical_port}{probe_port}" in catalog:
+        Keysight_N5247B.write(f"CALC:PAR:DEL 'ch1_s{optical_port}{probe_port}'")
     Keysight_N5247B.write("*CLS")
-    Keysight_N5247B.write("CALC:PAR:DEL:ALL")
-    Keysight_N5247B.write(
-        "CALC1:PAR:DEF:EXT 'ch1_s{probe_port}{probe_port}', S{probe_port}{probe_port}"
-    )
-    Keysight_N5247B.write(
-        "CALC1:PAR:DEF:EXT 'ch1_s{optical_port}{probe_port}', S{optical_port}{probe_port}"
-    )
-    # Keysight_N5247B.write("DISP:WIND1:STATe ON")
-    # Keysight_N5247B.write("DISP:WIND2:STATe ON")
-    # Keysight_N5247B.write("DISP:WIND1:TRAC1:FEED 'ch1_s{probe_port}{probe_port}'")
-    # Keysight_N5247B.write("DISP:WIND2:TRAC1:FEED 'ch1_s{optical_port}{probe_port}'")
-    print(Keysight_N5247B.query("CALC1:PAR:CAT:EXT? DEF"))
-    status = None
+    # Keysight_N5247B.write("CALC:PAR:DEL:ALL")
+    S11name = f"'ch1_s{probe_port}{probe_port}', S{probe_port}{probe_port}"
+    S21name = f"'ch1_s{optical_port}{probe_port}', S{optical_port}{probe_port}"
+    Keysight_N5247B.write("CALC1:PAR:DEF:EXT " + S11name)
+    Keysight_N5247B.write(f"CALC1:PAR:DEF:EXT " + S21name)
+    Keysight_N5247B.write("TRIG:SOUR External")
 
     # main loop for OSA measurements at different currents
     for current_set in pna_current_list:
@@ -149,34 +144,31 @@ def measure_pna(
             end="\n",
         )
 
-        # YOKOGAWA_AQ6370D.write("*CLS")
-        Keysight_N5247B.write("INIT1:IMM")
-
-        status = Keysight_N5247B.query("*OPC?")
-
-        while status != "+1":
-            status = Keysight_N5247B.query("*OPC?")
-            time.sleep(0.3)
-
-        # Keysight_N5247B.write("*CLS")
         S11_list = []
         S21_LinMagnitude_list = []
         s2pfilename = f"{waferid}-{wavelength}nm-{coordinates}-{current_set}mA-{temperature}°C-{pna}.s2p"
         for _ in range(averaging_PNA):
-            Keysight_N5247B.write("CALC1:PAR:SEL 'ch1_s{probe_port}{probe_port}'")
+            Keysight_N5247B.write("INIT1:IMM")
+            Keysight_N5247B.query("*OPC?")
+
+            Keysight_N5247B.write(f"CALC1:PAR:SEL 'ch1_s{probe_port}{probe_port}'")
             S11 = list(
                 map(
                     float, Keysight_N5247B.query("CALC1:DATA? SDATA").strip().split(",")
                 )
             )
-            S11_Real, S11_Imag = np.array(S11[0::2]), np.array(S11[1::2])
-            Keysight_N5247B.write("CALC1:PAR:SEL 'ch1_s{optical_port}{probe_port}'")
+            S11_Real, S11_Imag = np.array(S11[0::2]).reshape(-1, 1), np.array(
+                S11[1::2]
+            ).reshape(-1, 1)
+            Keysight_N5247B.write(f"CALC1:PAR:SEL 'ch1_s{optical_port}{probe_port}'")
             S21 = list(
                 map(
                     float, Keysight_N5247B.query("CALC1:DATA? SDATA").strip().split(",")
                 )
             )
-            S21_Real, S21_Imag = np.array(S21[0::2]), np.array(S21[1::2])
+            S21_Real, S21_Imag = np.array(S21[0::2]).reshape(-1, 1), np.array(
+                S21[1::2]
+            ).reshape(-1, 1)
             S21_LinMagnitude = np.sqrt(S21_Real**2 + S21_Imag**2)
             S11 = S11_Real + 1j * S11_Imag
             # S21 = S21_Real + 1j * S21_Imag
@@ -252,8 +244,9 @@ def measure_pna(
             break  # break the loop
 
     Keysight_N5247B.write("*CLS")
-    Keysight_N5247B.write("CALC1:PAR:DEL 'ch1_s{probe_port}{probe_port}'")
-    Keysight_N5247B.write("CALC1:PAR:DEL 'ch1_s{optical_port}{probe_port}'")
+    Keysight_N5247B.write(f"CALC1:PAR:DEL 'ch1_s{probe_port}{probe_port}'")
+    Keysight_N5247B.write(f"CALC1:PAR:DEL 'ch1_s{optical_port}{probe_port}'")
+    Keysight_N5247B.write("TRIG:SOUR Internal")
     if optical_switch_port:
         CoherentSolutions_MatrIQswitch.write(f"ROUT1:CHAN1:STATE 1")
 
