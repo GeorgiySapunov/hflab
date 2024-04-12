@@ -46,7 +46,7 @@ def measure_pna(
         Path("data") / f"{waferid}-{wavelength}nm" / f"{coordinates}"
     )  # get the directory path
     pnadir = dirpath / "PNA"
-    pnadir.mkdir(exist_ok=True)
+    pnadir.mkdir(exist_ok=True, parents=True)
 
     # read LIV .csv file
     livdir = dirpath / "LIV"
@@ -65,8 +65,9 @@ def measure_pna(
                 f"[{fileindex}/{len(livfiles)}] {file.stem}\tMax current: {livfile_max_current} mA"
             )
     else:
-        livfile_max_current = input(
-            "LIV file is not found! Please, input max_current (mA):"
+        livfile = False
+        livfile_max_current = float(
+            input("LIV file is not found! Please, input max_current (mA): ")
         )
 
     # make a list of currents for spectra measurements
@@ -78,16 +79,15 @@ def measure_pna(
         )
     livfile_max_current = pna_current_list[-1]
 
-    if livfile:
-        # make a data frame for additional IV measurements (.csv file in OSA directory)
-        iv = pd.DataFrame(
-            columns=[
-                "Current set, mA",
-                "Current, mA",
-                "Voltage, V",
-                "Power consumption, mW",
-            ]
-        )
+    # make a data frame for additional IV measurements (.csv file in OSA directory)
+    iv = pd.DataFrame(
+        columns=[
+            "Current set, mA",
+            "Current, mA",
+            "Voltage, V",
+            "Power consumption, mW",
+        ]
+    )
 
     # make a data frame for spectra measurements
     columns_spectra = ["Wavelength, nm"] + [
@@ -96,8 +96,9 @@ def measure_pna(
     spectra = pd.DataFrame(columns=columns_spectra, dtype="float64")
 
     # initial setings for PNA
-    Keysight_N5247B.write("CALC1:PAR:DEFEXT 'ch1_s22', S22")
-    Keysight_N5247B.write("CALC1:PAR:DEFEXT 'ch1_s12', S12")
+    Keysight_N5247B.write("*CLS")
+    Keysight_N5247B.write("CALC1:PAR:DEF 'ch1_s22', S22")
+    Keysight_N5247B.write("CALC1:PAR:DEF 'ch1_s12', S12")
     status = None
 
     # main loop for OSA measurements at different currents
@@ -127,30 +128,36 @@ def measure_pna(
         # YOKOGAWA_AQ6370D.write("*CLS")
         Keysight_N5247B.write("INIT1:IMM")
 
-        status = Keysight_N5247B.query("OPC?")[0]
+        status = Keysight_N5247B.query("*OPC?")
 
         # loop to check whether spectrum is aquired
-        while status != "1":
-            status = Keysight_N5247B.query("OPC?")[0]
+        while status != "+1":
+            status = Keysight_N5247B.query("*OPC?")
             time.sleep(0.3)
 
         # Keysight_N5247B.write("*CLS")
         Keysight_N5247B.write("CALC1:PAR:SEL 'ch1_s22'")
-        S11 = Keysight_N5247B.query("CALC1:DATA? SDATA").strip().split(",")
+        S11 = list(
+            map(float, Keysight_N5247B.query("CALC1:DATA? SDATA").strip().split(","))
+        )
         S11real, S11imag = S11[0::2], S11[1::2]
         S11 = np.array(S11real) + 1j * np.array(S11imag)
         Keysight_N5247B.write("CALC1:PAR:SEL 'ch1_s12'")
-        S21 = Keysight_N5247B.query("CALC1:DATA? SDATA").strip().split(",")
+        S21 = list(
+            map(float, Keysight_N5247B.query("CALC1:DATA? SDATA").strip().split(","))
+        )
         S21real, S21imag = S21[0::2], S21[1::2]
         S21 = np.array(S21real) + 1j * np.array(S21imag)
-        f = np.array(Keysight_N5247B.query("CALC1:X?").strip().split(","))
+        f = np.array(
+            list(map(float, Keysight_N5247B.query("CALC1:X?").strip().split(",")))
+        )
         S = np.zeros((len(f), 2, 2), dtype=complex)
         S[:, 0, 0] = S11
         S[:, 1, 0] = S21
         # S[:,0,1] = S12
         # S[:,1,1] = S22
         vcsel_ntwk = rf.Network(s=S, f=f, f_unit="Hz")
-        s2pfilename = f"{waferid}-{wavelength}nm-{coordinates}-{current_set}mA-{temperature}°C-{timestr}-{pna}"
+        s2pfilename = f"{waferid}-{wavelength}nm-{coordinates}-{current_set}mA-{temperature}°C-{pna}.s2p"
         vcsel_ntwk.write_touchstone(filename=s2pfilename, dir=pnadir)
 
         # deal with set/measured current mismatch
@@ -209,6 +216,8 @@ def measure_pna(
             break  # break the loop
 
     Keysight_N5247B.write("*CLS")
+    Keysight_N5247B.write("CALC1:PAR:DEL 'ch1_s22'")
+    Keysight_N5247B.write("CALC1:PAR:DEL 'ch1_s12'")
 
     # slowly decrease current
     current_measured = (

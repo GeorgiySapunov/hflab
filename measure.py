@@ -230,7 +230,7 @@ def main():
             osa = "YOKOGAWA_AQ6370D"
         elif Keysight_N5247B_toggle:
             Keysight_N5247B = rm.open_resource(
-                instruments_config["YOKOGAWA_AQ6370D_address"],
+                instruments_config["Keysight_N5247B_address"],
                 write_termination="\r\n",
                 read_termination="\n",
             )
