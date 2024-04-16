@@ -123,6 +123,21 @@ def measure_osa(
     YOKOGAWA_AQ6370D.write("*CLS")
     status = None
 
+    # The initial settings are applied by the *RST command
+    Keysight_B2901A.write("*RST")
+    Keysight_B2901A.write(
+        ":SOUR:FUNC:MODE CURR"
+    )  # Setting the Source Output Mode to current
+    Keysight_B2901A.write(
+        ":SENS:CURR:PROT 0.1"
+    )  # Setting the Limit/Compliance Value 100 mA
+    Keysight_B2901A.write(
+        ":SENS:VOLT:PROT 10"
+    )  # Setting the Limit/Compliance Value 10 V
+    Keysight_B2901A.write(
+        ":OUTP ON"
+    )  # Measurement channel is enabled by the :OUTP ON command.
+
     # main loop for OSA measurements at different currents
     for current_set in osa_current_list:
         # Outputs i Ampere immediately

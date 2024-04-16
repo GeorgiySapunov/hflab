@@ -12,15 +12,21 @@ threshold_decision_level: 2
 # GHz
 fit_freqlimit: 40
 # S11 fit bounds
-L_bounds: [0, 1000]
-R_p_high_bounds: [0, 2000]
-R_m_bounds: [0, 2000]
-R_a_bounds: [0, 2000]
-C_p_low_bounds: [0, 5000]
-C_a_bounds: [0, 5000]
-f1_bounds: [0, 500]
-f2_bounds: [0, 1000]
-f3_bounds: [0, 1000]
+L_bounds: [1, 1000]
+R_p_high_bounds: [1, 2000]
+R_m_bounds: [1, 2000]
+R_a_bounds: [1, 2000]
+C_p_low_bounds: [50, 500]
+C_a_bounds: [1, 5000]
+f1_bounds: [100, 1000]
+f2_bounds: [1, 1000]
+f3_bounds: [1, 1000]
+# S21 fit bounds
+# ([0, 0, 0, -np.inf], [81, 81, 2001, np.inf]),
+f_r_bounds: [1, 81]
+f_p_bounds: [1, 81]
+gamma_bounds: [1, 2001]
+c_bounds: [-1000, 1000]
 # mA
 i_th_fixed:
 fp_fixed: false

@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import click
 import colorama
+import datetime
 from pathlib import Path
 
 from src.replot_liv import replot_liv_function
@@ -107,9 +108,13 @@ def analyze(replot_liv, ssm, rin, optical_spectra, yaml_project, paths):
                 if algorithm_name == "combine_ssm":
                     combine_ssm_reports_function(path, settings=settings)
 
-        print(f"[{i}/{len(paths)}] {path} is done")
+        # print(f"[{i}/{len(paths)}] {path} is done")
+        print("\n")
 
 
 if __name__ == "__main__":
     colorama.init()
+    start_time = datetime.datetime.now()
     analyze()
+    end_time = datetime.datetime.now()
+    print(f"Duration: {end_time - start_time}")

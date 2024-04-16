@@ -44,16 +44,10 @@ def analyze_ssm(
     S21_MSE_threshold=5,
     i_th_fixed=False,
     fp_fixed=True,
+    photodiode_s2p=None,
     report_dir="PNA_reports",  # TODO
-    L_bounds=[0, np.inf],
-    R_p_high_bounds=[0, np.inf],
-    R_m_bounds=[0, np.inf],
-    R_a_bounds=[0, np.inf],
-    C_p_low_bounds=[0, np.inf],
-    C_a_bounds=[0, np.inf],
-    f1_bounds=[0, np.inf],
-    f2_bounds=[0, np.inf],
-    f3_bounds=[0, np.inf],
+    S11_bounds=None,
+    S21_bounds=None,
 ):
     if isinstance(directory, str):
         directory = Path(directory)
@@ -72,6 +66,7 @@ def analyze_ssm(
             print(
                 f"Matched .csv files: {len(matched_csv_files)}",
                 *matched_csv_files_stems,
+                "\n",
                 sep="\n",
             )
             print(f"Processing .csv file: {auto_file_path.stem}")
@@ -130,7 +125,7 @@ def analyze_ssm(
     if s2p:
         report_dir = start_directory / "PNA_reports(s2p)"
         report_dir.mkdir(exist_ok=True)
-        for file in matched_s2p_files:
+        for file_i, file in enumerate(matched_s2p_files):
             (
                 f_GHz,
                 S11_Real,
@@ -165,15 +160,9 @@ def analyze_ssm(
                 probe_port=probe_port,
                 S21_MSE_threshold=S21_MSE_threshold,
                 fp_fixed=fp_fixed,
-                L_bounds=L_bounds,
-                R_p_high_bounds=R_p_high_bounds,
-                R_m_bounds=R_m_bounds,
-                R_a_bounds=R_a_bounds,
-                C_p_low_bounds=C_p_low_bounds,
-                C_a_bounds=C_a_bounds,
-                f1_bounds=f1_bounds,
-                f2_bounds=f2_bounds,
-                f3_bounds=f3_bounds,
+                photodiode_s2p=photodiode_s2p,
+                S11_bounds=S11_bounds,
+                S21_bounds=S21_bounds,
             )
 
             # parce file name for current and temperature
@@ -181,7 +170,7 @@ def analyze_ssm(
             r2 = re.compile(".*mA")
             current = list(filter(r2.match, file_name_parser))[0]
             current = float(current.removesuffix("mA"))
-            print(f"current={current}")
+            print(f"[{file_i}/{len(matched_s2p_files)}] {current} mA ")
             r2 = re.compile(".*°C")
             filt = list(filter(r2.match, file_name_parser))
             if filt:
@@ -255,6 +244,7 @@ def analyze_ssm(
                     print(
                         f"Matched LIV files: {len(matched_liv_files)}",
                         *matched_liv_files_stems,
+                        "\n",
                         sep="\n",
                     )
                     if matched_liv_files:
@@ -308,7 +298,7 @@ def analyze_ssm(
         temperature = 25.0
         auto_I_th = float(auto_file["Threshold current"].iloc[0].iloc[0])
         for i, current in enumerate(currents):
-            print(f"current={current}")
+            print(f"[{i}/{len(currents)}] {current} mA ")
             start = i * points + i
             stop = (i + 1) * points + i
             (
@@ -354,15 +344,9 @@ def analyze_ssm(
                 s21mag=abs_s21[start:stop],
                 S21_MSE_threshold=S21_MSE_threshold,
                 fp_fixed=fp_fixed,
-                L_bounds=L_bounds,
-                R_p_high_bounds=R_p_high_bounds,
-                R_m_bounds=R_m_bounds,
-                R_a_bounds=R_a_bounds,
-                C_p_low_bounds=C_p_low_bounds,
-                C_a_bounds=C_a_bounds,
-                f1_bounds=f1_bounds,
-                f2_bounds=f2_bounds,
-                f3_bounds=f3_bounds,
+                photodiode_s2p=photodiode_s2p,
+                S11_bounds=S11_bounds,
+                S21_bounds=S21_bounds,
             )
 
             if len(S21_Magnitude_fit) < len(f_GHz):
@@ -429,7 +413,6 @@ def analyze_ssm(
         dict.index.name = "Frequency, GHz"
         dict.to_csv((report_dir / name_from_dir).with_suffix(".csv"))
 
-    print(df)
     return df, directory, report_dir
 
 
@@ -974,6 +957,52 @@ def analyze_ssm_function(directory, settings=None):
     f1_bounds = settings["f1_bounds"]
     f2_bounds = settings["f2_bounds"]
     f3_bounds = settings["f3_bounds"]
+    f3_bounds = settings["f3_bounds"]
+    f_r_bounds = settings["f_r_bounds"]
+    f_p_bounds = settings["f_p_bounds"]
+    gamma_bounds = settings["gamma_bounds"]
+    c_bounds = settings["c_bounds"]
+    S11_bounds = (
+        [
+            L_bounds[0],
+            R_p_high_bounds[0],
+            R_m_bounds[0],
+            R_a_bounds[0],
+            C_p_low_bounds[0],
+            C_a_bounds[0],
+            f1_bounds[0],
+            f2_bounds[0],
+            f3_bounds[0],
+        ],
+        [
+            L_bounds[1],
+            R_p_high_bounds[1],
+            R_m_bounds[1],
+            R_a_bounds[1],
+            C_p_low_bounds[1],
+            C_a_bounds[1],
+            f1_bounds[1],
+            f2_bounds[1],
+            f3_bounds[1],
+        ],
+    )
+
+    S21_bounds = (
+        [
+            f_r_bounds[0],
+            f_p_bounds[0],
+            gamma_bounds[0],
+            c_bounds[0],
+        ],
+        [
+            f_r_bounds[1],
+            f_p_bounds[1],
+            gamma_bounds[1],
+            c_bounds[1],
+        ],
+    )
+
+    photodiode_s2p = rf.Network("resources/T3K7V9_DXM30BF_U00162.s2p")
 
     for s2p in (True, False):
         print(f"s2p: {s2p}")
@@ -987,15 +1016,9 @@ def analyze_ssm_function(directory, settings=None):
             S21_MSE_threshold=S21_MSE_threshold,
             i_th_fixed=i_th_fixed,
             fp_fixed=fp_fixed,
-            L_bounds=L_bounds,
-            R_p_high_bounds=R_p_high_bounds,
-            R_m_bounds=R_m_bounds,
-            R_a_bounds=R_a_bounds,
-            C_p_low_bounds=C_p_low_bounds,
-            C_a_bounds=C_a_bounds,
-            f1_bounds=f1_bounds,
-            f2_bounds=f2_bounds,
-            f3_bounds=f3_bounds,
+            photodiode_s2p=photodiode_s2p,
+            S11_bounds=S11_bounds,
+            S21_bounds=S21_bounds,
         )
         K_D_MCEF_df = collect_K_D_MCEF(
             df, col_f_r="f_r, GHz", col_f_3dB="f_3dB, GHz", col_gamma="gamma, 1/ns"
@@ -1042,11 +1065,11 @@ def analyze_ssm_function(directory, settings=None):
             figure_D_MCEF_max=figure_D_MCEF_max,
             fp_fixed=fp_fixed,
         )
-        if s2p:
-            print(".s2p")
-        else:
-            print("automatic system .csv")
-        print("K_D_MCEF_df")
-        print(K_D_MCEF_df)
-        print("\nK_D_MCEF_df2")
-        print(K_D_MCEF_df2)
+        # if s2p:
+        #     print(".s2p")
+        # else:
+        #     print("automatic system .csv")
+        # print("K_D_MCEF_df")
+        # print(K_D_MCEF_df)
+        # print("\nK_D_MCEF_df2")
+        # print(K_D_MCEF_df2)
