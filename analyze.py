@@ -109,7 +109,7 @@ def analyze(replot_liv, ssm, rin, optical_spectra, yaml_project, paths):
                     combine_ssm_reports_function(path, settings=settings)
 
         # print(f"[{i}/{len(paths)}] {path} is done")
-        print("\n")
+        print()
 
 
 if __name__ == "__main__":

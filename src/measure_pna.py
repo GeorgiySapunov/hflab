@@ -209,7 +209,7 @@ def measure_pna(
         Keysight_N5247B.write("DISP:WIND5:Y:AUTO")
 
         # The initial settings are applied by the *RST command
-        # Keysight_B2901A.write("*RST")
+        # Keysight_B2901A.write(":SOUR:CURR:RANG:AUTO 1")
         Keysight_B2901A.write("*RST")
         Keysight_B2901A.write(
             ":SOUR:FUNC:MODE CURR"

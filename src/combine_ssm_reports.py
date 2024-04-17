@@ -21,8 +21,11 @@ def combine_ssm_reports_function(path, settings=None):
     print(f"Title: {title}")
     dict_of_report_directories = settings["dict_of_report_directories"]
     figure_ec_ind_max = settings["figure_ec_ind_max"]
-    figure_ec_res_max = settings["figure_ec_res_max"]
-    figure_ec_cap_max = settings["figure_ec_cap_max"]
+    figure_ec_R_m_max = settings["figure_ec_R_m_max"]
+    figure_ec_R_a_max = settings["figure_ec_R_a_max"]
+    figure_ec_R_p_high_max = settings["figure_ec_R_p_high_max"]
+    figure_ec_C_a_max = settings["figure_ec_C_a_max"]
+    figure_ec_C_p_low_max = settings["figure_ec_C_p_low_max"]
     figure_ec_fitpar_max = settings["figure_ec_fitpar_max"]
     figure_max_current = settings["figure_max_current"]
     figure_max_freq = settings["figure_max_freq"]
@@ -112,42 +115,42 @@ def combine_ssm_reports_function(path, settings=None):
         ax1_l.set_ylim([0, figure_ec_ind_max])
         ax1_l.set_xlim([0, figure_max_current])
 
-        ax2_r_p_high.set_title("Resistance R_p")
+        ax2_r_p_high.set_title("Resistance R_p_high")
         ax2_r_p_high.plot(
             df["Current, mA"], df["R_p_high, Om"], label=lable, marker="o"
         )
         ax2_r_p_high.set_ylabel("Resistance, Om")
         ax2_r_p_high.set_xlabel("Current, mA")
-        ax2_r_p_high.set_ylim([0, figure_ec_res_max])
+        ax2_r_p_high.set_ylim([0, figure_ec_R_p_high_max])
         ax2_r_p_high.set_xlim([0, figure_max_current])
 
         ax22_r_m.set_title("Resistance R_m")
         ax22_r_m.plot(df["Current, mA"], df["R_m, Om"], label=lable, marker="o")
         ax22_r_m.set_ylabel("Resistance, Om")
         ax22_r_m.set_xlabel("Current, mA")
-        ax22_r_m.set_ylim([0, figure_ec_res_max])
+        ax22_r_m.set_ylim([0, figure_ec_R_m_max])
         ax22_r_m.set_xlim([0, figure_max_current])
 
         ax23_r_a.set_title("Resistance R_a")
         ax23_r_a.plot(df["Current, mA"], df["R_a, Om"], label=lable, marker="o")
         ax23_r_a.set_ylabel("Resistance, Om")
         ax23_r_a.set_xlabel("Current, mA")
-        ax23_r_a.set_ylim([0, figure_ec_res_max])
+        ax23_r_a.set_ylim([0, figure_ec_R_a_max])
         ax23_r_a.set_xlim([0, figure_max_current])
 
-        ax3_c_p_low.set_title("Capacitance C_p")
+        ax3_c_p_low.set_title("Capacitance C_p_low")
         ax3_c_p_low.plot(df["Current, mA"], df["C_p_low, fF"], label=lable, marker="o")
         ax3_c_p_low.set_ylabel("Capacitance, fF")
         ax3_c_p_low.set_xlabel("Current, mA")
         ax3_c_p_low.set_xlim([0, figure_max_current])
-        ax3_c_p_low.set_ylim([0, figure_ec_cap_max])
+        ax3_c_p_low.set_ylim([0, figure_ec_C_p_low_max])
 
         ax32_c.set_title("Capacitance C_a")
         ax32_c.plot(df["Current, mA"], df["C_a, fF"], label=lable, marker="o")
         ax32_c.set_ylabel("Capacitance, fF")
         ax32_c.set_xlabel("Current, mA")
         ax32_c.set_xlim([0, figure_max_current])
-        ax32_c.set_ylim([0, figure_ec_cap_max])
+        ax32_c.set_ylim([0, figure_ec_C_a_max])
 
         # 2-nd row
         ax41_f1.set_title("Fitting parameter 1")

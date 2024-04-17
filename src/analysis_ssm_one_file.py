@@ -93,12 +93,16 @@ def remove_pd(
     photodiode_s2p="resources/T3K7V9_DXM30BF_U00162.s2p",
     probe_port=1,
 ):
-    if probe_port == 1:
-        optical_port = 2
-    elif probe_port == 2:
-        optical_port = 1
+    if s2p_file:
+        if probe_port == 1:
+            optical_port = 2
+        elif probe_port == 2:
+            optical_port = 1
+        else:
+            raise Exception("probe_port is unclear")
     else:
-        raise Exception("probe_port is unclear")
+        probe_port = 1
+        optical_port = 2
     if s2p_file:
         if isinstance(s2p_file, str):
             s2p_file = rf.Network(s2p_file)

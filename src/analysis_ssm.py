@@ -275,7 +275,7 @@ def analyze_ssm(
 
         dict = pd.DataFrame(dict, index=f_GHz)
         dict.index.name = "Frequency, GHz"
-        dict.to_csv((report_dir / name_from_dir).with_suffix(".csv"))
+        dict.to_csv(report_dir / (name_from_dir + ".csv"))
 
     elif not s2p:  # automatic system csv file parsing and processing
         report_dir = start_directory / f"PNA_reports({auto_file_path.stem})"
@@ -411,7 +411,7 @@ def analyze_ssm(
 
         dict = pd.DataFrame(dict, index=f_GHz)
         dict.index.name = "Frequency, GHz"
-        dict.to_csv((report_dir / name_from_dir).with_suffix(".csv"))
+        dict.to_csv(report_dir / (name_from_dir + ".csv"))
 
     return df, directory, report_dir
 

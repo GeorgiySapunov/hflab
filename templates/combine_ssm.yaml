@@ -16,9 +16,12 @@ dict_of_report_directories:
 # fp_fixed: false
 
 # 1st row
-figure_ec_ind_max: 100
-figure_ec_res_max: 200
-figure_ec_cap_max: 300
+figure_ec_ind_max: 250
+figure_ec_R_m_max: 800
+figure_ec_R_a_max: 800
+figure_ec_R_p_high_max: 800
+figure_ec_C_a_max: 150
+figure_ec_C_p_low_max: 150
 figure_ec_fitpar_max: 1000
 #
 figure_max_current: 20  # mA
