@@ -151,6 +151,7 @@ def measure_pna(
         Keysight_N5247B.write("CALC:PAR:DEL:ALL")
     else:
         catalog = Keysight_N5247B.query("CALC1:PAR:CAT? DEF")[1:-1].split(",")
+        # e.g. catalog == "ch1_s22,S22,ch1_s12,S12,ch1_s21,S21"
         if S11name in catalog:
             Keysight_N5247B.write(f"CALC:PAR:DEL {S11name}")
         if S21name in catalog:
@@ -296,8 +297,14 @@ def measure_pna(
         )
         if f3dB > f3dBmax:
             f3dBmax = f3dB
+            color = "green"
+        else:
+            color = "blue"
         print(
-            f"{current_set_text} | f_r={f_r:3.2f} GHz, f_p={f_p:3.2f} GHz, gamma={gamma:3.2f} GHz, f3dB={f3dB:3.2f} GHz, f3dBmax={f3dBmax:3.2f} GHz",
+            colored(
+                f"{current_set_text} | f_r={f_r:3.2f} GHz, f_p={f_p:3.2f} GHz, gamma={gamma:3.2f} GHz, f3dB={f3dB:3.2f} GHz, f3dBmax={f3dBmax:3.2f} GHz",
+                color=color,
+            ),
             end="\n",
         )
 

@@ -12,6 +12,7 @@ import skrf as rf
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from itertools import cycle
 from scipy.optimize import curve_fit
 from sklearn.metrics import mean_squared_error
 from sklearn import linear_model
@@ -97,10 +98,18 @@ def analyze_ssm(
         columns=[
             "Current, mA",
             "L, pH",
-            "R_p_high, Om",
-            "R_m, Om",
-            "R_a, Om",
+            "R_p_high, Ohm",
+            "R_p_max, Ohm",
+            "R_p_min, Ohm",
+            "fR_p_max, GHz",
+            "fR_p_min, GHz",
+            "R_m, Ohm",
+            "R_a, Ohm",
             "C_p_low, fF",
+            "C_p_max, fF",
+            "C_p_min, fF",
+            "fC_p_max, GHz",
+            "fC_p_min, GHz",
             "C_a, fF",
             "f1, GHz",
             "f2, GHz",
@@ -132,25 +141,8 @@ def analyze_ssm(
                 S11_Imag,
                 S21_Magnitude_to_fit,
                 S21_Magnitude_fit,
-                L,
-                R_p_high,
-                R_m,
-                R_a,
-                C_p_low,
-                C_a,
-                f1,
-                f2,
-                f3,
-                f_r,
-                f_p,
-                gamma,
-                c,
-                f3dB,
-                f_p2,
-                f_r2,
-                gamma2,
-                c2,
-                f3dB2,
+                S11_approximation_results,
+                S21_approximation_results,
             ) = one_file_approximation(
                 directory=directory,
                 report_directory=report_dir,
@@ -164,6 +156,38 @@ def analyze_ssm(
                 S11_bounds=S11_bounds,
                 S21_bounds=S21_bounds,
             )
+
+            L = S11_approximation_results["L"]
+            R_p_high = S11_approximation_results["R_p_high"]
+            R_p_max = S11_approximation_results["R_p_max"]
+            R_p_min = S11_approximation_results["R_p_min"]
+            fR_p_max = S11_approximation_results["fR_p_max"]
+            fR_p_min = S11_approximation_results["fR_p_min"]
+            R_m = S11_approximation_results["R_m"]
+            R_a = S11_approximation_results["R_a"]
+            C_p_low = S11_approximation_results["C_p_low"]
+            C_p_max = S11_approximation_results["C_p_max"]
+            C_p_min = S11_approximation_results["C_p_min"]
+            fC_p_max = S11_approximation_results["fC_p_max"]
+            fC_p_min = S11_approximation_results["fC_p_min"]
+            C_a = S11_approximation_results["C_a"]
+            f1 = S11_approximation_results["f1"]
+            f2 = S11_approximation_results["f2"]
+            f3 = S11_approximation_results["f3"]
+            f_p2 = S11_approximation_results["f_p2"]
+            f_r = S21_approximation_results["f_r"]
+            f_p = S21_approximation_results["f_p"]
+            gamma = S21_approximation_results["gamma"]
+            c = S21_approximation_results["c"]
+            f3dB = S21_approximation_results["f3dB"]
+            # s21_freqlimit = S21_approximation_results["s21_freqlimit"]
+            # new_f = S21_approximation_results["new_f"]
+            f_r2 = S21_approximation_results["f_r2"]
+            gamma2 = S21_approximation_results["gamma2"]
+            c2 = S21_approximation_results["c2"]
+            f3dB2 = S21_approximation_results["f3dB2"]
+            # s21_freqlimit2 = S21_approximation_results["s21_freqlimit2"]
+            # new_f2 = S21_approximation_results["new_f2"]
 
             # parce file name for current and temperature
             file_name_parser = str(file.stem).split("-")
@@ -203,9 +227,17 @@ def analyze_ssm(
                 current,
                 L,
                 R_p_high,
+                R_p_max,
+                R_p_min,
+                fR_p_max,
+                fR_p_min,
                 R_m,
                 R_a,
                 C_p_low,
+                C_p_max,
+                C_p_min,
+                fC_p_max,
+                fC_p_min,
                 C_a,
                 f1,
                 f2,
@@ -307,25 +339,8 @@ def analyze_ssm(
                 S11_Imag,
                 S21_Magnitude_to_fit,
                 S21_Magnitude_fit,
-                L,
-                R_p_high,
-                R_m,
-                R_a,
-                C_p_low,
-                C_a,
-                f1,
-                f2,
-                f3,
-                f_r,
-                f_p,
-                gamma,
-                c,
-                f3dB,
-                f_p2,
-                f_r2,
-                gamma2,
-                c2,
-                f3dB2,
+                S11_approximation_results,
+                S21_approximation_results,
             ) = one_file_approximation(
                 directory=directory,
                 report_directory=report_dir,
@@ -348,6 +363,38 @@ def analyze_ssm(
                 S11_bounds=S11_bounds,
                 S21_bounds=S21_bounds,
             )
+
+            L = S11_approximation_results["L"]
+            R_p_high = S11_approximation_results["R_p_high"]
+            R_p_max = S11_approximation_results["R_p_max"]
+            R_p_min = S11_approximation_results["R_p_min"]
+            fR_p_max = S11_approximation_results["fR_p_max"]
+            fR_p_min = S11_approximation_results["fR_p_min"]
+            R_m = S11_approximation_results["R_m"]
+            R_a = S11_approximation_results["R_a"]
+            C_p_low = S11_approximation_results["C_p_low"]
+            C_p_max = S11_approximation_results["C_p_max"]
+            C_p_min = S11_approximation_results["C_p_min"]
+            fC_p_max = S11_approximation_results["fC_p_max"]
+            fC_p_min = S11_approximation_results["fC_p_min"]
+            C_a = S11_approximation_results["C_a"]
+            f1 = S11_approximation_results["f1"]
+            f2 = S11_approximation_results["f2"]
+            f3 = S11_approximation_results["f3"]
+            f_p2 = S11_approximation_results["f_p2"]
+            f_r = S21_approximation_results["f_r"]
+            f_p = S21_approximation_results["f_p"]
+            gamma = S21_approximation_results["gamma"]
+            c = S21_approximation_results["c"]
+            f3dB = S21_approximation_results["f3dB"]
+            # s21_freqlimit = S21_approximation_results["s21_freqlimit"]
+            # new_f = S21_approximation_results["new_f"]
+            f_r2 = S21_approximation_results["f_r2"]
+            gamma2 = S21_approximation_results["gamma2"]
+            c2 = S21_approximation_results["c2"]
+            f3dB2 = S21_approximation_results["f3dB2"]
+            # s21_freqlimit2 = S21_approximation_results["s21_freqlimit2"]
+            # new_f2 = S21_approximation_results["new_f2"]
 
             if len(S21_Magnitude_fit) < len(f_GHz):
                 S21_Magnitude_fit = np.concatenate(
@@ -373,9 +420,17 @@ def analyze_ssm(
                 current,
                 L,
                 R_p_high,
+                R_p_max,
+                R_p_min,
+                fR_p_max,
+                fR_p_min,
                 R_m,
                 R_a,
                 C_p_low,
+                C_p_max,
+                C_p_min,
+                fC_p_max,
+                fC_p_min,
                 C_a,
                 f1,
                 f2,
@@ -534,7 +589,7 @@ def makefigs(
     # 1-st row
     ax1_l = fig.add_subplot(461)
     ax1_l.set_title("Inductance of the equivalent circuit")
-    ax1_l.plot(df["Current, mA"], df["L, pH"], marker="o")
+    ax1_l.plot(df["Current, mA"], df["L, pH"])
     ax1_l.set_xlabel("Current, mA")
     ax1_l.set_ylabel("L, pH")
     ax1_l.set_xlim(left=0, right=figure_max_current)
@@ -544,11 +599,23 @@ def makefigs(
 
     ax2_r = fig.add_subplot(462)
     ax2_r.set_title("Resistance of the equivalent circuit")
-    ax2_r.plot(df["Current, mA"], df["R_p_high, Om"], label="R_p_high", marker="o")
-    ax2_r.plot(df["Current, mA"], df["R_m, Om"], label="R_m", marker="D")
-    ax2_r.plot(df["Current, mA"], df["R_a, Om"], label="R_a", marker="*")
+    colors = cycle(plt.rcParams["axes.prop_cycle"].by_key()["color"])
+    color = next(colors)
+    ax2_r.plot(df["Current, mA"], df["R_p_high, Ohm"], label="R_p_high", c=color)
+    ax2_r.fill_between(
+        df["Current, mA"],
+        df["R_p_min, Ohm"],
+        df["R_p_max, Ohm"],
+        color=color,
+        alpha=0.4,
+        label=f"R_p (R_p_max={df['R_p_max, Ohm'].max():.2f} Ohm)",
+    )
+    color = next(colors)
+    ax2_r.plot(df["Current, mA"], df["R_m, Ohm"], label="R_m", c=color)
+    color = next(colors)
+    ax2_r.plot(df["Current, mA"], df["R_a, Ohm"], label="R_a", c=color)
     ax2_r.set_xlabel("Current, mA")
-    ax2_r.set_ylabel("Resistance, Om")
+    ax2_r.set_ylabel("Resistance, Ohm")
     ax2_r.set_xlim(left=0, right=figure_max_current)
     ax2_r.set_ylim(bottom=0, top=figure_ec_res_max)
     ax2_r.grid(which="both")
@@ -557,8 +624,19 @@ def makefigs(
 
     ax3_c = fig.add_subplot(463)
     ax3_c.set_title("Capacitance of the equivalent circuit")
-    ax3_c.plot(df["Current, mA"], df["C_p_low, fF"], label="C_p_low", marker="o")
-    ax3_c.plot(df["Current, mA"], df["C_a, fF"], label="C_a", marker="D")
+    colors = cycle(plt.rcParams["axes.prop_cycle"].by_key()["color"])
+    color = next(colors)
+    ax3_c.plot(df["Current, mA"], df["C_p_low, fF"], label="C_p_low", c=color)
+    ax3_c.fill_between(
+        df["Current, mA"],
+        df["C_p_min, fF"],
+        df["C_p_max, fF"],
+        color=color,
+        alpha=0.4,
+        label=f"C_p (C_p_max={df['C_p_max, fF'].max():.2f} fF)",
+    )
+    color = next(colors)
+    ax3_c.plot(df["Current, mA"], df["C_a, fF"], label="C_a", c=color)
     ax3_c.set_ylabel("Capacitance, fF")
     ax3_c.set_xlabel("Current, mA")
     ax3_c.set_xlim(left=0, right=figure_max_current)
@@ -569,9 +647,9 @@ def makefigs(
 
     ax4_f = fig.add_subplot(464)
     ax4_f.set_title("Fitting parameters of the equivalent circuit")
-    ax4_f.plot(df["Current, mA"], df["f1, GHz"], label="f1", marker="o")
-    ax4_f.plot(df["Current, mA"], df["f2, GHz"], label="f2", marker="D")
-    ax4_f.plot(df["Current, mA"], df["f3, GHz"], label="f3", marker="*")
+    ax4_f.plot(df["Current, mA"], df["f1, GHz"], label="f1")
+    ax4_f.plot(df["Current, mA"], df["f2, GHz"], label="f2")
+    ax4_f.plot(df["Current, mA"], df["f3, GHz"], label="f3")
     ax4_f.set_ylabel("Fitting parameters, GHz")
     ax4_f.set_xlabel("Current, mA")
     ax4_f.set_xlim(left=0, right=figure_max_current)
@@ -587,7 +665,6 @@ def makefigs(
         df["Current, mA"],
         df["gamma, 1/ns"],
         label="ɣ, 1/ns",
-        marker="o",
         alpha=0.5,
     )
     if fp_fixed:
@@ -596,7 +673,6 @@ def makefigs(
             df["gamma(f_p fixed), 1/ns"],
             label="ɣ(f_p fixed), 1/ns",
             alpha=0.5,
-            marker="o",
         )
     ax7_gamma.set_ylabel("ɣ, 1/ns")
     ax7_gamma.set_xlabel("Current, mA")
@@ -615,7 +691,6 @@ def makefigs(
         df["Current, mA"],
         df["f_p, GHz"],
         label="from S21",
-        marker="o",
         alpha=0.5,
     )
     if fp_fixed:
@@ -623,7 +698,6 @@ def makefigs(
             df["Current, mA"],
             df["f_p(fixed), GHz"],
             label="from equivalent circuit",
-            marker="o",
             alpha=0.5,
         )
     ax8_fp.set_ylabel("f_p, GHz")
@@ -641,7 +715,6 @@ def makefigs(
         df["Current, mA"],
         df["f_r, GHz"],
         label="f_r",
-        marker="o",
         alpha=0.5,
     )
     if fp_fixed:
@@ -649,7 +722,6 @@ def makefigs(
             df["Current, mA"],
             df["f_r(f_p fixed), GHz"],
             label="f_r(f_p fixed)",
-            marker="o",
             alpha=0.5,
         )
     ax9_fr.set_ylabel("f_r, GHz")
@@ -667,7 +739,6 @@ def makefigs(
         df["Current, mA"],
         df["f_3dB, GHz"],
         label="f_3dB",
-        marker="o",
         alpha=0.5,
     )
     if fp_fixed:
@@ -675,7 +746,6 @@ def makefigs(
             df["Current, mA"],
             df["f_3dB(f_p fixed), GHz"],
             label="f_3dB(f_p fixed)",
-            marker="o",
             alpha=0.5,
         )
     ax10_f3db.set_ylabel("f_3dB, GHz")
@@ -692,7 +762,6 @@ def makefigs(
         df["f_r, GHz"] ** 2,
         df["gamma, 1/ns"],
         label="ɣ, 1/ns",
-        marker="o",
         alpha=0.5,
     )
     if fp_fixed:
@@ -700,7 +769,6 @@ def makefigs(
             df["f_r(f_p fixed), GHz"] ** 2,
             df["gamma(f_p fixed), 1/ns"],
             label="ɣ(f_p fixed), 1/ns",
-            marker="o",
             alpha=0.5,
         )
     ax11_sqrt_gamma.set_ylabel("ɣ, 1/ns")
@@ -718,7 +786,6 @@ def makefigs(
         df["sqrt(I-I_th), sqrt(mA)"],
         df["f_r, GHz"],
         label=f"f_r",
-        marker="o",
         alpha=0.5,
     )
     if fp_fixed:
@@ -726,7 +793,6 @@ def makefigs(
             df["sqrt(I-I_th), sqrt(mA)"],
             df["f_r(f_p fixed), GHz"],
             label="f_r(f_p fixed)",
-            marker="o",
             alpha=0.5,
         )
     ax13_fr_for_D.set_ylabel("f_r, GHz")
@@ -747,7 +813,6 @@ def makefigs(
         df["sqrt(I-I_th), sqrt(mA)"],
         df["f_3dB, GHz"],
         label=f"f_3dB",
-        marker="o",
         alpha=0.5,
     )
     if fp_fixed:
@@ -755,7 +820,6 @@ def makefigs(
             df["sqrt(I-I_th), sqrt(mA)"],
             df["f_3dB(f_p fixed), GHz"],
             label=f"f_3dB(f_p fixed)",
-            marker="o",
             alpha=0.5,
         )
     ax14_f3dB_for_MCEF.set_ylabel("f_3dB, GHz")
@@ -777,7 +841,6 @@ def makefigs(
         K_D_MCEF_df["f_r_2_max"],
         K_D_MCEF_df["K factor, ns"],
         label=f"K factor",
-        marker="o",
         alpha=0.5,
     )
     if fp_fixed:
@@ -785,7 +848,6 @@ def makefigs(
             K_D_MCEF_df2["f_r_2_max"],
             K_D_MCEF_df2["K factor, ns"],
             label=f"K factor(f_p fixed)",
-            marker="o",
             alpha=0.5,
         )
     ax15_K.set_ylabel("K factor, ns")
@@ -802,7 +864,6 @@ def makefigs(
         K_D_MCEF_df["f_r_2_max"],
         K_D_MCEF_df["gamma0, 1/ns"],
         label="ɣ_0, 1/ns",
-        marker="o",
         alpha=0.5,
     )
     if fp_fixed:
@@ -810,7 +871,6 @@ def makefigs(
             K_D_MCEF_df2["f_r_2_max"],
             K_D_MCEF_df2["gamma0, 1/ns"],
             label="ɣ_0(f_p fixed), 1/ns",
-            marker="o",
             alpha=0.5,
         )
 
@@ -828,7 +888,6 @@ def makefigs(
         K_D_MCEF_df["max sqrt(I-I_th), sqrt(mA)"],
         K_D_MCEF_df["D factor"],
         label=f"D factor",
-        marker="o",
         alpha=0.5,
     )
     if fp_fixed:
@@ -836,7 +895,6 @@ def makefigs(
             K_D_MCEF_df2["max sqrt(I-I_th), sqrt(mA)"],
             K_D_MCEF_df2["D factor"],
             label=f"D factor(f_p fixed)",
-            marker="o",
             alpha=0.5,
         )
 
@@ -857,7 +915,6 @@ def makefigs(
         K_D_MCEF_df["max sqrt(I-I_th), sqrt(mA)"],
         K_D_MCEF_df["MCEF"],
         label="MCEF",
-        marker="o",
         alpha=0.5,
     )
     if fp_fixed:
@@ -865,7 +922,6 @@ def makefigs(
             K_D_MCEF_df2["max sqrt(I-I_th), sqrt(mA)"],
             K_D_MCEF_df2["MCEF"],
             label="MCEF(f_p fixed)",
-            marker="o",
             alpha=0.5,
         )
 

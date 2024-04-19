@@ -100,13 +100,12 @@ def remove_pd(
             optical_port = 1
         else:
             raise Exception("probe_port is unclear")
-    else:
-        probe_port = 1
-        optical_port = 2
-    if s2p_file:
         if isinstance(s2p_file, str):
             s2p_file = rf.Network(s2p_file)
         vcsel_df = s2p_file.to_dataframe("s")
+    else:
+        probe_port = 1
+        optical_port = 2
     if "s21_logm" not in vcsel_df.columns:
         S21_Real = vcsel_df[f"s {optical_port}{probe_port}"].values.real
         S21_Imag = vcsel_df[f"s {optical_port}{probe_port}"].values.imag
@@ -185,12 +184,23 @@ def approximate_S11(S11_Real, S11_Imag, f, S11_bounds):
                 "yellow",
             )
         )
+    C_p = C_p_low * np.exp(-((f**2) / ((f1 * 10**9) ** 2)))
+    R_p = R_p_high * np.exp(-(((f - (f2 * 10**9)) ** 2) / ((f3 * 10**9) ** 2)))
+
     S11_approximation_results = {
         "L": L,
         "R_p_high": R_p_high,
+        "R_p_max": R_p.max(),
+        "R_p_min": R_p.min(),
+        "fR_p_max": (f * 10**-9)[R_p.argmax()],
+        "fR_p_min": (f * 10**-9)[R_p.argmin()],
         "R_m": R_m,
         "R_a": R_a,
         "C_p_low": C_p_low,
+        "C_p_max": C_p.max(),
+        "C_p_min": C_p.min(),
+        "fC_p_max": (f * 10**-9)[C_p.argmax()],
+        "fC_p_min": (f * 10**-9)[C_p.argmin()],
         "C_a": C_a,
         "f1": f1,
         "f2": f2,
@@ -203,7 +213,17 @@ def approximate_S11(S11_Real, S11_Imag, f, S11_bounds):
         "S11_Fit_MSE_imag": S11_Fit_MSE_imag,
     }
 
-    return S11_approximation_results, S11_MSE, S11_Fit, z, z_Fit, f_h, H_from_eqv
+    return (
+        S11_approximation_results,
+        S11_MSE,
+        S11_Fit,
+        z,
+        z_Fit,
+        f_h,
+        H_from_eqv,
+        C_p,
+        R_p,
+    )
 
 
 def approximate_S21(
@@ -425,16 +445,24 @@ def one_file_approximation(
             vcsel_df=vcsel_df, photodiode_s2p=photodiode_s2p, probe_port=probe_port
         )
 
-    S11_approximation_results, S11_MSE, S11_Fit, z, z_Fit, f_h, H_from_eqv = (
+    S11_approximation_results, S11_MSE, S11_Fit, z, z_Fit, f_h, H_from_eqv, C_p, R_p = (
         approximate_S11(
             S11_Real=S11_Real, S11_Imag=S11_Imag, f=f, S11_bounds=S11_bounds
         )
     )
     L = S11_approximation_results["L"]
     R_p_high = S11_approximation_results["R_p_high"]
+    R_p_max = S11_approximation_results["R_p_max"]
+    R_p_min = S11_approximation_results["R_p_min"]
+    fR_p_max = S11_approximation_results["fR_p_max"]
+    fR_p_min = S11_approximation_results["fR_p_min"]
     R_m = S11_approximation_results["R_m"]
     R_a = S11_approximation_results["R_a"]
     C_p_low = S11_approximation_results["C_p_low"]
+    C_p_max = S11_approximation_results["C_p_max"]
+    C_p_min = S11_approximation_results["C_p_min"]
+    fC_p_max = S11_approximation_results["fC_p_max"]
+    fC_p_min = S11_approximation_results["fC_p_min"]
     C_a = S11_approximation_results["C_a"]
     f1 = S11_approximation_results["f1"]
     f2 = S11_approximation_results["f2"]
@@ -686,8 +714,6 @@ def one_file_approximation(
         )
     ax6_s21.legend(fontsize=10)
 
-    C_p = C_p_low * np.exp(-((f**2) / ((f1 * 10**9) ** 2)))
-    R_p = R_p_high * np.exp(-(((f - (f2 * 10**9)) ** 2) / ((f3 * 10**9) ** 2)))
     ax7_C_p = fig.add_subplot(427)
     ax7_R_p = ax7_C_p.twinx()
     ax7_C_p.set_title("Pad capacitance and dielectric losses")
@@ -695,14 +721,14 @@ def one_file_approximation(
         f * 10**-9,
         C_p,
         "r.",
-        label=f"Pad capacitance C_p, fF\n C_p_low={C_p_low:.2f} fF, f1={f1:.2f}GHz,\n C_p_min={C_p.min():.2f} at {(f*10**-9)[C_p.argmin()]} GHz\n C_p_max={C_p.max():.2f} at {(f*10**-9)[C_p.argmax()]} GHz",
+        label=f"Pad capacitance C_p, fF\n C_p_low={C_p_low:.2f} fF, f1={f1:.2f}GHz,\n C_p_min={C_p_min:.2f} at {fC_p_min:.2f} GHz\n C_p_max={C_p_max:.2f} at {fC_p_max:.2f} GHz",
         alpha=1,
     )
     lns2 = ax7_R_p.plot(
         f * 10**-9,
         R_p,
         "g.",
-        label=f"Pad dielectric losses R_p, Ohm\n R_p_high={R_p_high:.2f} Om, f2={f2:.2f}GHz, f3={f3:.2f} GHz,\n R_p_min={R_p.min():.2f} Ohm at {(f*10**-9)[R_p.argmin()]} GHz\n R_p_max={R_p.max():.2f} Ohm at {(f*10**-9)[R_p.argmax()]} GHz",
+        label=f"Pad dielectric losses R_p, Ohm\n R_p_high={R_p_high:.2f} Om, f2={f2:.2f}GHz, f3={f3:.2f} GHz,\n R_p_min={R_p_min:.2f} Ohm at {fR_p_min:.2f} GHz\n R_p_max={R_p_max:.2f} Ohm at {fR_p_max:.2f} GHz",
         alpha=1,
     )
     ax7_C_p.set_ylabel("C_p, fF", color="r")
@@ -771,25 +797,27 @@ def one_file_approximation(
         S11_Imag,
         S21_Magnitude_to_fit,
         S21_Fit,
-        L,
-        R_p_high,
-        R_m,
-        R_a,
-        C_p_low,
-        C_a,
-        f1,
-        f2,
-        f3,
-        f_r,
-        f_p,
-        gamma,
-        c,
-        f3dB,
-        f_p2,
-        f_r2,
-        gamma2,
-        c2,
-        f3dB2,
+        S11_approximation_results,
+        S21_approximation_results,
+        # L,
+        # R_p_high,
+        # R_m,
+        # R_a,
+        # C_p_low,
+        # C_a,
+        # f1,
+        # f2,
+        # f3,
+        # f_r,
+        # f_p,
+        # gamma,
+        # c,
+        # f3dB,
+        # f_p2,
+        # f_r2,
+        # gamma2,
+        # c2,
+        # f3dB2,
     )
 
 
