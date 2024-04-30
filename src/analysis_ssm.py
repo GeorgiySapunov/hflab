@@ -312,7 +312,7 @@ def analyze_ssm(
     elif not s2p:  # automatic system csv file parsing and processing
         report_dir = start_directory / f"PNA_reports({auto_file_path.stem})"
         report_dir.mkdir(exist_ok=True)
-        auto_file = pd.read_csv(auto_file_path, header=[0, 1, 2], sep="\t")
+        auto_file = pd.read_csv(auto_file_path, header=[0, 1, 2], sep=",")
         # print(auto_file.head())
         currents = (
             auto_file["VNA Current"][auto_file["VNA Current"] > 0]
@@ -320,9 +320,9 @@ def analyze_ssm(
             .values.reshape(-1)
         )
         frequency = auto_file["Frequency1"].values.reshape(-1)
-        abs_s21 = auto_file["Abs(S11)"].values.reshape(-1)
-        re_s11 = auto_file["Abs(S21)"].values.reshape(-1)
-        im_s11 = auto_file["Phase(S21)"].values.reshape(-1)
+        abs_s21 = auto_file["LogMag(S21)"].values.reshape(-1)
+        re_s11 = auto_file["Re(S11)"].values.reshape(-1)
+        im_s11 = auto_file["Imag(S11)"].values.reshape(-1)
         points = np.where(abs_s21 == -999999999)[0][0]
         waferid_wl, coordinates, _ = auto_file_path.stem.split("_")
         waferid, wavelength = waferid_wl.split("-")
