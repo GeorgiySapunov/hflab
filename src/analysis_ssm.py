@@ -312,7 +312,7 @@ def analyze_ssm(
     elif not s2p:  # automatic system csv file parsing and processing
         report_dir = start_directory / f"PNA_reports({auto_file_path.stem})"
         report_dir.mkdir(exist_ok=True)
-        auto_file = pd.read_csv(auto_file_path, header=[0, 1, 2], sep=",")
+        auto_file = pd.read_csv(auto_file_path, header=[0, 1, 2], sep="\t")
         # print(auto_file.head())
         currents = (
             auto_file["VNA Current"][auto_file["VNA Current"] > 0]

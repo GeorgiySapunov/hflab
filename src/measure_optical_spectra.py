@@ -40,7 +40,9 @@ def measure_osa(
     osa_span = float(osa_config["osa_span"])
     # osa_points = float(osa_config["osa_points"]) # TODO del
     current_increment_OSA = float(osa_config["current_increment_OSA"])
-    osa_force_wavelength = float(osa_config["osa_force_wavelength"])
+    osa_force_wavelength = osa_config["osa_force_wavelength"]
+    if osa_force_wavelength:
+        osa_force_wavelength = float(osa_force_wavelength)
 
     alarm = False
     warnings = []
@@ -60,7 +62,7 @@ def measure_osa(
         ),
         reverse=True,
     )
-    if len(livfiles) > 1:
+    if len(livfiles) > 0:
         print(colored(f"{len(livfiles)} LIV files found:", "red"))
         for fileindex, file in enumerate(livfiles, start=1):
             livfile_max_current, liv_dataframe = check_maximum_current(file)
