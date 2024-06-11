@@ -108,7 +108,7 @@ def measure_pna(
         ),
         reverse=True,
     )
-    if len(livfiles) > 1:
+    if livfiles:
         livfile = True
         print(colored(f"{len(livfiles)} LIV files found:", "red"))
         for fileindex, file in enumerate(livfiles, start=1):

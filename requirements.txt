@@ -18,4 +18,6 @@ click
 icecream
 setuptools
 pyyaml
+pythonnet
 # pysmithplot-fork
+clr

@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-# Equipment list:
-# - Keysight B2901A Precision Source/Measure Unit
-# - Thorlabs PM100USB Power and energy meter
-# - Keysight 8163B Lightwave Multimeter
-# - YOKOGAWA AQ6370D Optical Spectrum Analyzer
-# - Advanced Temperature Test Systems Chuck System A160 CMI
+"""
+Equipment list:
+- Keysight B2901A Precision Source/Measure Unit
+- Thorlabs PM100USB Power and energy meter
+- Keysight 8163B Lightwave Multimeter
+- YOKOGAWA AQ6370D Optical Spectrum Analyzer
+- Advanced Temperature Test Systems Chuck System A160 CMI
+- Keysight N5247B PNA-X network analyzer
+- CoherentSolutions MatrIQswitch
+"""
 
 import sys
 import os
@@ -120,6 +124,7 @@ def main():
             k1   for Keysight 8163B Lightwave Multimeter port 1
             k2   for Keysight 8163B Lightwave Multimeter port 2
             y    for YOKOGAWA AQ6370D Optical Spectrum Analyzer
+            s
 
             for multiple temperature you need to specify start, stop and step temperature values:
             Equipment_choice WaferID Wavelength(nm) Coordinates Start_Temperature(°C) Stop_Temperature(°C) Temperature_Increment(°C)

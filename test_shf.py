@@ -1376,30 +1376,52 @@ class SHF:
     def shf_pam4setup(self):
         pass
 
+    def test_ea(self):
+        self.shf_command("EA:AUTOSEARCH=channel1:simple;")
+
     def test(self):
         self.rst_current_source()
         time.sleep(2)
         assert self.rst_attenuator() == True
         time.sleep(2)
-        self.shf_init()
-        time.sleep(2)
+        # self.shf_init()
+        # time.sleep(2)
         self.gently_apply_current(3)
         time.sleep(2)
-        self.shf_patternsetup("nrz")
-        time.sleep(2)
-        self.shf_set_amplitude(300)
-        time.sleep(2)
-        self.shf_set_preemphasis(0, 10)
-        self.shf_set_preemphasis(2, 10)
-        self.shf_set_preemphasis(3, 10)
-        time.sleep(2)
-        self.shf_set_clksrc_frequency(25)
-        time.sleep(2)
-        self.shf_set_clksrc_frequency(30)
-        time.sleep(2)
+        input("optimize fiber?")
+        self.optimize_fiber()
+        # self.shf_patternsetup("nrz")
+        # time.sleep(2)
+        # self.shf_set_amplitude(300)
+        # time.sleep(2)
+        # self.shf_set_preemphasis(0, 10)
+        # self.shf_set_preemphasis(2, 10)
+        # self.shf_set_preemphasis(3, 10)
+        # time.sleep(2)
+        # self.shf_set_clksrc_frequency(25)
+        # time.sleep(2)
+        # self.shf_set_clksrc_frequency(30)
+        # time.sleep(2)
+        input("measure LIV?")
+        self.measure_liv_with_attenuator()
+        input("test attenuation?")
         self.set_attenuation(-5)
         time.sleep(2)
         self.set_attenuation(-3)
         time.sleep(2)
-        self.shf_turn_off()
+        self.set_attenuation(1)
+        time.sleep(2)
+        self.set_attenuation(5)
+        time.sleep(2)
+        self.set_attenuation(-3)
+        time.sleep(2)
+        # self.shf_turn_off()
+        self.gently_apply_current(0)
         self.save_logs()
+
+
+if __name__ == "__main__":
+    shfclass = SHF(
+        waferid="waferid", wavelength=940, coordinates="test", temperature=25
+    )
+    shfclass.test()
