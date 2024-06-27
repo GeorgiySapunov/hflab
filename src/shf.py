@@ -23,6 +23,7 @@ ThorlabsCLI = [
     "Thorlabs.MotionControl.GenericMotorCLI.dll",
     "ThorLabs.MotionControl.ModularRackCLI.dll",
 ]
+path = r"C:\Program Files\Thorlabs\Kinesis"
 for dllfile in ThorlabsCLI:
     clr.AddReference(Path("resources") / "Thorlabs" / dllfile)
 from Thorlabs.MotionControl.DeviceManagerCLI import *
@@ -680,7 +681,8 @@ class SHF:
         )
 
     def shf_patternsetup(self, pattern: str):
-        """Configure PRBS7 and PRBS7Q pattern, open channels, set amplitude to 150 and open DAC output"""
+        """Configure PRBS7 and PRBS7Q pattern, open channels, set amplitude to 150 and open DAC output
+        Implemented patterns: PAM4 and NRZ"""
         self.shf_command("DAC:OUTPUT=STATE:DISABLED;")
         self.shf_set_clksrc_frequency(20)
         PRBS7commands = [
@@ -1163,11 +1165,11 @@ class SHF:
         self.gently_apply_current(self.test_current)
         theta = [37.5, 37.5, 37.5]  # initial voltages
         self.move_fiber_sim(theta)
-        start_eta = 100  # optimization rate
+        start_eta = 1000  # optimization rate
         eta = start_eta
-        n_epochs = 1000
+        n_epochs = 3000
         for epoch in range(n_epochs):
-            eta *= 0.998
+            eta *= 0.9975
             gradient = self.gradient_power()
             mode = np.sqrt(gradient[0] ** 2 + gradient[1] ** 2 + gradient[2] ** 2)
             if eta * mode > 5:
@@ -1373,10 +1375,7 @@ class SHF:
         }
         return best_bitrate, best_parameters
 
-    def shf_pam4setup(self):
-        pass
-
-    def test(self):
+    def test_old(self):
         self.rst_current_source()
         time.sleep(2)
         assert self.rst_attenuator() == True
@@ -1403,3 +1402,54 @@ class SHF:
         time.sleep(2)
         self.shf_turn_off()
         self.save_logs()
+
+    def test_ea(self):
+        self.shf_command("EA:AUTOSEARCH=channel1:simple;")
+
+    def test(self):
+        self.rst_current_source()
+        time.sleep(2)
+        assert self.rst_attenuator() == True
+        time.sleep(2)
+        # self.shf_init()
+        # time.sleep(2)
+        self.gently_apply_current(3)
+        # time.sleep(2)
+        # input("optimize fiber?Enter")
+        # self.optimize_fiber()
+        #
+        # self.shf_patternsetup("nrz")
+        # time.sleep(2)
+        # self.shf_set_amplitude(300)
+        # time.sleep(2)
+        # self.shf_set_preemphasis(0, 10)
+        # self.shf_set_preemphasis(2, 10)
+        # self.shf_set_preemphasis(3, 10)
+        # time.sleep(2)
+        # self.shf_set_clksrc_frequency(25)
+        # time.sleep(2)
+        # self.shf_set_clksrc_frequency(30)
+        # time.sleep(2)
+        input("measure LIV?Enter")
+        self.measure_liv_with_attenuator()
+        input("test attenuation?Enter")
+        self.set_attenuation(-5)
+        time.sleep(2)
+        self.set_attenuation(-3)
+        time.sleep(2)
+        self.set_attenuation(1)
+        time.sleep(2)
+        self.set_attenuation(5)
+        time.sleep(2)
+        self.set_attenuation(-3)
+        time.sleep(2)
+        # self.shf_turn_off()
+        self.gently_apply_current(0)
+        self.save_logs()
+
+
+if __name__ == "__main__":
+    shfclass = SHF(
+        waferid="waferid", wavelength=940, coordinates="test", temperature=25
+    )
+    shfclass.test()

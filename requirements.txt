@@ -20,4 +20,3 @@ setuptools
 pyyaml
 pythonnet
 # pysmithplot-fork
-clr
