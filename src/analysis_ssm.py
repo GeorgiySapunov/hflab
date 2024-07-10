@@ -319,7 +319,7 @@ def analyze_ssm(
             .dropna()
             .values.reshape(-1)
         )
-        frequency = auto_file["Frequency1"].values.reshape(-1)
+        frequency = auto_file["PNA Frequency"].values.reshape(-1)
         abs_s21 = auto_file["LogMag(S21)"].values.reshape(-1)
         re_s11 = auto_file["Re(S11)"].values.reshape(-1)
         im_s11 = auto_file["Imag(S11)"].values.reshape(-1)

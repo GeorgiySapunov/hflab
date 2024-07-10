@@ -19,13 +19,13 @@ from termcolor import colored
 from src.measure_liv import buildplt_everything, buildplt_liv
 
 ThorlabsCLI = [
-    "Thorlabs.MotionControl.DeviceManagerCLI.dll",
-    "Thorlabs.MotionControl.GenericMotorCLI.dll",
-    "ThorLabs.MotionControl.ModularRackCLI.dll",
+    r"Thorlabs.MotionControl.DeviceManagerCLI.dll",
+    r"Thorlabs.MotionControl.GenericMotorCLI.dll",
+    r"ThorLabs.MotionControl.ModularRackCLI.dll",
 ]
 path = r"C:\Program Files\Thorlabs\Kinesis"
 for dllfile in ThorlabsCLI:
-    clr.AddReference(Path("resources") / "Thorlabs" / dllfile)
+    clr.AddReference(os.path.join(path, dllfile))
 from Thorlabs.MotionControl.DeviceManagerCLI import *
 from Thorlabs.MotionControl.GenericMotorCLI import *
 from Thorlabs.MotionControl.ModularRackCLI.Rack import *
@@ -47,11 +47,13 @@ class SHF:
     """
 
     skew = pd.read_csv((Path("resources") / "skew.csv")).transpose()
+    attenuator_shutter_min_timeinterval = 3
+    attenuator_shutter_prev_time = time.time()
 
     logs = []
     errorlogs = []
 
-    attenuator_lens = "LENS0"
+    attenuator_lens = "LENS1"
     shf_amplifier = 8  # dBm
     test_current = 2  # mA
     max_optical_powerdBm = 9
@@ -126,168 +128,9 @@ class SHF:
         else:
             self.attenuator = rm.open_resource(
                 instruments_config["Attenuator_EXPO_LTB1"],
-                write_termination="\r\n",
+                write_termination="\n",
                 read_termination="\n",
             )
-
-    def connect_shf(
-        self,
-        bpg=None,
-        dac=None,
-        clksrc=None,
-        ea=None,
-        det=None,
-        amplifier_power=1,
-        pam4=1,
-        mainframe=1,
-    ):
-        instruments_config = self.config["INSTRUMENTS"]
-        rm = pyvisa.ResourceManager()
-        if bpg:
-            self.bpg = bpg
-        else:
-            self.bpg = rm.open_resource(
-                instruments_config["BPG_SHF12105A"],
-                write_termination="\r\n",
-                read_termination="\n",
-            )
-        if dac:
-            self.dac = dac
-        else:
-            self.dac = rm.open_resource(
-                instruments_config["DAC_SHF614C"],
-                write_termination="\r\n",
-                read_termination="\n",
-            )
-        if clksrc:
-            self.clksrc = clksrc
-        else:
-            self.clksrc = rm.open_resource(
-                instruments_config["CLKSRC_SHF78122B"],
-                write_termination="\r\n",
-                read_termination="\n",
-            )
-        if ea:
-            self.ea = ea
-        else:
-            self.ea = rm.open_resource(
-                instruments_config["EA_SHF11104A"],
-                write_termination="\r\n",
-                read_termination="\n",
-            )
-        if det:
-            self.det = det
-        else:
-            self.det = rm.open_resource(
-                instruments_config["DET_SHF11220A"],
-                write_termination="\r\n",
-                read_termination="\n",
-            )
-        if amplifier_power:
-            self.amplifier_power = amplifier_power
-        else:
-            self.amplifier_power = rm.open_resource(
-                instruments_config["PowerSource_RS_HMP2000"],
-                write_termination="\r\n",
-                read_termination="\n",
-            )
-        if not pam4:
-            self.pam4 = pam4
-        else:
-            self.pam4 = rm.open_resource(
-                instruments_config["PAM4_SHF616C"],
-                write_termination="\r\n",
-                read_termination="\n",
-            )
-        if mainframe:
-            self.mainframe = mainframe
-        else:
-            self.mainframe = rm.open_resource(
-                instruments_config["Mainframe_SHF10000A"],
-                write_termination="\r\n",
-                read_termination="\n",
-            )
-        self.shf_connected = True
-        self.logs.append(
-            [
-                time.strftime("%Y%m%d-%H%M%S"),
-                "SHF equipment is connected",
-            ]
-        )
-
-    def connect_kcubes(self):
-        "Populates self.kcube_devices and moves fiber to x,y,z=37.5"
-        # https://github.com/Thorlabs/Motion_Control_Examples/blob/main/Python/Modular%20Rack/mmr_pythonnet.py
-        # https://github.com/Thorlabs/Motion_Control_Examples/blob/main/Python/KCube/KPZ101/kpz101_pythonnet.py
-        DeviceManagerCLI.BuildDeviceList()
-        # create new device
-        instruments_config = self.config["INSTRUMENTS"]
-        X_Kcube_sn = instruments_config["X_Kcube"]
-        Y_Kcube_sn = instruments_config["Y_Kcube"]
-        Z_Kcube_sn = instruments_config["Z_Kcube"]
-        # Get Device info using a factory
-        Xdevice_info = DeviceFactory.GetDeviceInfo(X_Kcube_sn)
-        Ydevice_info = DeviceFactory.GetDeviceInfo(Y_Kcube_sn)
-        Zdevice_info = DeviceFactory.GetDeviceInfo(Z_Kcube_sn)
-        print("KcubeIDs (X, Y, Z):")
-        print(Xdevice_info.GetTypeID())
-        print(Ydevice_info.GetTypeID())
-        print(Zdevice_info.GetTypeID())
-        Xrack = ModularRack.CreateModularRack(int(XDeviceInfo.GetTypeID()), X_Kcube_sn)
-        Yrack = ModularRack.CreateModularRack(int(YDeviceInfo.GetTypeID()), Y_Kcube_sn)
-        Zrack = ModularRack.CreateModularRack(int(ZDeviceInfo.GetTypeID()), Z_Kcube_sn)
-        # Connect, begin polling, and enable
-        deviceX = Xrack[1]
-        deviceY = Yrack[1]
-        deviceZ = Zrack[1]
-        self.kcube_devices = [deviceX, deviceY, deviceZ]
-        Xrack.Connect(X_Kcube_sn)
-        Yrack.Connect(Y_Kcube_sn)
-        Zrack.Connect(Z_Kcube_sn)
-        # Ensure that the device settings have been initialized
-        for device in self.kcube_devices:
-            if not device.IsSettingsInitialized():
-                device.WaitForSettingsInitialized(10000)  # 10 second timeout
-                assert device.IsSettingsInitialized() is True
-        # Start polling and enable
-        for device in self.kcube_devices:
-            device.StartPolling(250)  # 250ms polling rate
-        time.sleep(1)  # TODO check it
-        for device in self.kcube_devices:
-            device.EnableDevice()
-        time.sleep(0.25)  # Wait for device to enable
-        # Set the Zero point of the device
-        for device in self.kcube_devices:
-            device.SetZero()  # TODO do we need this?
-            self.fiberX = 0
-        self.piezo_voltages = [0.0, 0.0, 0.0]
-        # Get the maximum voltage output of the KPZ
-        self.piezo_max_voltage = (
-            deviceX.GetMaxOutputVoltage()
-        )  # This is stored as a .NET decimal
-        print(f"Piezo max voltage: {self.piezo_max_voltage}")
-        self.move_fiber_sim([37.5, 37.5, 37.5])
-        print(
-            """Piezo voltages set to 37.5.
-            Please manually adjust the fiber position using nobs."""
-        )
-        self.logs.append(
-            [
-                time.strftime("%Y%m%d-%H%M%S"),
-                "Kcubes are connected and moved to voltage 37.5",
-            ]
-        )
-        timeout = 300
-        start_time = time.time()  # start time for timeout
-        while (time.time() - start_time) < timeout:
-            prompt = f"The fiber optimization will preceed after {timeout} seconds. Start optimizing the fiber position? Y/n"
-            answer = input(prompt)
-            if answer:
-                if answer in ("Y", "y", ""):
-                    self.optimize_fiber()
-                break
-            else:
-                self.set_alarm("Fiber reposition declined")
 
     def log_state(self):
         state_dict = {
@@ -316,10 +159,23 @@ class SHF:
         }
         return json.dumps(state_dict)
 
+    def save_logs(self, note: str = ""):
+        if note:
+            note = note + "_"
+        timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
+        shfdir = self.dirpath / "SHF"
+        shfdir.mkdir(parents=True, exist_ok=True)
+        with open(shfdir / f"{timestr}_{note}logs.csv", "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerows(self.logs)
+        with open(shfdir / f"{timestr}_{note}errorlogs.csv", "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerows(self.errorlogs)
+
     def set_alarm(self, message: str):
         """Print alarm message, turn off shf and current source, save logs, exit()"""
         self.alarm = message
-        print(colored("ALARM: " + message), "red")
+        print(colored("ALARM: " + message, "red"))
         timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
         self.logs.append([timestr, "ALARM: " + message, self.log_state])
         self.errorlogs.append([timestr, "ALARM: " + message, self.log_state])
@@ -330,36 +186,29 @@ class SHF:
         self.save_logs()
         exit()
 
-    def shf_command(self, command: str):
-        """Sends a commands to a relative SHF equipment and querry the result"""
-        if not self.shf_connected:
-            self.logs.append(
-                [
-                    time.strftime("%Y%m%d-%H%M%S"),
-                    "SHF is not connected, connecting...",
-                ]
-            )
-            self.connect_shf()
-        if command.startswith("BPG:"):
-            responce = str(self.bpg.query(command))
-        elif command.startswith("DAC:"):
-            responce = str(self.dac.query(command))
-        elif command.startswith("CLKSRC:"):
-            responce = str(self.clksrc.query(command))
-        elif command.startswith("EA:"):
-            responce = str(self.ea.query(command))
-        elif command.startswith("DET:"):
-            responce = str(self.det.query(command))
-        timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
-        self.logs.append([timestr, command, responce])
-        if command != responce:
-            print(timestr)
-            print("command:  " + command)
-            print("responce: " + responce)
-            self.errorlogs.append([timestr, command, responce, self.log_state])
-        time.sleep(0.01)  # do we need this?
-        return responce
+    def mW_to_dBm(self, mW: float):
+        dBm = 10 * np.log10(mW)
+        return dBm
 
+    def dBm_to_mW(self, dBm: float):
+        mW = 10 ** (dBm / 10)
+        return mW
+
+    def Vpp_to_dBm(self, Vpp: float):
+        "for sinusoidal signal and Z=50 Ohm"
+        Z = 50  # Ohm
+        Vrms = (1 / 2 * np.sqrt(2)) * Vpp  # sinusoidal
+        mW = 10 * np.log10((Vrms**2) / Z) + 30
+        return self.mW_to_dBm(mW)
+
+    def dBm_to_Vpp(self, dBm: float):
+        "for sinusoidal signal and Z=50 Ohm"
+        Z = 50  # Ohm
+        Vrms = np.sqrt(Z / 1000) * (10 ** (dBm / 20))
+        Vpp = Vrms * 2 * np.sqrt(2)  # sinusoidal
+        return Vpp
+
+    # current source functions
     def rst_current_source(self):
         """Reset and apply initial settings to the current source (Keysight_B2901A)"""
         self.current_source.write("*RST")
@@ -376,6 +225,7 @@ class SHF:
             ]
         )
 
+    # Attenuator functions
     def gently_apply_current(self, target_current_mA: float):
         """Gradually apply current.
         Turn off the source at 0 mA. Turn on the source automatically (if self.current == 0 at the start).
@@ -467,44 +317,72 @@ class SHF:
                     f"Current set: {target_current_mA:.2f} mA\tCurrent measured: {current_measured:.2f} mA"
                 )
 
+    def check_attenuator_timeout(self):
+        self.attenuator_status = "Unknown"
+        counter = 0
+        while self.attenuator_status != "READY":
+            counter += 1
+            self.attenuator_status = self.attenuator.query(
+                self.attenuator_lens + "STAT?"
+            )
+            if self.attenuator_status == "READY":
+                return
+            time.sleep(0.5)
+            if counter == 20:
+                self.set_alarm("Attenuator command timeout")
+
+    def attenuator_command(self, command):
+        self.check_attenuator_timeout()
+        self.attenuator.write(self.attenuator_lens + command)
+        self.logs.append([time.strftime("%Y%m%d-%H%M%S"), command])
+        self.check_attenuator_timeout()
+
+    def query_attenuator_command(self, command):
+        self.check_attenuator_timeout()
+        responce = self.attenuator.query(self.attenuator_lens + command)
+        self.logs.append([time.strftime("%Y%m%d-%H%M%S"), command, responce])
+        self.check_attenuator_timeout()
+        return responce
+
+    def attenuator_shutter(self, status: str):
+        while (
+            time.time() - self.attenuator_shutter_prev_time
+        ) < self.attenuator_shutter_min_timeinterval:
+            time.sleep(1)
+        if status == "open":
+            self.attenuator_command(":OUTP:STAT ON")
+            self.attenuator_shutter_open = True
+        elif status == "close":
+            self.attenuator_command(":OUTP:STAT OFF")
+            self.attenuator_shutter_open = False
+        self.attenuator_shutter_prev_time = time.time()
+
     def rst_attenuator(self):
         """Reset and apply initial settings to the attenuator
-        Standard attenuator_lens = "LENS0"
+        Standard attenuator_lens = "LENS1"
         Returns True if Attenuator is Ready and not Locked.
         """
-        self.attenuator.write(self.attenuator_lens + ":OUTP:STAT OFF")
-        self.attenuator_shutter_open = False
-        self.attenuator.write(self.attenuator_lens + ":RST")
+        self.attenuator_shutter("close")
+        self.attenuator_command(":RST")
         time.sleep(3)  # don't open/close the shutter too often
-        self.attenuator.write(self.attenuator_lens + f":INP:WAV {self.wavelength} NM")
-        self.attenuator.write(self.attenuator_lens + ":CONT:MODE POW")
-        self.attenuator.write(self.attenuator_lens + ":OUTP:ALC ON")  # Power tracking
-        self.attenuator.write(self.attenuator_lens + ":OUTP:APM REF")  # Reference mode.
-        self.attenuator.write(
-            self.attenuator_lens + f":OUTP:POW {self.max_optical_powerdBm:.3f}"
+        self.attenuator_command(f":INP:WAV {self.wavelength} NM")
+        self.attenuator_command(":CONT:MODE POW")
+        self.attenuator_command(":OUTP:ALC ON")  # Power tracking
+        self.attenuator_command(":OUTP:APM REF")  # Reference mode.
+        self.attenuator_command(
+            f":OUTP:POW {self.max_optical_powerdBm:.3f}"
         )  # TODO Is it working? How about ":OUTP:POW MAX"?
-        condition = 1
-        counter = 0
-        while condition:
-            counter += 1
-            condition = self.attenuator.query(
-                self.attenuator_lens + "STAT:OPER:BIT8:COND?"
-            )
-            time.sleep(0.1)
-            if counter == 150:
-                self.set_alarm("Can't reach the output power")
         self.attenuator_powerout = float(
-            self.attenuator.query(self.attenuator_lens + ":OUTP:POW?")
+            self.query_attenuator_command(":OUTP:POW?")
         )  # dBm
         self.attenuator_powerin = float(
-            self.attenuator.query(self.attenuator_lens + ":READ:SCAL:POW:DC?")
+            self.query_attenuator_command(":READ:SCAL:POW:DC?")
         )  # dBm
-        self.attenuator_locked = self.attenuator.query(
-            self.attenuator_lens + ":OUTP:LOCK:STAT?"
+        self.attenuator_locked = self.query_attenuator_command(
+            ":OUTP:LOCK:STAT?"
         )  # locked state of the instrument API (1 or 0)
         if self.attenuator_locked:
             self.set_alarm("Attenuator is locked!")
-        self.attenuator_status = self.attenuator.query(self.attenuator_lens + ":STAT?")
         self.logs.append(
             [
                 time.strftime("%Y%m%d-%H%M%S"),
@@ -517,7 +395,7 @@ class SHF:
     def set_attenuation(self, target_value: float):
         """Set the attenuation"""
         self.attenuator_powerin = float(
-            self.attenuator.query(self.attenuator_lens + ":READ:SCAL:POW:DC?")
+            self.query_attenuator_command(":READ:SCAL:POW:DC?")
         )
         if target_value > self.max_optical_powerdBm:
             print(
@@ -545,34 +423,20 @@ class SHF:
             print("Target attenuation can't be reached")
             print(f"powerin: {self.attenuator_powerin} dBm")
             print(f"target:  {target_value} dBm")
-        self.attenuator.write(
-            self.attenuator_lens + f":OUTP:POW {target_value:.3f} DBM"
-        )
-        condition = 1
-        counter = 0
-        while condition:
-            counter += 1
-            condition = self.attenuator.query(
-                self.attenuator_lens + "STAT:OPER:BIT8:COND?"
-            )
-            time.sleep(0.1)
-            if counter == 150:
-                self.set_alarm(
-                    f"Attenuator can't reach the output power\t{self.attenuator_powerin}dBm->{target_value:.3f}dBm"
-                )
+        self.attenuator_command(f":OUTP:POW {target_value:.3f} DBM")
         self.update_attenuation_data()
 
     def update_attenuation_data(self):
         self.attenuator_powerin = float(
-            self.attenuator.query(self.attenuator_lens + ":READ:SCAL:POW:DC?")
+            self.query_attenuator_command(":READ:SCAL:POW:DC?")
         )  # dBm
         self.attenuator_powerout = float(
-            self.attenuator.query(self.attenuator_lens + ":OUTP:POW?")
+            self.query_attenuator_command(":OUTP:POW?")
         )  # dBm
 
     def open_attenuator_shutter(self):
         self.attenuator_powerout = float(
-            self.attenuator.query(self.attenuator_lens + ":OUTP:POW?")
+            self.query_attenuator_command(":OUTP:POW?")
         )  # dBm
         if self.attenuator_powerout > self.mW_to_dBm(self.max_optical_powerdBm):
             print(
@@ -596,9 +460,7 @@ class SHF:
                     f"Optical attenuator shutter is open: {self.attenuator_shutter_open}",
                 ]
             )
-        self.attenuator.write(self.attenuator_lens + ":OUTP:STAT ON")
-        time.sleep(3)  # don't open/close the shutter too often
-        self.attenuator_shutter_open = True
+        self.attenuator_shutter("open")
         self.logs.append(
             [
                 time.strftime("%Y%m%d-%H%M%S"),
@@ -608,6 +470,122 @@ class SHF:
             ]
         )
         print(f"Output power: {self.attenuator_powerout} dBm, shutter is open")
+
+    # SHF commands
+    def connect_shf(
+        self,
+        bpg=None,
+        dac=None,
+        clksrc=None,
+        ea=None,
+        det=None,
+        amplifier_power=1,
+        pam4=1,
+        mainframe=1,
+    ):
+        instruments_config = self.config["INSTRUMENTS"]
+        rm = pyvisa.ResourceManager()
+        if bpg:
+            self.bpg = bpg
+        else:
+            self.bpg = rm.open_resource(
+                instruments_config["BPG_SHF12105A"],
+                write_termination="\r\n",
+                read_termination="\n",
+            )
+        if dac:
+            self.dac = dac
+        else:
+            self.dac = rm.open_resource(
+                instruments_config["DAC_SHF614C"],
+                write_termination="\r\n",
+                read_termination="\n",
+            )
+        if clksrc:
+            self.clksrc = clksrc
+        else:
+            self.clksrc = rm.open_resource(
+                instruments_config["CLKSRC_SHF78122B"],
+                write_termination="\r\n",
+                read_termination="\n",
+            )
+        if ea:
+            self.ea = ea
+        else:
+            self.ea = rm.open_resource(
+                instruments_config["EA_SHF11104A"],
+                write_termination="\r\n",
+                read_termination="\n",
+            )
+        if det:
+            self.det = det
+        else:
+            self.det = rm.open_resource(
+                instruments_config["DET_SHF11220A"],
+                write_termination="\r\n",
+                read_termination="\n",
+            )
+        if amplifier_power:
+            self.amplifier_power = amplifier_power
+        else:
+            self.amplifier_power = rm.open_resource(
+                instruments_config["PowerSource_RS_HMP2000"],
+                write_termination="\r\n",
+                read_termination="\n",
+            )
+        if not pam4:
+            self.pam4 = pam4
+        else:
+            self.pam4 = rm.open_resource(
+                instruments_config["PAM4_SHF616C"],
+                write_termination="\r\n",
+                read_termination="\n",
+            )
+        if mainframe:
+            self.mainframe = mainframe
+        else:
+            self.mainframe = rm.open_resource(
+                instruments_config["Mainframe_SHF10000A"],
+                write_termination="\r\n",
+                read_termination="\n",
+            )
+        self.shf_connected = True
+        self.logs.append(
+            [
+                time.strftime("%Y%m%d-%H%M%S"),
+                "SHF equipment is connected",
+            ]
+        )
+
+    def shf_command(self, command: str):
+        """Sends a commands to a relative SHF equipment and querry the result"""
+        if not self.shf_connected:
+            self.logs.append(
+                [
+                    time.strftime("%Y%m%d-%H%M%S"),
+                    "SHF is not connected, connecting...",
+                ]
+            )
+            self.connect_shf()
+        if command.startswith("BPG:"):
+            responce = str(self.bpg.query(command))
+        elif command.startswith("DAC:"):
+            responce = str(self.dac.query(command))
+        elif command.startswith("CLKSRC:"):
+            responce = str(self.clksrc.query(command))
+        elif command.startswith("EA:"):
+            responce = str(self.ea.query(command))
+        elif command.startswith("DET:"):
+            responce = str(self.det.query(command))
+        timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
+        self.logs.append([timestr, command, responce])
+        if command != responce:
+            print(timestr)
+            print("command:  " + command)
+            print("responce: " + responce)
+            self.errorlogs.append([timestr, command, responce, self.log_state])
+        time.sleep(0.01)  # do we need this?
+        return responce
 
     def shf_init(self):
         bpg_commands = [
@@ -776,28 +754,6 @@ class SHF:
         else:
             print("tap_index should be 0, 2 or 3; TAP1 is MAIN")
 
-    def mW_to_dBm(self, mW: float):
-        dBm = 10 * np.log10(mW)
-        return dBm
-
-    def dBm_to_mW(self, dBm: float):
-        mW = 10 ** (dBm / 10)
-        return mW
-
-    def Vpp_to_dBm(self, Vpp: float):
-        "for sinusoidal signal and Z=50 Ohm"
-        Z = 50  # Ohm
-        Vrms = (1 / 2 * np.sqrt(2)) * Vpp  # sinusoidal
-        mW = 10 * np.log10((Vrms**2) / Z) + 30
-        return self.mW_to_dBm(mW)
-
-    def dBm_to_Vpp(self, dBm: float):
-        "for sinusoidal signal and Z=50 Ohm"
-        Z = 50  # Ohm
-        Vrms = np.sqrt(Z / 1000) * (10 ** (dBm / 20))
-        Vpp = Vrms * 2 * np.sqrt(2)  # sinusoidal
-        return Vpp
-
     def shf_set_amplitude(self, target_amplitude: int):
         real_target_amplitude = self.dBm_to_Vpp(
             self.shf_amplifier + self.Vpp_to_dBm(target_amplitude)
@@ -894,19 +850,7 @@ class SHF:
             [time.strftime("%Y%m%d-%H%M%S"), "DAC, BPG and Clock output is closed"]
         )
 
-    def save_logs(self, note: str = ""):
-        if note:
-            note = note + "_"
-        timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
-        shfdir = self.dirpath / "SHF"
-        shfdir.mkdir(parents=True, exist_ok=True)
-        with open(shfdir / f"{timestr}_{note}logs.csv", "w", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerows(self.logs)
-        with open(shfdir / f"{timestr}_{note}errorlogs.csv", "w", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerows(self.errorlogs)
-
+    # LIV
     def measure_liv_with_attenuator(self):
         if self.dac_output == 1:
             self.shf_turn_off()
@@ -947,22 +891,13 @@ class SHF:
             ]
         )
         # The initial settings are applied by the *RST command
-        self.current_source.write("*RST")
-        self.attenuator.write(self.attenuator_lens + ":OUTP:STAT OFF")
-        self.attenuator.write(self.attenuator_lens + ":RST")
-        self.attenuator.write(self.attenuator_lens + f":INP:WAV {self.wavelength} NM")
-        self.attenuator.write(self.attenuator_lens + ":CONT:MODE POW")
-        self.attenuator.write(self.attenuator_lens + ":OUTP:ALC ON")  # Power tracking
-        self.attenuator.write(self.attenuator_lens + ":OUTP:APM REF")  # Reference mode.
-        self.current_source.write(
-            ":SOUR:FUNC:MODE CURR"
-        )  # Setting the Source Output Mode to current
-        self.current_source.write(
-            ":SENS:CURR:PROT 0.1"
-        )  # Setting the Limit/Compliance Value 100 mA
-        self.current_source.write(
-            ":SENS:VOLT:PROT 10"
-        )  # Setting the Limit/Compliance Value 10 V
+        self.attenuator_shutter("close")
+        self.attenuator_command(":RST")
+        self.attenuator_command(f":INP:WAV {self.wavelength} NM")
+        self.attenuator_command(":CONT:MODE POW")
+        self.attenuator_command(":OUTP:ALC ON")  # Power tracking
+        self.attenuator_command(":OUTP:APM REF")  # Reference mode.
+        self.rst_current_source()
         self.current_source.write(
             ":OUTP ON"
         )  # Measurement channel is enabled by the :OUTP ON command.
@@ -982,7 +917,7 @@ class SHF:
             )  # mA
             # measure output power
             output_power_dBm = float(
-                self.attenuator.query(self.attenuator_lens + ":READ:SCAL:POW:DC?")
+                self.query_attenuator_command(":READ:SCAL:POW:DC?")
             )  # dBm
             output_power = self.dBm_to_mW(output_power_dBm)
 
@@ -1149,17 +1084,91 @@ class SHF:
             self.save_logs(note="LIV")
         return
 
-    # fiber movement
+    # def cubes commands
+    def connect_kcubes(self):
+        "Populates self.kcube_devices and moves fiber to x,y,z=37.5"
+        # https://github.com/Thorlabs/Motion_Control_Examples/blob/main/Python/Modular%20Rack/mmr_pythonnet.py
+        # https://github.com/Thorlabs/Motion_Control_Examples/blob/main/Python/KCube/KPZ101/kpz101_pythonnet.py
+        DeviceManagerCLI.BuildDeviceList()
+        # create new device
+        instruments_config = self.config["INSTRUMENTS"]
+        X_Kcube_sn = instruments_config["X_Kcube"]
+        Y_Kcube_sn = instruments_config["Y_Kcube"]
+        Z_Kcube_sn = instruments_config["Z_Kcube"]
+        # Get Device info using a factory
+        Xdevice_info = DeviceFactory.GetDeviceInfo(X_Kcube_sn)
+        Ydevice_info = DeviceFactory.GetDeviceInfo(Y_Kcube_sn)
+        Zdevice_info = DeviceFactory.GetDeviceInfo(Z_Kcube_sn)
+        print("KcubeIDs (X, Y, Z):")
+        print(Xdevice_info.GetTypeID())
+        print(Ydevice_info.GetTypeID())
+        print(Zdevice_info.GetTypeID())
+        Xrack = ModularRack.CreateModularRack(int(XDeviceInfo.GetTypeID()), X_Kcube_sn)
+        Yrack = ModularRack.CreateModularRack(int(YDeviceInfo.GetTypeID()), Y_Kcube_sn)
+        Zrack = ModularRack.CreateModularRack(int(ZDeviceInfo.GetTypeID()), Z_Kcube_sn)
+        # Connect, begin polling, and enable
+        deviceX = Xrack[1]
+        deviceY = Yrack[1]
+        deviceZ = Zrack[1]
+        self.kcube_devices = [deviceX, deviceY, deviceZ]
+        Xrack.Connect(X_Kcube_sn)
+        Yrack.Connect(Y_Kcube_sn)
+        Zrack.Connect(Z_Kcube_sn)
+        # Ensure that the device settings have been initialized
+        for device in self.kcube_devices:
+            if not device.IsSettingsInitialized():
+                device.WaitForSettingsInitialized(10000)  # 10 second timeout
+                assert device.IsSettingsInitialized() is True
+        # Start polling and enable
+        for device in self.kcube_devices:
+            device.StartPolling(250)  # 250ms polling rate
+        time.sleep(1)  # TODO check it
+        for device in self.kcube_devices:
+            device.EnableDevice()
+        time.sleep(0.25)  # Wait for device to enable
+        # Set the Zero point of the device
+        for device in self.kcube_devices:
+            device.SetZero()  # TODO do we need this?
+            self.fiberX = 0
+        self.piezo_voltages = [0.0, 0.0, 0.0]
+        # Get the maximum voltage output of the KPZ
+        self.piezo_max_voltage = (
+            deviceX.GetMaxOutputVoltage()
+        )  # This is stored as a .NET decimal
+        print(f"Piezo max voltage: {self.piezo_max_voltage}")
+        self.move_fiber_sim([37.5, 37.5, 37.5])
+        print(
+            """Piezo voltages set to 37.5.
+            Please manually adjust the fiber position using nobs."""
+        )
+        self.logs.append(
+            [
+                time.strftime("%Y%m%d-%H%M%S"),
+                "Kcubes are connected and moved to voltage 37.5",
+            ]
+        )
+        timeout = 300
+        start_time = time.time()  # start time for timeout
+        while (time.time() - start_time) < timeout:
+            prompt = f"The fiber optimization will preceed after {timeout} seconds. Start optimizing the fiber position? Y/n"
+            answer = input(prompt)
+            if answer:
+                if answer in ("Y", "y", ""):
+                    self.optimize_fiber()
+                break
+            else:
+                self.set_alarm("Fiber reposition declined")
+
     def optimize_fiber(self):
         "optimize the fiber position using Thorlabs Cubes"
         self.update_fiber_position()
-        self.attenuator.write(self.attenuator_lens + ":OUTP:STAT OFF")
-        self.attenuator.write(self.attenuator_lens + f":INP:WAV {self.wavelength} NM")
-        self.attenuator.write(self.attenuator_lens + ":CONT:MODE POW")
-        self.attenuator.write(self.attenuator_lens + ":OUTP:ALC ON")  # Power tracking
-        self.attenuator.write(self.attenuator_lens + ":OUTP:APM REF")  # Reference mode.
+        self.attenuator_shutter("close")
+        self.attenuator_command(f":INP:WAV {self.wavelength} NM")
+        self.attenuator_command(":CONT:MODE POW")
+        self.attenuator_command(":OUTP:ALC ON")  # Power tracking
+        self.attenuator_command(":OUTP:APM REF")  # Reference mode.
         self.attenuator_powerin = float(
-            self.attenuator.query(self.attenuator_lens + ":READ:SCAL:POW:DC?")
+            self.query_attenuator_command(":READ:SCAL:POW:DC?")
         )  # dBm
         start_powerin = self.attenuator_powerin
         self.gently_apply_current(self.test_current)
@@ -1321,12 +1330,13 @@ class SHF:
             time.sleep(0.01)
             self.update_fiber_position()
         self.attenuator_powerin = float(
-            self.attenuator.query(self.attenuator_lens + ":READ:SCAL:POW:DC?")
+            self.query_attenuator_command(":READ:SCAL:POW:DC?")
         )  # dBm
         time.sleep(0.01)
         return self.attenuator_powerin
 
-    def measure_ber(self):
+    # TODO EA
+    def measure_ber(self):  # TODO
         "measure BER using EA"
         pass
 
@@ -1355,19 +1365,19 @@ class SHF:
             )
             return False
 
-    def measure_eye_diagrams(self):
-        "get eye diagram picture"
+    def measure_eye_diagrams(self):  # TODO
+        "get an eye diagram picture"
         pass
 
-    def find_eyes(self):
+    def find_eyes(self):  # TODO
         "find eyes positions"
         pass
 
-    def calculate_edr(self):
+    def calculate_edr(self):  # TODO
         "calculate EDR (from an eye diagram or BER)?"
         pass
 
-    def optimize_bitrate(self):
+    def optimize_bitrate(self):  # TODO
         "optimize parameters for best bitrate at particular current"
         best_bitrate = 0  # GHz
         best_parameters = {
@@ -1408,8 +1418,10 @@ class SHF:
 
     def test(self):
         self.rst_current_source()
+        print("rst_current_source done")
         time.sleep(2)
         assert self.rst_attenuator() == True
+        print("rst_attenuator done")
         time.sleep(2)
         # self.shf_init()
         # time.sleep(2)
@@ -1445,11 +1457,14 @@ class SHF:
         time.sleep(2)
         # self.shf_turn_off()
         self.gently_apply_current(0)
-        self.save_logs()
+        # self.save_logs()
 
 
 if __name__ == "__main__":
     shfclass = SHF(
         waferid="waferid", wavelength=940, coordinates="test", temperature=25
     )
-    shfclass.test()
+    try:
+        shfclass.test()
+    finally:
+        shfclass.save_logs()

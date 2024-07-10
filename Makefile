@@ -6,3 +6,5 @@ install_libraries:
     pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
 make_requirementstxt:
     pip freeze > requirements.txt
+update_policy:
+	Set-ExecutionPolicy RemoteSigned

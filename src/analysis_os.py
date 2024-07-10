@@ -176,7 +176,8 @@ def analyze_os_function(directory, settings=None):
         # itterate by current
         for current, column in zip(currents, columns):
             # get Pdis
-            row = livdf.loc[livdf["Current set, mA"] == current]
+            current = round(current, 6)
+            row = livdf.loc[np.round(livdf["Current set, mA"], 10) == current]
             pdis = float(
                 (
                     row["Current set, mA"] * row["Voltage, V"] - row["Output power, mW"]
@@ -315,7 +316,7 @@ def analyze_os_function(directory, settings=None):
     dldi = pd.DataFrame(columns=["Temperature, °C", "dλ/dI", "intercept"])
 
     # 8.1 Current approximation
-    fig = plt.figure(figsize=(2 * 11.69, 2 * 8.27))
+    fig = plt.figure(figsize=(11.69, 8.27))
     plt.suptitle(f"{title}\nλ(I) at different temperatures")
     ax1 = fig.add_subplot(111)  # λ(I) at different temperatures
     colors = cycle(plt.rcParams["axes.prop_cycle"].by_key()["color"])
@@ -364,7 +365,7 @@ def analyze_os_function(directory, settings=None):
     plt.close()
 
     # 8.2 highest peak (current approximation)
-    fig = plt.figure(figsize=(2 * 11.69, 2 * 8.27))
+    fig = plt.figure(figsize=(11.69, 8.27))
     plt.suptitle(f"{title}\nthe highest peak at different temperatures/currents")
     ax1 = fig.add_subplot(111)  # λ(I) at different temperatures
     colors = cycle(plt.rcParams["axes.prop_cycle"].by_key()["color"])
@@ -633,7 +634,8 @@ def analyze_os_function(directory, settings=None):
     P_out = P_out.astype(float)
     mask = mask.astype(bool).fillna(True)
 
-    fig = plt.figure(figsize=(2 * 11.69, 2 * 8.27))
+    # fig = plt.figure(figsize=(2 * 11.69, 2 * 8.27)) # TODO make variables for figsizes
+    fig = plt.figure(figsize=(10, 5))
     fig.suptitle(f"{title}")
     ax1 = fig.add_subplot(121)
     sns.heatmap(T_act, annot=True, fmt="3.2f", ax=ax1, mask=mask)
