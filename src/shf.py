@@ -53,7 +53,7 @@ class SHF:
     logs = []
     errorlogs = []
 
-    attenuator_lens = "LENS1"
+    attenuator_lins = "LINS1"
     shf_amplifier = 8  # dBm
     test_current = 2  # mA
     max_optical_powerdBm = 9
@@ -128,7 +128,7 @@ class SHF:
         else:
             self.attenuator = rm.open_resource(
                 instruments_config["Attenuator_EXPO_LTB1"],
-                write_termination="\n",
+                write_termination="\r\n",
                 read_termination="\n",
             )
 
@@ -225,7 +225,6 @@ class SHF:
             ]
         )
 
-    # Attenuator functions
     def gently_apply_current(self, target_current_mA: float):
         """Gradually apply current.
         Turn off the source at 0 mA. Turn on the source automatically (if self.current == 0 at the start).
@@ -317,32 +316,42 @@ class SHF:
                     f"Current set: {target_current_mA:.2f} mA\tCurrent measured: {current_measured:.2f} mA"
                 )
 
+    # Attenuator functions
     def check_attenuator_timeout(self):
         self.attenuator_status = "Unknown"
         counter = 0
         while self.attenuator_status != "READY":
             counter += 1
             self.attenuator_status = self.attenuator.query(
-                self.attenuator_lens + "STAT?"
-            )
+                self.attenuator_lins + ":STAT?"
+            ).strip()
             if self.attenuator_status == "READY":
                 return
             time.sleep(0.5)
             if counter == 20:
                 self.set_alarm("Attenuator command timeout")
 
+    def update_attenuator_powerin(self):
+        "get the input power measured by the attenuator in dBm"
+        responce = self.query_attenuator_command(":READ:SCAL:POW:DC?")  # dBm
+        if "(Underrange)" in responce:
+            self.attenuator_powerin = 0.0
+        else:
+            self.attenuator_powerin = float(responce)
+        return self.attenuator_powerin
+
     def attenuator_command(self, command):
         self.check_attenuator_timeout()
-        self.attenuator.write(self.attenuator_lens + command)
+        self.attenuator.write(self.attenuator_lins + command)
         self.logs.append([time.strftime("%Y%m%d-%H%M%S"), command])
         self.check_attenuator_timeout()
 
     def query_attenuator_command(self, command):
         self.check_attenuator_timeout()
-        responce = self.attenuator.query(self.attenuator_lens + command)
+        responce = self.attenuator.query(self.attenuator_lins + command)
         self.logs.append([time.strftime("%Y%m%d-%H%M%S"), command, responce])
         self.check_attenuator_timeout()
-        return responce
+        return responce.rstrip()
 
     def attenuator_shutter(self, status: str):
         while (
@@ -359,7 +368,7 @@ class SHF:
 
     def rst_attenuator(self):
         """Reset and apply initial settings to the attenuator
-        Standard attenuator_lens = "LENS1"
+        Standard attenuator_lins = "LINS1"
         Returns True if Attenuator is Ready and not Locked.
         """
         self.attenuator_shutter("close")
@@ -375,11 +384,9 @@ class SHF:
         self.attenuator_powerout = float(
             self.query_attenuator_command(":OUTP:POW?")
         )  # dBm
-        self.attenuator_powerin = float(
-            self.query_attenuator_command(":READ:SCAL:POW:DC?")
-        )  # dBm
-        self.attenuator_locked = self.query_attenuator_command(
-            ":OUTP:LOCK:STAT?"
+        self.update_attenuator_powerin()
+        self.attenuator_locked = int(
+            self.query_attenuator_command(":OUTP:LOCK:STAT?")
         )  # locked state of the instrument API (1 or 0)
         if self.attenuator_locked:
             self.set_alarm("Attenuator is locked!")
@@ -394,9 +401,7 @@ class SHF:
 
     def set_attenuation(self, target_value: float):
         """Set the attenuation"""
-        self.attenuator_powerin = float(
-            self.query_attenuator_command(":READ:SCAL:POW:DC?")
-        )
+        self.update_attenuator_powerin()
         if target_value > self.max_optical_powerdBm:
             print(
                 f"Power is larger then self.max_optical_powerdBm, target value is changed to {self.max_optical_powerdBm:.3f} dBm"
@@ -427,9 +432,7 @@ class SHF:
         self.update_attenuation_data()
 
     def update_attenuation_data(self):
-        self.attenuator_powerin = float(
-            self.query_attenuator_command(":READ:SCAL:POW:DC?")
-        )  # dBm
+        self.update_attenuator_powerin()
         self.attenuator_powerout = float(
             self.query_attenuator_command(":OUTP:POW?")
         )  # dBm
@@ -558,7 +561,7 @@ class SHF:
         )
 
     def shf_command(self, command: str):
-        """Sends a commands to a relative SHF equipment and querry the result"""
+        """Sends a commands to a relative SHF equipment and query the result"""
         if not self.shf_connected:
             self.logs.append(
                 [
@@ -916,9 +919,7 @@ class SHF:
                 float(self.current_source.query("MEAS:CURR?")) * 1000
             )  # mA
             # measure output power
-            output_power_dBm = float(
-                self.query_attenuator_command(":READ:SCAL:POW:DC?")
-            )  # dBm
+            output_power_dBm = self.update_attenuator_powerin()
             output_power = self.dBm_to_mW(output_power_dBm)
 
             if output_power > max_output_power:  # track max power
@@ -1167,9 +1168,8 @@ class SHF:
         self.attenuator_command(":CONT:MODE POW")
         self.attenuator_command(":OUTP:ALC ON")  # Power tracking
         self.attenuator_command(":OUTP:APM REF")  # Reference mode.
-        self.attenuator_powerin = float(
-            self.query_attenuator_command(":READ:SCAL:POW:DC?")
-        )  # dBm
+        self.update_attenuator_powerin()
+        self.update_attenuator_powerin()
         start_powerin = self.attenuator_powerin
         self.gently_apply_current(self.test_current)
         theta = [37.5, 37.5, 37.5]  # initial voltages
@@ -1329,9 +1329,7 @@ class SHF:
                     device.SetOutputVoltage(dev_voltage)
             time.sleep(0.01)
             self.update_fiber_position()
-        self.attenuator_powerin = float(
-            self.query_attenuator_command(":READ:SCAL:POW:DC?")
-        )  # dBm
+        self.update_attenuator_powerin()
         time.sleep(0.01)
         return self.attenuator_powerin
 
@@ -1419,29 +1417,10 @@ class SHF:
     def test(self):
         self.rst_current_source()
         print("rst_current_source done")
-        time.sleep(2)
         assert self.rst_attenuator() == True
         print("rst_attenuator done")
         time.sleep(2)
-        # self.shf_init()
-        # time.sleep(2)
-        self.gently_apply_current(3)
-        # time.sleep(2)
-        # input("optimize fiber?Enter")
-        # self.optimize_fiber()
-        #
-        # self.shf_patternsetup("nrz")
-        # time.sleep(2)
-        # self.shf_set_amplitude(300)
-        # time.sleep(2)
-        # self.shf_set_preemphasis(0, 10)
-        # self.shf_set_preemphasis(2, 10)
-        # self.shf_set_preemphasis(3, 10)
-        # time.sleep(2)
-        # self.shf_set_clksrc_frequency(25)
-        # time.sleep(2)
-        # self.shf_set_clksrc_frequency(30)
-        # time.sleep(2)
+        self.gently_apply_current(2)
         input("measure LIV?Enter")
         self.measure_liv_with_attenuator()
         input("test attenuation?Enter")
@@ -1457,7 +1436,30 @@ class SHF:
         time.sleep(2)
         # self.shf_turn_off()
         self.gently_apply_current(0)
-        # self.save_logs()
+        input("connect kcubes?Enter")
+        self.connect_kcubes()
+        input("optimize fiber?Enter")
+        self.optimize_fiber()
+
+        # self.shf_init()
+        # time.sleep(2)
+        # self.shf_init()
+        # time.sleep(2)
+        # self.gently_apply_current(2)
+        # time.sleep(2)
+        #
+        # self.shf_patternsetup("nrz")
+        # time.sleep(2)
+        # self.shf_set_amplitude(300)
+        # time.sleep(2)
+        # self.shf_set_preemphasis(0, 10)
+        # self.shf_set_preemphasis(2, 10)
+        # self.shf_set_preemphasis(3, 10)
+        # time.sleep(2)
+        # self.shf_set_clksrc_frequency(25)
+        # time.sleep(2)
+        # self.shf_set_clksrc_frequency(30)
+        # time.sleep(2)
 
 
 if __name__ == "__main__":
@@ -1467,4 +1469,5 @@ if __name__ == "__main__":
     try:
         shfclass.test()
     finally:
+        shfclass.gently_apply_current(0)
         shfclass.save_logs()
