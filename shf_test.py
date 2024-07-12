@@ -38,11 +38,13 @@ def print_help():
     default=False,
     help="Measure LIV with attenuator",
 )
-@click.argument("WaferID", nargs=-4)
-@click.argument("Wavelength", nargs=-3)
-@click.argument("Coordinates", nargs=-2)
-@click.argument("Temperature", nargs=-1)
-def analyze(test, liv, WaferID, Wavelength, Coordinates, Temperature):
+@click.argument("arguments", nargs=-1)
+def analyze(test, liv, arguments):
+    WaferID, Wavelength, Coordinates, Temperature = arguments
+    print("WaferID: ", WaferID)
+    print("Wavelength: ", Wavelength, " nm")
+    print("Coordinates: ", Coordinates)
+    print("Temperature: ", Temperature, " Deg. Celsius")
     if not any((test, liv)):
         # initiate pyvisa
         rm = pyvisa.ResourceManager()
@@ -81,7 +83,6 @@ def analyze(test, liv, WaferID, Wavelength, Coordinates, Temperature):
 
 
 if __name__ == "__main__":
-    # colorama.init()
     start_time = datetime.datetime.now()
     analyze()
     end_time = datetime.datetime.now()

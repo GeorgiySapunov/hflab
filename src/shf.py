@@ -21,14 +21,14 @@ from src.measure_liv import buildplt_everything, buildplt_liv
 ThorlabsCLI = [
     r"Thorlabs.MotionControl.DeviceManagerCLI.dll",
     r"Thorlabs.MotionControl.GenericMotorCLI.dll",
-    r"ThorLabs.MotionControl.ModularRackCLI.dll",
+    r"ThorLabs.MotionControl.KCube.PiezoCLI.dll",
 ]
 path = r"C:\Program Files\Thorlabs\Kinesis"
 for dllfile in ThorlabsCLI:
     clr.AddReference(os.path.join(path, dllfile))
 from Thorlabs.MotionControl.DeviceManagerCLI import *
 from Thorlabs.MotionControl.GenericMotorCLI import *
-from Thorlabs.MotionControl.ModularRackCLI.Rack import *
+from Thorlabs.MotionControl.KCube.PiezoCLI import *
 from System import Decimal  # necessary for real world units
 
 
@@ -54,15 +54,15 @@ class SHF:
     errorlogs = []
 
     attenuator_lins = "LINS1"
-    shf_amplifier = 8  # dBm
-    test_current = 2  # mA
-    max_optical_powerdBm = 9
+    shf_amplifier = 8  # dB
+    test_current = 3  # mA
+    max_optical_powermW = 9  # mW
 
     shf_connected = False
     current = 0
     attenuator_locked = 0
-    attenuator_powerin = 0
-    attenuator_powerout = 0
+    attenuator_powerin = 0  # mW
+    attenuator_powerout = 0  # dBm
     attenuator_shutter_open = None
 
     piezo_voltages = [-1.0, -1.0, -1.0]
@@ -177,8 +177,8 @@ class SHF:
         self.alarm = message
         print(colored("ALARM: " + message, "red"))
         timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
-        self.logs.append([timestr, "ALARM: " + message, self.log_state])
-        self.errorlogs.append([timestr, "ALARM: " + message, self.log_state])
+        self.logs.append([timestr, "ALARM: " + message, self.log_state()])
+        self.errorlogs.append([timestr, "ALARM: " + message, self.log_state()])
         if self.shf_connected:
             self.shf_turn_off()
             time.sleep(0.2)  # can we remove it?
@@ -187,10 +187,14 @@ class SHF:
         exit()
 
     def mW_to_dBm(self, mW: float):
+        if mW == 0:
+            return -np.inf
         dBm = 10 * np.log10(mW)
         return dBm
 
     def dBm_to_mW(self, dBm: float):
+        if dBm == -np.inf:
+            return 0
         mW = 10 ** (dBm / 10)
         return mW
 
@@ -235,10 +239,10 @@ class SHF:
             self.set_alarm(f"Target current can't be negative.")
             return
         if self.current == 0 and target_current_mA > 0:
-            self.current_source.write(f":SOUR:CURR 0.01")
+            self.current_source.write(f":SOUR:CURR 0.001")
             self.current_source.write(":OUTP ON")
             self.current = 1
-            time.sleep(0.1)
+            time.sleep(0.01)
             voltage = float(self.current_source.query("MEAS:VOLT?"))
             if voltage > 9.8:
                 self.set_alarm("The contact is bad. Please, check the probe")
@@ -332,12 +336,12 @@ class SHF:
                 self.set_alarm("Attenuator command timeout")
 
     def update_attenuator_powerin(self):
-        "get the input power measured by the attenuator in dBm"
-        responce = self.query_attenuator_command(":READ:SCAL:POW:DC?")  # dBm
+        "get the input power measured by the attenuator in mW"
+        responce = self.query_attenuator_command(":READ:SCAL:POW:DC?")  # mW
         if "(Underrange)" in responce:
             self.attenuator_powerin = 0.0
         else:
-            self.attenuator_powerin = float(responce)
+            self.attenuator_powerin = float(responce) * 10**3
         return self.attenuator_powerin
 
     def attenuator_command(self, command):
@@ -348,10 +352,10 @@ class SHF:
 
     def query_attenuator_command(self, command):
         self.check_attenuator_timeout()
-        responce = self.attenuator.query(self.attenuator_lins + command)
+        responce = self.attenuator.query(self.attenuator_lins + command).rstrip()
         self.logs.append([time.strftime("%Y%m%d-%H%M%S"), command, responce])
         self.check_attenuator_timeout()
-        return responce.rstrip()
+        return responce
 
     def attenuator_shutter(self, status: str):
         while (
@@ -379,7 +383,7 @@ class SHF:
         self.attenuator_command(":OUTP:ALC ON")  # Power tracking
         self.attenuator_command(":OUTP:APM REF")  # Reference mode.
         self.attenuator_command(
-            f":OUTP:POW {self.max_optical_powerdBm:.3f}"
+            f":OUTP:POW {self.max_optical_powermW:.3f}"
         )  # TODO Is it working? How about ":OUTP:POW MAX"?
         self.attenuator_powerout = float(
             self.query_attenuator_command(":OUTP:POW?")
@@ -402,17 +406,17 @@ class SHF:
     def set_attenuation(self, target_value: float):
         """Set the attenuation"""
         self.update_attenuator_powerin()
-        if target_value > self.max_optical_powerdBm:
+        if target_value > self.max_optical_powermW:
             print(
-                f"Power is larger then self.max_optical_powerdBm, target value is changed to {self.max_optical_powerdBm:.3f} dBm"
+                f"Power is larger then self.max_optical_powerdBm, target value is changed to {self.mW_to_dBm(self.max_optical_powermW):.3f} dBm"
             )
-            target_value = self.max_optical_powerdBm
-        if target_value > self.attenuator_powerin:
+            target_value = self.mW_to_dBm(self.max_optical_powermW)
+        if target_value > self.mW_to_dBm(self.attenuator_powerin):
             timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
             self.logs.append(
                 [
                     timestr,
-                    f"power in: {self.attenuator_powerin} dBm",
+                    f"power in: {self.mW_to_dBm(self.attenuator_powerin)} dBm",
                     f"attenuation target: {target_value} dBm",
                     f"Optical attenuator shutter is open: {self.attenuator_shutter_open}",
                 ]
@@ -420,13 +424,13 @@ class SHF:
             self.errorlogs.append(
                 [
                     timestr,
-                    f"power in: {self.attenuator_powerin} dBm",
+                    f"power in: {self.mW_to_dBm(self.attenuator_powerin)} dBm",
                     f"attenuation target: {target_value} dBm",
                     f"Optical attenuator shutter is open: {self.attenuator_shutter_open}",
                 ]
             )
             print("Target attenuation can't be reached")
-            print(f"powerin: {self.attenuator_powerin} dBm")
+            print(f"powerin: {self.mW_to_dBm(self.attenuator_powerin)} dBm")
             print(f"target:  {target_value} dBm")
         self.attenuator_command(f":OUTP:POW {target_value:.3f} DBM")
         self.update_attenuation_data()
@@ -441,9 +445,9 @@ class SHF:
         self.attenuator_powerout = float(
             self.query_attenuator_command(":OUTP:POW?")
         )  # dBm
-        if self.attenuator_powerout > self.mW_to_dBm(self.max_optical_powerdBm):
+        if self.attenuator_powerout > self.mW_to_dBm(self.max_optical_powermW):
             print(
-                f"Power is larger then {self.max_optical_powerdBm} mW, can't open the attenuator shutter"
+                f"Power is larger then {self.max_optical_powermW} mW, can't open the attenuator shutter"
             )
             self.set_attenuation(9)
             timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
@@ -918,15 +922,16 @@ class SHF:
             current_measured = (
                 float(self.current_source.query("MEAS:CURR?")) * 1000
             )  # mA
+            self.current = current_measured
             # measure output power
-            output_power_dBm = self.update_attenuator_powerin()
-            output_power = self.dBm_to_mW(output_power_dBm)
+            output_power = self.update_attenuator_powerin()
+            output_power_dBm = self.mW_to_dBm(output_power)
 
             if output_power > max_output_power:  # track max power
                 max_output_power = output_power
                 color = "light_green"
             else:
-                color = "light_blue"
+                color = "light_yellow"
             # add current, measured current, voltage, output power (mW), power consumption, power conversion efficiency, output power (dBm) to the DataFrame
             iv.loc[len(iv)] = [
                 current_set,
@@ -953,7 +958,7 @@ class SHF:
             else:
                 print(
                     colored(
-                        f"{current_set:3.2f} mA: {current_measured:10.5f} mA, {voltage:8.5f} V, {output_power:8.5f} mW, {(100*output_power)/(voltage*current_measured):8.2f} %",
+                        f"{current_set:3.2f} mA: {current_measured:10.5f} mA, {voltage:8.5f} V, {output_power:8.5f} mW ({output_power_dBm:3.3f} dBm), {(100*output_power)/(voltage*current_measured):8.2f} %",
                         color,
                     )
                 )
@@ -1030,6 +1035,7 @@ class SHF:
         current_measured = (
             float(self.current_source.query("MEAS:CURR?")) * 1000
         )  # measure current
+        self.current = current_measured
         for current_set in np.arange(current_measured, 0, -0.1):
             self.current_source.write(
                 f":SOUR:CURR {str(current_set/1000)}"
@@ -1037,6 +1043,7 @@ class SHF:
             print(f"Current set: {current_set:3.1f} mA", end="\r")
             time.sleep(0.01)  # 0.01 sec for a step, 1 sec for 10 mA
         # Measurement is stopped by the :OUTP OFF command.
+        self.current = 0
         self.current_source.write(":OUTP OFF")
         self.current_source.write(f":SOUR:CURR 0.001")
         timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
@@ -1096,56 +1103,63 @@ class SHF:
         X_Kcube_sn = instruments_config["X_Kcube"]
         Y_Kcube_sn = instruments_config["Y_Kcube"]
         Z_Kcube_sn = instruments_config["Z_Kcube"]
-        # Get Device info using a factory
-        Xdevice_info = DeviceFactory.GetDeviceInfo(X_Kcube_sn)
-        Ydevice_info = DeviceFactory.GetDeviceInfo(Y_Kcube_sn)
-        Zdevice_info = DeviceFactory.GetDeviceInfo(Z_Kcube_sn)
-        print("KcubeIDs (X, Y, Z):")
-        print(Xdevice_info.GetTypeID())
-        print(Ydevice_info.GetTypeID())
-        print(Zdevice_info.GetTypeID())
-        Xrack = ModularRack.CreateModularRack(int(XDeviceInfo.GetTypeID()), X_Kcube_sn)
-        Yrack = ModularRack.CreateModularRack(int(YDeviceInfo.GetTypeID()), Y_Kcube_sn)
-        Zrack = ModularRack.CreateModularRack(int(ZDeviceInfo.GetTypeID()), Z_Kcube_sn)
-        # Connect, begin polling, and enable
-        deviceX = Xrack[1]
-        deviceY = Yrack[1]
-        deviceZ = Zrack[1]
+        deviceX = KCubePiezo.CreateKCubePiezo(X_Kcube_sn)
+        deviceY = KCubePiezo.CreateKCubePiezo(Y_Kcube_sn)
+        deviceZ = KCubePiezo.CreateKCubePiezo(Z_Kcube_sn)
         self.kcube_devices = [deviceX, deviceY, deviceZ]
-        Xrack.Connect(X_Kcube_sn)
-        Yrack.Connect(Y_Kcube_sn)
-        Zrack.Connect(Z_Kcube_sn)
+        deviceX.Connect(X_Kcube_sn)
+        deviceY.Connect(Y_Kcube_sn)
+        deviceZ.Connect(Z_Kcube_sn)
+        device_infoX = deviceX.GetDeviceInfo()
+        device_infoY = deviceY.GetDeviceInfo()
+        device_infoZ = deviceZ.GetDeviceInfo()
+        print(device_infoX.Description)
+        print(device_infoY.Description)
+        print(device_infoZ.Description)
+        # Start polling and enable
+        for device in self.kcube_devices:
+            device.StartPolling(250)  # 250ms polling rate
+        for device in self.kcube_devices:
+            device.EnableDevice()
+        time.sleep(0.25)  # Wait for device to enable
         # Ensure that the device settings have been initialized
         for device in self.kcube_devices:
             if not device.IsSettingsInitialized():
                 device.WaitForSettingsInitialized(10000)  # 10 second timeout
                 assert device.IsSettingsInitialized() is True
-        # Start polling and enable
-        for device in self.kcube_devices:
-            device.StartPolling(250)  # 250ms polling rate
-        time.sleep(1)  # TODO check it
-        for device in self.kcube_devices:
-            device.EnableDevice()
-        time.sleep(0.25)  # Wait for device to enable
+        device_config = deviceX.GetPiezoConfiguration(X_Kcube_sn)
+        device_config = deviceY.GetPiezoConfiguration(Y_Kcube_sn)
+        device_config = deviceZ.GetPiezoConfiguration(Z_Kcube_sn)
+        print("Setting Zero Point")
+        #
         # Set the Zero point of the device
-        for device in self.kcube_devices:
-            device.SetZero()  # TODO do we need this?
-            self.fiberX = 0
-        self.piezo_voltages = [0.0, 0.0, 0.0]
+        # for device in self.kcube_devices:
+        #     device.SetZero()  # TODO do we need this?
+        # self.piezo_voltages = [0.0, 0.0, 0.0]
+        #
         # Get the maximum voltage output of the KPZ
-        self.piezo_max_voltage = (
-            deviceX.GetMaxOutputVoltage()
-        )  # This is stored as a .NET decimal
-        print(f"Piezo max voltage: {self.piezo_max_voltage}")
+        for device in self.kcube_devices:
+            self.piezo_max_voltage = (
+                device.GetMaxOutputVoltage()
+            )  # This is stored as a .NET decimal
+            print(f"Piezo max voltage: {self.piezo_max_voltage}")
+        self.move_fiber_sim([37.5, 37.5, 37.5])
+        self.logs.append(
+            [
+                time.strftime("%Y%m%d-%H%M%S"),
+                "Kcubes are connected",
+            ]
+        )
+
+    def start_optimizing_fiber(self):
         self.move_fiber_sim([37.5, 37.5, 37.5])
         print(
-            """Piezo voltages set to 37.5.
-            Please manually adjust the fiber position using nobs."""
+            "Piezo voltages set to 37.5. Please manually adjust the fiber position using nobs."
         )
         self.logs.append(
             [
                 time.strftime("%Y%m%d-%H%M%S"),
-                "Kcubes are connected and moved to voltage 37.5",
+                "Kcubes are moved to voltage 37.5",
             ]
         )
         timeout = 300
@@ -1156,12 +1170,13 @@ class SHF:
             if answer:
                 if answer in ("Y", "y", ""):
                     self.optimize_fiber()
-                break
+                return
             else:
                 self.set_alarm("Fiber reposition declined")
+        self.set_alarm("Timeout. Fiber reposition declined.")
 
     def optimize_fiber(self):
-        "optimize the fiber position using Thorlabs Cubes"
+        "optimize the fiber position using Thorlabs KCubes"
         self.update_fiber_position()
         self.attenuator_shutter("close")
         self.attenuator_command(f":INP:WAV {self.wavelength} NM")
@@ -1169,17 +1184,21 @@ class SHF:
         self.attenuator_command(":OUTP:ALC ON")  # Power tracking
         self.attenuator_command(":OUTP:APM REF")  # Reference mode.
         self.update_attenuator_powerin()
-        self.update_attenuator_powerin()
         start_powerin = self.attenuator_powerin
         self.gently_apply_current(self.test_current)
         theta = [37.5, 37.5, 37.5]  # initial voltages
         self.move_fiber_sim(theta)
-        start_eta = 1000  # optimization rate
-        eta = start_eta
-        n_epochs = 3000
+        eta = 2  # optimization rate
+        n_epochs = 150
+        sleep = 0.1
+        delta = 0.2
         for epoch in range(n_epochs):
-            eta *= 0.9975
-            gradient = self.gradient_power()
+            eta *= 0.988
+            # if sleep < 0.5:
+            #     sleep *= 1.01
+            # else:
+            #     sleep = 0.5
+            gradient = self.gradient_power(delta=delta, sleep=sleep)
             mode = np.sqrt(gradient[0] ** 2 + gradient[1] ** 2 + gradient[2] ** 2)
             if eta * mode > 5:
                 coeff = mode / 5
@@ -1189,13 +1208,13 @@ class SHF:
                     gradient[2] / coeff,
                 ]
             mode = np.sqrt(gradient[0] ** 2 + gradient[1] ** 2 + gradient[2] ** 2)
-            X = theta[0] + eta * gradient[0]
-            Y = theta[1] + eta * gradient[1]
-            Z = theta[2] + eta * gradient[2]
+            X = round(theta[0] + eta * gradient[0], 2)
+            Y = round(theta[1] + eta * gradient[1], 2)
+            Z = round(theta[2] + eta * gradient[2], 2)
             theta = [X, Y, Z]
             self.move_fiber_sim(theta)
-            print(f"X: {X}\tY: {Y}\tZ: {Z},\tlast step: {eta* mode}", end="\r")
-            if eta * mode < 0.05:
+            print(f"X: {X}\tY: {Y}\tZ: {Z},\tlast step: {eta * mode}", end="\r")
+            if eta * mode < 0.1:
                 print(f"Fiber position is optimized in {epoch+1} epochs")
                 break
         print(
@@ -1203,18 +1222,19 @@ class SHF:
         )
         self.attenuator_powerin = self.fiber_position_to_power(theta)
         print(
-            f"X: {X}\tY: {Y}\tZ: {Z}\tPowerin: {start_powerin} -> {self.attenuator_powerin} dBm"
+            f"X: {X}\tY: {Y}\tZ: {Z}\tPowerin: {start_powerin} -> {self.attenuator_powerin} mW"
         )
         self.logs.append(
             [
                 time.strftime("%Y%m%d-%H%M%S"),
-                f"Fiber position is optimized. X: {X}\tY: {Y}\tZ: {Z}\tPowerin: {start_powerin} -> {self.attenuator_powerin} dBm",
+                f"Fiber position is optimized. X: {X}\tY: {Y}\tZ: {Z}\tPowerin: {start_powerin} -> {self.attenuator_powerin} mW",
             ]
         )
 
-    def gradient_power(self, delta: float = 0.05):
+    def gradient_power(self, delta: float = 0.1, sleep: float = 0.5):
         "measure power and calculate gradient. You need to keep piezo voltages 2*delta away from the borders"
         self.update_fiber_position()
+        mid_power = self.update_attenuator_powerin()
         old_piezo_voltages = self.piezo_voltages[:]
         gradient = [0.0, 0.0, 0.0]
         for axis, start_voltage in enumerate(old_piezo_voltages):
@@ -1222,10 +1242,16 @@ class SHF:
                 self.fiber_at_border(axis)
             piezo_voltages_tmp = old_piezo_voltages[:]
             piezo_voltages_tmp[axis] = start_voltage - delta
-            plus_power = self.fiber_position_to_power(piezo_voltages_tmp)
+            plus_power = (
+                self.fiber_position_to_power(piezo_voltages_tmp, sleep=sleep)
+                / mid_power
+            )
             piezo_voltages_tmp = old_piezo_voltages[:]
             piezo_voltages_tmp[axis] = start_voltage + delta
-            minus_power = self.fiber_position_to_power(piezo_voltages_tmp)
+            minus_power = (
+                self.fiber_position_to_power(piezo_voltages_tmp, sleep=sleep)
+                / mid_power
+            )
             gradient[axis] = (plus_power - minus_power) / (2 * delta)
         self.move_fiber_sim(old_piezo_voltages)
         return gradient
@@ -1238,12 +1264,7 @@ class SHF:
             axis_name = "Y"
         elif axis == 2:
             axis_name = "Z"
-        print(
-            f"""Piezo axis {axis_name} reached {self.piezo_voltages[axis]}
-            The piezo voltage is set to 37.5, 37.5, 37.5
-            Please reposition the transfer stage"""
-        )
-        self.move_fiber_sim([37.5, 37.5, 37.5])
+        print(f"Piezo axis {axis_name} reached {self.piezo_voltages[axis]}")
         timestr = time.strftime("%Y%m%d-%H%M%S")
         self.logs.append(
             [
@@ -1257,49 +1278,66 @@ class SHF:
                 "Piezo axis {axis_name} reached {self.piezo_voltages[axis]}",
             ]
         )
-        timeout = 300
-        start_time = time.time()  # start time for timeout
-        while (time.time() - start_time) < timeout:
-            prompt = f"You have {timeout} seconds to reposition the probe. Proceed with optimizing the fiber position? Y/n"
-            answer = input(prompt)
-            if answer:
-                if answer in ("Y", "y", ""):
-                    self.optimize_fiber()
-                break
-            else:
-                self.set_alarm("Fiber reposition declined")
-        else:
-            self.set_alarm("Timeout. Fiber reposition declined.")
+        self.start_optimizing_fiber()
 
-    def move_fiber_sim(self, voltages: list):
+    def move_fiber_sim(self, target_voltages: list, sleep: float = 0.5):
         "move all 3 axes to voltage positiones"
         self.update_fiber_position()
-        if self.piezo_voltages != voltages:
-            for axis, voltage in enumerate(voltages):
+        moving_from = f"moving from {self.piezo_voltages}"
+        moving_to = f"moving to {target_voltages}"
+        if self.piezo_voltages != target_voltages:
+            for axis, voltage in enumerate(target_voltages):
                 if voltage != self.piezo_voltages[axis]:
                     if voltage >= 75:
                         voltage = 75
                     device = self.kcube_devices[axis]
                     dev_voltage = Decimal(voltage)
                     device.SetOutputVoltage(dev_voltage)
-            time.sleep(0.01)
+            time.sleep(sleep)
             self.update_fiber_position()
+            for i in (0, 1, 2):
+                x += abs(self.piezo_voltages[i] - target_voltages[i]) > 0.1
+            if x:
+                while x:
+                    x = 0
+                    z += 1
+                    time.sleep(0.1)
+                    self.update_fiber_position()
+                    for i in (0, 1, 2):
+                        x += abs(self.piezo_voltages[i] - target_voltages[i]) > 0.1
+                    if z >= 5:
+                        break
+        moved_to = f"moved to {self.piezo_voltages}"
+        self.logs.append(
+            [
+                time.strftime("%Y%m%d-%H%M%S"),
+                "Kcubes are" + moving_to,
+                moving_from,
+                moved_to,
+            ]
+        )
 
-    def move_fiber(
-        self,
-        axis: int,
-        voltage: float,
-    ):
+    def move_fiber(self, axis: int, target_voltage: float, sleep: float = 0.5):
         "x:0, y:1, z:2. Voltage from 0 to 75"
         self.update_fiber_position()
-        if self.piezo_voltages[axis] != voltage:
-            if voltage >= 75:
-                voltage = 75
+        if self.piezo_voltages[axis] != target_voltage:
+            if target_voltage >= 75:
+                target_voltage = 75
             device = self.kcube_devices[axis]
-            dev_voltage = Decimal(voltage)
+            dev_voltage = Decimal(target_voltage)
             device.SetOutputVoltage(dev_voltage)
-            time.sleep(0.01)
-            self.piezo_voltages[axis] = device.GetOutputVoltage()
+            time.sleep(sleep)
+            self.piezo_voltages[axis] = round(float(str(device.GetOutputVoltage())), 2)
+            if abs(self.piezo_voltages[axis] - target_voltage) > 0.1:
+                while x:
+                    z += 1
+                    time.sleep(0.1)
+                    self.piezo_voltages[axis] = round(
+                        float(str(device.GetOutputVoltage())), 2
+                    )
+                    x = abs(self.piezo_voltages[axis] - target_voltage) > 0.1
+                    if z >= 5:
+                        break
 
     def update_fiber_position(self):
         "updates self.piezo_voltages"
@@ -1308,29 +1346,19 @@ class SHF:
             "Kcubes are disconnected, connecting..."
             self.connect_kcubes()
         for axis, device in enumerate(self.kcube_devices):
-            self.piezo_voltages[axis] = device.GetOutputVoltage()
+            self.piezo_voltages[axis] = round(float(str(device.GetOutputVoltage())), 2)
 
-    def kcubes_disconnect(self):  # TODO do we need this?
+    def kcubes_disconnect(self):
         for device in self.kcube_devices:
+            device.SetZero()
             device.StopPolling()
             device.Disconnect()
+        self.piezo_voltages = [0.0, 0.0, 0.0]
         self.kcube_devices = [None, None, None]
 
-    def fiber_position_to_power(self, voltages: list):
-        "x:0, y:1, z:2. Voltage from 0 to 75"
-        self.update_fiber_position()
-        if self.piezo_voltages != voltages:
-            for axis, voltage in enumerate(voltages):
-                if voltage != self.piezo_voltages[axis]:
-                    if voltage >= 75:
-                        voltage = 75
-                    device = self.kcube_devices[axis]
-                    dev_voltage = Decimal(voltage)
-                    device.SetOutputVoltage(dev_voltage)
-            time.sleep(0.01)
-            self.update_fiber_position()
+    def fiber_position_to_power(self, voltages: list, sleep: float = 0.5):
+        self.move_fiber_sim(voltages, sleep=sleep)
         self.update_attenuator_powerin()
-        time.sleep(0.01)
         return self.attenuator_powerin
 
     # TODO EA
@@ -1419,27 +1447,27 @@ class SHF:
         print("rst_current_source done")
         assert self.rst_attenuator() == True
         print("rst_attenuator done")
-        time.sleep(2)
-        self.gently_apply_current(2)
-        input("measure LIV?Enter")
-        self.measure_liv_with_attenuator()
-        input("test attenuation?Enter")
-        self.set_attenuation(-5)
-        time.sleep(2)
-        self.set_attenuation(-3)
-        time.sleep(2)
-        self.set_attenuation(1)
-        time.sleep(2)
-        self.set_attenuation(5)
-        time.sleep(2)
-        self.set_attenuation(-3)
-        time.sleep(2)
-        # self.shf_turn_off()
-        self.gently_apply_current(0)
-        input("connect kcubes?Enter")
+        self.gently_apply_current(4)
+        self.update_attenuation_data()
+        print(self.log_state())
         self.connect_kcubes()
-        input("optimize fiber?Enter")
-        self.optimize_fiber()
+        self.start_optimizing_fiber()
+        # voltlist = [0, 10, 20, 30, 40, 50, 60, 70]
+        # maxoutput = 0
+        # minoutput = 10
+        # for a in voltlist:
+        #     for b in voltlist:
+        #         for c in voltlist:
+        #             print(a, b, c)
+        #             output = round(self.fiber_position_to_power([a, b, c]), 6)
+        #             if maxoutput < output:
+        #                 maxoutput = output
+        #             if minoutput > output:
+        #                 minoutput = output
+        # print("max: ", maxoutput)
+        # print("min: ", minoutput)
+        self.kcubes_disconnect()
+        print(self.log_state())
 
         # self.shf_init()
         # time.sleep(2)
@@ -1460,6 +1488,7 @@ class SHF:
         # time.sleep(2)
         # self.shf_set_clksrc_frequency(30)
         # time.sleep(2)
+        # self.shf_turn_off()
 
 
 if __name__ == "__main__":
