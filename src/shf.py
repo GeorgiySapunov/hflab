@@ -55,7 +55,7 @@ class SHF:
 
     attenuator_lins = "LINS1"
     shf_amplifier = 8  # dB
-    test_current = 3  # mA
+    test_current = 2  # mA
     max_optical_powermW = 9  # mW
 
     shf_connected = False
@@ -902,7 +902,7 @@ class SHF:
         self.attenuator_shutter("close")
         self.attenuator_command(":RST")
         self.attenuator_command(f":INP:WAV {self.wavelength} NM")
-        #self.attenuator_command(":CONT:MODE POW")
+        # self.attenuator_command(":CONT:MODE POW")
         self.attenuator_command(":CONT:MODE ATT")
         self.attenuator_command(":OUTP:ALC ON")  # Power tracking
         self.attenuator_command(":OUTP:APM REF")  # Reference mode.
@@ -926,7 +926,7 @@ class SHF:
             )  # mA
             self.current = current_measured
             # measure output power
-            output_power = self.update_attenuator_powerin(sleep = 0.5)
+            output_power = self.update_attenuator_powerin(sleep=0.5)
             output_power_dBm = self.mW_to_dBm(output_power)
 
             if output_power > max_output_power:  # track max power
@@ -1172,11 +1172,92 @@ class SHF:
             answer = input(prompt)
             if answer:
                 if answer in ("Y", "y", ""):
-                    self.optimize_fiber()
+                    self.simple_optimize_fiber()
+                    # self.optimize_fiber()
                 return
             else:
                 self.set_alarm("Fiber reposition declined")
         self.set_alarm("Timeout. Fiber reposition declined.")
+
+    def simple_optimize_fiber(self):
+        "optimize the fiber position using Thorlabs KCubes with simple algorithm"
+        self.update_fiber_position()
+        self.attenuator_shutter("close")
+        self.attenuator_command(f":INP:WAV {self.wavelength} NM")
+        self.attenuator_command(":CONT:MODE ATT")
+        self.attenuator_command(":OUTP:ALC ON")  # Power tracking
+        self.attenuator_command(":OUTP:APM REF")  # Reference mode.
+        self.gently_apply_current(self.test_current)
+        self.move_fiber_sim([37.5, 37.5, 37.5])
+        self.update_attenuator_powerin()
+        start_powerin = self.attenuator_powerin
+        print(f"start_powerin: {start_powerin}")
+        for step in [3] * 2 + [1] * 3 + [0.1] * 5:
+            max_powerin, max_powerin_position = self.optim_fiber_itteration(step=step)
+        powerin = self.update_attenuator_powerin()
+        print(f"{max_powerin_position},\t\tpowerin={powerin}")
+        print(
+            f"{max_powerin_position}\tPowerin: {start_powerin} -> {self.attenuator_powerin} mW"
+        )
+        self.logs.append(
+            [
+                time.strftime("%Y%m%d-%H%M%S"),
+                f"Fiber position is optimized. {max_powerin_position}\tPowerin: {start_powerin} -> {self.attenuator_powerin} mW",
+            ]
+        )
+        self.attenuator_command(":CONT:MODE POW")
+
+    def optim_fiber_itteration(self, step: float = 1, piezo_sleep: float = 0.5):
+        self.update_fiber_position()
+        max_powerin = self.update_attenuator_powerin()
+        max_powerin_position = self.piezo_voltages[:]
+        for axis in (0, 1, 2):
+            previous_power = self.update_attenuator_powerin()
+            go_positive = True
+            while go_positive:
+                voltages = self.piezo_voltages[:]
+                voltages[axis] += step
+                if voltages[axis] >= 74.7:
+                    self.fiber_at_border(axis)
+                power = self.fiber_position_to_power(voltages, sleep=piezo_sleep)
+                if power >= previous_power:
+                    max_powerin = self.attenuator_powerin
+                    previous_power = max_powerin
+                    max_powerin_position = self.piezo_voltages[:]
+                    print(
+                        f"{max_powerin_position},\tmoving positive\tstep {step}\tmax_powerin={max_powerin}",
+                        end="\r",
+                    )
+                elif power < previous_power:
+                    go_positive = False
+                    self.move_fiber(
+                        axis=axis,
+                        target_voltage=max_powerin_position[axis],
+                        sleep=piezo_sleep,
+                    )
+            while not go_positive:
+                voltages = self.piezo_voltages[:]
+                voltages[axis] -= step
+                if voltages[axis] <= 0.3:
+                    self.fiber_at_border(axis)
+                power = self.fiber_position_to_power(voltages, sleep=piezo_sleep)
+                if power >= previous_power:
+                    max_powerin = self.attenuator_powerin
+                    previous_power = max_powerin
+                    max_powerin_position = self.piezo_voltages[:]
+                    print(
+                        f"{max_powerin_position},\tmoving negative\tstep {step}\tmax_powerin={max_powerin}",
+                        end="\r",
+                    )
+                elif power < previous_power:
+                    go_positive = True
+                    self.move_fiber(
+                        axis=axis,
+                        target_voltage=max_powerin_position[axis],
+                        sleep=piezo_sleep,
+                    )
+            self.move_fiber_sim(max_powerin_position)
+        return max_powerin, max_powerin_position
 
     def optimize_fiber(self):
         "optimize the fiber position using Thorlabs KCubes"
@@ -1323,6 +1404,8 @@ class SHF:
     def move_fiber(self, axis: int, target_voltage: float, sleep: float = 0.5):
         "x:0, y:1, z:2. Voltage from 0 to 75"
         self.update_fiber_position()
+        moving_from = f"moving from {self.piezo_voltages}"
+        moving_to = f"moving to {target_voltages}"
         if self.piezo_voltages[axis] != target_voltage:
             if target_voltage >= 75:
                 target_voltage = 75
@@ -1341,6 +1424,15 @@ class SHF:
                     x = abs(self.piezo_voltages[axis] - target_voltage) > 0.1
                     if z >= 5:
                         break
+        moved_to = f"moved to {self.piezo_voltages}"
+        self.logs.append(
+            [
+                time.strftime("%Y%m%d-%H%M%S"),
+                "Kcubes are" + moving_to,
+                moving_from,
+                moved_to,
+            ]
+        )
 
     def update_fiber_position(self):
         "updates self.piezo_voltages"
@@ -1450,7 +1542,7 @@ class SHF:
         print("rst_current_source done")
         assert self.rst_attenuator() == True
         print("rst_attenuator done")
-        self.gently_apply_current(4)
+        self.gently_apply_current(2)
         self.update_attenuation_data()
         print(self.log_state())
         self.connect_kcubes()
