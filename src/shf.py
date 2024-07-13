@@ -1093,6 +1093,7 @@ class SHF:
             self.logs.extend(warnings)
             self.errorlogs.extend(warnings)
             self.save_logs(note="LIV")
+        print(f"Directory: {dirpath}")
         return
 
     # def cubes commands

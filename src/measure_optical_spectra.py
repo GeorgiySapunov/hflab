@@ -269,9 +269,10 @@ def measure_osa(
 
     iv.to_csv(osadir / (filename + "-IV.csv"), index=False)
     spectra.to_csv(osadir / (filename + "-OS.csv"), index=False)
-
     if warnings:
         print(colored(f"Warnings: {len(warnings)}", "cyan"))
         print(*[colored(warning, "cyan") for warning in warnings], sep="\n")
+    print(f"Directory: {dirpath}")
+    print(f"To analyze run python analyze.py -o {dirpath}")
 
     return alarm

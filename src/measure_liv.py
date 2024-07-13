@@ -578,5 +578,6 @@ def measure_liv(
     if warnings:
         print(colored(f"Warnings: {len(warnings)}", "yellow"))
         print(*[colored(warning, "yellow") for warning in warnings], sep="\n")
+    print(f"Directory: {dirpath}")
 
     return filepath, filename, alarm
