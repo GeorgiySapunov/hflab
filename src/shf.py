@@ -104,7 +104,7 @@ class SHF:
         self.waferid = waferid
         self.wavelength = wavelength
         self.coordinates = coordinates
-        self.temperature = temperature
+        self.temperature = float(temperature)
 
         colorama.init()
         self.config = ConfigParser()
@@ -335,8 +335,9 @@ class SHF:
             if counter == 20:
                 self.set_alarm("Attenuator command timeout")
 
-    def update_attenuator_powerin(self):
+    def update_attenuator_powerin(self, sleep: float = 0):
         "get the input power measured by the attenuator in mW"
+        time.sleep(sleep)
         responce = self.query_attenuator_command(":READ:SCAL:POW:DC?")  # mW
         if "(Underrange)" in responce:
             self.attenuator_powerin = 0.0
@@ -877,7 +878,7 @@ class SHF:
             current_list.append(
                 round(current_list[-1] + current_increment_LIV, round_to)
             )
-        powermeter = "EXPO_LTB1"
+        powermeter = "EXPOLTB1"
         dirpath = (
             Path.cwd()
             / "data"
@@ -901,7 +902,8 @@ class SHF:
         self.attenuator_shutter("close")
         self.attenuator_command(":RST")
         self.attenuator_command(f":INP:WAV {self.wavelength} NM")
-        self.attenuator_command(":CONT:MODE POW")
+        #self.attenuator_command(":CONT:MODE POW")
+        self.attenuator_command(":CONT:MODE ATT")
         self.attenuator_command(":OUTP:ALC ON")  # Power tracking
         self.attenuator_command(":OUTP:APM REF")  # Reference mode.
         self.rst_current_source()
@@ -924,7 +926,7 @@ class SHF:
             )  # mA
             self.current = current_measured
             # measure output power
-            output_power = self.update_attenuator_powerin()
+            output_power = self.update_attenuator_powerin(sleep = 0.5)
             output_power_dBm = self.mW_to_dBm(output_power)
 
             if output_power > max_output_power:  # track max power
@@ -1046,6 +1048,7 @@ class SHF:
         self.current = 0
         self.current_source.write(":OUTP OFF")
         self.current_source.write(f":SOUR:CURR 0.001")
+        self.attenuator_command(":CONT:MODE POW")
         timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
         livdirpath = dirpath / "LIV"
         livdirpath.mkdir(exist_ok=True, parents=True)

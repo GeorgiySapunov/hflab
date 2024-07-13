@@ -5,7 +5,7 @@ algorithm_name: optical_spectra
 
 # report_directory: reports
 title: ~
-photodiode: PM100USB
+photodiode: EXPOLTB1
 # photodiode: Keysight_8163B_port2
 # photodiode: Keysight_8163B_port1
 liv_threshold_decision_level: 2

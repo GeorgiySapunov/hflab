@@ -58,7 +58,8 @@ def measure_osa(
     livdir = dirpath / "LIV"
     livfiles = sorted(
         livdir.glob(
-            f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-*PM100USB.csv"
+            # f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-*PM100USB.csv"
+            f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-*EXPOLTB1.csv"
         ),
         reverse=True,
     )
@@ -199,7 +200,7 @@ def measure_osa(
             )
             print(
                 colored(
-                    f"WARNING! Current set is {current_set}, while current measured is {current_measured}",
+                    f"WARNING! Current set is {current_set}, while current measured is {current_measured}, current_error = {current_error} mA",
                     "cyan",
                 )
             )
@@ -214,11 +215,11 @@ def measure_osa(
         voltage_error = abs(voltage_measured_along_osa - voltage_measured_along_liv)
         if round(voltage_measured_along_osa, 2) != round(voltage_measured_along_liv, 2):
             warnings.append(
-                f"Voltage measured along osa={voltage_measured_along_osa} V, voltage measured along liv={voltage_measured_along_liv} V"
+                f"Voltage measured along osa={voltage_measured_along_osa} V, voltage measured along liv={voltage_measured_along_liv} V, voltage_error = {voltage_error} V"
             )
             print(
                 colored(
-                    f"WARNING! Voltage measured along osa={voltage_measured_along_osa} V, voltage measured along liv={voltage_measured_along_liv} V",
+                    f"WARNING! Voltage measured along osa={voltage_measured_along_osa} V, voltage measured along liv={voltage_measured_along_liv} V, voltage_error = {voltage_error} V",
                     "cyan",
                 )
             )
@@ -227,17 +228,17 @@ def measure_osa(
             alarm = True
             print(
                 colored(
-                    f"ALARM! Current set is {current_set}, while current measured is {current_measured}\tBreaking the measurements!",
+                    f"ALARM! Current set is {current_set}, while current measured is {current_measured}, current_error = {current_error} mA\tBreaking the measurements!",
                     "red",
                 )
             )
             break  # break the loop
 
-        if voltage_error >= 0.1:
+        if voltage_error >= 0.2:
             alarm = True
             print(
                 colored(
-                    f"ALARM! Voltage measured along osa={voltage_measured_along_osa} V, voltage measured along liv={voltage_measured_along_liv} V\tBreaking the measurements!",
+                    f"ALARM! Voltage measured along osa={voltage_measured_along_osa} V, voltage measured along liv={voltage_measured_along_liv} V, voltage_error = {voltage_error}\tBreaking the measurements!",
                     "red",
                 )
             )
