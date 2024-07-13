@@ -258,56 +258,75 @@ def main():
                 read_termination="\n",
             )
 
-        for i, set_temperature in enumerate(temperature_list):
-            print(f"[{i+1}/{len(temperature_list)}] {set_temperature} degree Celsius")
-            if temp_list_len != 1:
-                update_att_temperature(set_temperature, ATT_A160CMI=ATT_A160CMI)
-            if powermeter:
-                filepath, filename, alarm = measure_liv(
-                    waferid,
-                    wavelength,
-                    coordinates,
-                    set_temperature,
-                    Keysight_B2901A=Keysight_B2901A,
-                    PM100USB=PM100USB,
-                    Keysight_8163B=Keysight_8163B,
-                    k_port=k_port,
+        try:
+            for i, set_temperature in enumerate(temperature_list):
+                print(
+                    f"[{i+1}/{len(temperature_list)}] {set_temperature} degree Celsius"
                 )
-                if len(temperature_list) == 1:
-                    # show figure
-                    image = mpimg.imread(filepath / (filename + "-everything.png"))
-                    plt.imshow(image)
-                    plt.axis("off")
-                    plt.show()
+                if temp_list_len != 1:
+                    update_att_temperature(set_temperature, ATT_A160CMI=ATT_A160CMI)
+                if powermeter:
+                    filepath, filename, alarm = measure_liv(
+                        waferid,
+                        wavelength,
+                        coordinates,
+                        set_temperature,
+                        Keysight_B2901A=Keysight_B2901A,
+                        PM100USB=PM100USB,
+                        Keysight_8163B=Keysight_8163B,
+                        k_port=k_port,
+                    )
+                    if len(temperature_list) == 1:
+                        # show figure
+                        image = mpimg.imread(filepath / (filename + "-everything.png"))
+                        plt.imshow(image)
+                        plt.axis("off")
+                        plt.show()
 
-            elif osa:
-                alarm = measure_osa(
-                    waferid,
-                    wavelength,
-                    coordinates,
-                    set_temperature,
-                    Keysight_B2901A=Keysight_B2901A,
-                    YOKOGAWA_AQ6370D=YOKOGAWA_AQ6370D,
-                )
-            elif pna:
-                alarm = measure_pna(
-                    waferid,
-                    wavelength,
-                    coordinates,
-                    set_temperature,
-                    Keysight_B2901A=Keysight_B2901A,
-                    Keysight_N5247B=Keysight_N5247B,
-                    CoherentSolutions_MatrIQswitch=CoherentSolutions_MatrIQswitch,
-                )
+                elif osa:
+                    alarm = measure_osa(
+                        waferid,
+                        wavelength,
+                        coordinates,
+                        set_temperature,
+                        Keysight_B2901A=Keysight_B2901A,
+                        YOKOGAWA_AQ6370D=YOKOGAWA_AQ6370D,
+                    )
+                elif pna:
+                    alarm = measure_pna(
+                        waferid,
+                        wavelength,
+                        coordinates,
+                        set_temperature,
+                        Keysight_B2901A=Keysight_B2901A,
+                        Keysight_N5247B=Keysight_N5247B,
+                        CoherentSolutions_MatrIQswitch=CoherentSolutions_MatrIQswitch,
+                    )
 
-            if alarm and len(temperature_list) != 1:
+                if alarm and len(temperature_list) != 1:
+                    time.sleep(1)
+                    ATT_A160CMI.write("TS=+02500")
+                    break
+        except Exception as exception_message:  # TODO test it
+            # slowly decrease current
+            current_measured = (
+                float(Keysight_B2901A.query("MEAS:CURR?")) * 1000
+            )  # measure current
+            for current_set in np.arange(current_measured, 0, -0.1):
+                Keysight_B2901A.write(
+                    f":SOUR:CURR {str(current_set/1000)}"
+                )  # Outputs i A immediately
+                print(f"Current set: {current_set:3.1f} mA", end="\r")
+                time.sleep(0.01)  # 0.01 sec for a step, 1 sec for 10 mA
+
+            # Measurement is stopped by the :OUTP OFF command.
+            Keysight_B2901A.write(":OUTP OFF")
+            Keysight_B2901A.write(f":SOUR:CURR 0.001")
+            print(exception_message)
+        finally:
+            if len(temperature_list) != 1:
                 time.sleep(1)
                 ATT_A160CMI.write("TS=+02500")
-                break
-
-        if len(temperature_list) != 1:
-            time.sleep(1)
-            ATT_A160CMI.write("TS=+02500")
 
 
 # Run main when the script is run by passing it as a command to the Python interpreter (just a good practice)

@@ -48,6 +48,7 @@ def print_help():
 )
 @click.argument("arguments", nargs=-1)
 def analyze(test, liv, osa, arguments):
+    start_time = datetime.datetime.now()
     WaferID, Wavelength, Coordinates, Temperature = arguments
     print("WaferID: ", WaferID)
     print("Wavelength: ", Wavelength, " nm")
@@ -114,10 +115,9 @@ def analyze(test, liv, osa, arguments):
     finally:
         shfclass.gently_apply_current(0)
         shfclass.save_logs()
+        end_time = datetime.datetime.now()
+        print(f"Duration: {end_time - start_time}")
 
 
 if __name__ == "__main__":
-    start_time = datetime.datetime.now()
     analyze()
-    end_time = datetime.datetime.now()
-    print(f"Duration: {end_time - start_time}")

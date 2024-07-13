@@ -272,7 +272,7 @@ class SHF:
         )  # Initial current
         if current_measured > target_current_mA:
             step = -0.1
-        elif current_measured < target_current_mA:
+        elif current_measured <= target_current_mA:
             step = 0.1
         for current_set in np.arange(current_measured, target_current_mA, step):
             self.current_source.write(f":SOUR:CURR {str(current_set/1000)}")
@@ -290,7 +290,7 @@ class SHF:
             ]
         )  # Final current
         print(
-            f"{oldcurrent} -> {target_current_mA} mA,\t{current_measured} mA,\t{voltage} V"
+            f"{oldcurrent} -> {target_current_mA} mA,\t{current_measured} mA,\t{voltage:3.3f} V"
         )
         if target_current_mA == 0:
             self.current_source.write(":OUTP OFF")
@@ -1172,12 +1172,15 @@ class SHF:
             prompt = f"The fiber optimization will preceed after {timeout} seconds. Start optimizing the fiber position? Y/n"
             answer = input(prompt)
             if answer:
-                if answer in ("Y", "y", ""):
+                if answer in ("Y", "y"):
                     self.simple_optimize_fiber()
                     # self.optimize_fiber()
+                else:
+                    self.set_alarm("Fiber reposition declined.")
                 return
             else:
-                self.set_alarm("Fiber reposition declined")
+                self.simple_optimize_fiber()
+                return
         self.set_alarm("Timeout. Fiber reposition declined.")
 
     def simple_optimize_fiber(self):
@@ -1193,12 +1196,15 @@ class SHF:
         self.update_attenuator_powerin()
         start_powerin = self.attenuator_powerin
         print(f"start_powerin: {start_powerin}")
-        for step in [3] * 2 + [1] * 3 + [0.1] * 5:
+        list_of_steps = [10] * 5 + [3] * 5 + [1] * 5 + [0.1] * 7
+        for i, step in enumerate(list_of_steps, start=1):
+            print(" "*80, end="\r")
+            print(f"[{i}/{len(list_of_steps)}] step: {step}" + " " * 50)
             max_powerin, max_powerin_position = self.optim_fiber_itteration(step=step)
         powerin = self.update_attenuator_powerin()
-        print(f"{max_powerin_position},\t\tpowerin={powerin}")
+        print(" "*80, end="\r")
         print(
-            f"{max_powerin_position}\tPowerin: {start_powerin} -> {self.attenuator_powerin} mW"
+            f"{max_powerin_position}\tPowerin: {start_powerin:3.3f} -> {self.attenuator_powerin:3.3f} mW ({self.mW_to_dBm(start_powerin):3.3f} -> {self.mW_to_dBm(self.attenuator_powerin):3.3f} dBm)"
         )
         self.logs.append(
             [
@@ -1221,14 +1227,16 @@ class SHF:
                 if voltages[axis] >= 74.7:
                     self.fiber_at_border(axis)
                 power = self.fiber_position_to_power(voltages, sleep=piezo_sleep)
+                print(" "*80, end="\r")
+                print(f"{self.piezo_voltages}\tpower={power:3.3f} mW ({(self.mW_to_dBm(power)):3.3f} dBm)", end="\r")
                 if power >= previous_power:
                     max_powerin = self.attenuator_powerin
                     previous_power = max_powerin
                     max_powerin_position = self.piezo_voltages[:]
-                    print(
-                        f"{max_powerin_position},\tmoving positive\tstep {step}\tmax_powerin={max_powerin}",
-                        end="\r",
-                    )
+                    #print(
+                    #    f"{max_powerin_position},\tmoving positive\t step {step} \t max_powerin={max_powerin:3.3f} mW ({(self.mW_to_dBm(max_powerin)):3.3f} dBm)",
+                    #    # end="\r",
+                    #)
                 elif power < previous_power:
                     go_positive = False
                     self.move_fiber(
@@ -1242,14 +1250,16 @@ class SHF:
                 if voltages[axis] <= 0.3:
                     self.fiber_at_border(axis)
                 power = self.fiber_position_to_power(voltages, sleep=piezo_sleep)
+                print(" "*80, end="\r")
+                print(f"{self.piezo_voltages}\tpower={power:3.3f} mW ({(self.mW_to_dBm(power)):3.3f} dBm)", end="\r")
                 if power >= previous_power:
                     max_powerin = self.attenuator_powerin
                     previous_power = max_powerin
                     max_powerin_position = self.piezo_voltages[:]
-                    print(
-                        f"{max_powerin_position},\tmoving negative\tstep {step}\tmax_powerin={max_powerin}",
-                        end="\r",
-                    )
+                    #print(
+                    #    f"{max_powerin_position},\tmoving negative\t step {step} \t max_powerin={max_powerin:3.3f} mW ({(self.mW_to_dBm(max_powerin)):3.3f} dBm)",
+                    #    # end="\r",
+                    #)
                 elif power < previous_power:
                     go_positive = True
                     self.move_fiber(
@@ -1379,7 +1389,9 @@ class SHF:
                     dev_voltage = Decimal(voltage)
                     device.SetOutputVoltage(dev_voltage)
             time.sleep(sleep)
-            self.update_fiber_position()
+            self.update_fiber_position
+            x = 1
+            z = 0
             for i in (0, 1, 2):
                 x += abs(self.piezo_voltages[i] - target_voltages[i]) > 0.1
             if x:
@@ -1406,7 +1418,7 @@ class SHF:
         "x:0, y:1, z:2. Voltage from 0 to 75"
         self.update_fiber_position()
         moving_from = f"moving from {self.piezo_voltages}"
-        moving_to = f"moving to {target_voltages}"
+        moving_to = f"moving to {target_voltage}"
         if self.piezo_voltages[axis] != target_voltage:
             if target_voltage >= 75:
                 target_voltage = 75
@@ -1415,6 +1427,8 @@ class SHF:
             device.SetOutputVoltage(dev_voltage)
             time.sleep(sleep)
             self.piezo_voltages[axis] = round(float(str(device.GetOutputVoltage())), 2)
+            x = 1
+            z = 0
             if abs(self.piezo_voltages[axis] - target_voltage) > 0.1:
                 while x:
                     z += 1
@@ -1545,7 +1559,7 @@ class SHF:
         print("rst_attenuator done")
         self.gently_apply_current(2)
         self.update_attenuation_data()
-        print(self.log_state())
+        #print(self.log_state())
         self.connect_kcubes()
         self.start_optimizing_fiber()
         # voltlist = [0, 10, 20, 30, 40, 50, 60, 70]
@@ -1562,8 +1576,8 @@ class SHF:
         #                 minoutput = output
         # print("max: ", maxoutput)
         # print("min: ", minoutput)
-        self.kcubes_disconnect()
-        print(self.log_state())
+        # self.kcubes_disconnect()
+        #print(self.log_state())
 
         # self.shf_init()
         # time.sleep(2)
@@ -1585,14 +1599,3 @@ class SHF:
         # self.shf_set_clksrc_frequency(30)
         # time.sleep(2)
         # self.shf_turn_off()
-
-
-if __name__ == "__main__":
-    shfclass = SHF(
-        waferid="waferid", wavelength=940, coordinates="test", temperature=25
-    )
-    try:
-        shfclass.test()
-    finally:
-        shfclass.gently_apply_current(0)
-        shfclass.save_logs()
