@@ -1198,11 +1198,11 @@ class SHF:
         print(f"start_powerin: {start_powerin}")
         list_of_steps = [10] * 5 + [3] * 5 + [1] * 5 + [0.1] * 7
         for i, step in enumerate(list_of_steps, start=1):
-            print(" "*80, end="\r")
+            print(" " * 80, end="\r")
             print(f"[{i}/{len(list_of_steps)}] step: {step}" + " " * 50)
             max_powerin, max_powerin_position = self.optim_fiber_itteration(step=step)
         powerin = self.update_attenuator_powerin()
-        print(" "*80, end="\r")
+        print(" " * 80, end="\r")
         print(
             f"{max_powerin_position}\tPowerin: {start_powerin:3.3f} -> {self.attenuator_powerin:3.3f} mW ({self.mW_to_dBm(start_powerin):3.3f} -> {self.mW_to_dBm(self.attenuator_powerin):3.3f} dBm)"
         )
@@ -1227,16 +1227,19 @@ class SHF:
                 if voltages[axis] >= 74.7:
                     self.fiber_at_border(axis)
                 power = self.fiber_position_to_power(voltages, sleep=piezo_sleep)
-                print(" "*80, end="\r")
-                print(f"{self.piezo_voltages}\tpower={power:3.3f} mW ({(self.mW_to_dBm(power)):3.3f} dBm)", end="\r")
+                print(" " * 80, end="\r")
+                print(
+                    f"{self.piezo_voltages}\tpower={power:3.3f} mW ({(self.mW_to_dBm(power)):3.3f} dBm)",
+                    end="\r",
+                )
                 if power >= previous_power:
                     max_powerin = self.attenuator_powerin
                     previous_power = max_powerin
                     max_powerin_position = self.piezo_voltages[:]
-                    #print(
+                    # print(
                     #    f"{max_powerin_position},\tmoving positive\t step {step} \t max_powerin={max_powerin:3.3f} mW ({(self.mW_to_dBm(max_powerin)):3.3f} dBm)",
                     #    # end="\r",
-                    #)
+                    # )
                 elif power < previous_power:
                     go_positive = False
                     self.move_fiber(
@@ -1250,16 +1253,19 @@ class SHF:
                 if voltages[axis] <= 0.3:
                     self.fiber_at_border(axis)
                 power = self.fiber_position_to_power(voltages, sleep=piezo_sleep)
-                print(" "*80, end="\r")
-                print(f"{self.piezo_voltages}\tpower={power:3.3f} mW ({(self.mW_to_dBm(power)):3.3f} dBm)", end="\r")
+                print(" " * 80, end="\r")
+                print(
+                    f"{self.piezo_voltages}\tpower={power:3.3f} mW ({(self.mW_to_dBm(power)):3.3f} dBm)",
+                    end="\r",
+                )
                 if power >= previous_power:
                     max_powerin = self.attenuator_powerin
                     previous_power = max_powerin
                     max_powerin_position = self.piezo_voltages[:]
-                    #print(
+                    # print(
                     #    f"{max_powerin_position},\tmoving negative\t step {step} \t max_powerin={max_powerin:3.3f} mW ({(self.mW_to_dBm(max_powerin)):3.3f} dBm)",
                     #    # end="\r",
-                    #)
+                    # )
                 elif power < previous_power:
                     go_positive = True
                     self.move_fiber(
@@ -1559,7 +1565,7 @@ class SHF:
         print("rst_attenuator done")
         self.gently_apply_current(2)
         self.update_attenuation_data()
-        #print(self.log_state())
+        # print(self.log_state())
         self.connect_kcubes()
         self.start_optimizing_fiber()
         # voltlist = [0, 10, 20, 30, 40, 50, 60, 70]
@@ -1577,25 +1583,27 @@ class SHF:
         # print("max: ", maxoutput)
         # print("min: ", minoutput)
         # self.kcubes_disconnect()
-        #print(self.log_state())
+        # print(self.log_state())
 
-        # self.shf_init()
-        # time.sleep(2)
-        # self.shf_init()
-        # time.sleep(2)
+        self.shf_init()
+        time.sleep(2)
         # self.gently_apply_current(2)
         # time.sleep(2)
         #
-        # self.shf_patternsetup("nrz")
-        # time.sleep(2)
-        # self.shf_set_amplitude(300)
-        # time.sleep(2)
-        # self.shf_set_preemphasis(0, 10)
-        # self.shf_set_preemphasis(2, 10)
-        # self.shf_set_preemphasis(3, 10)
-        # time.sleep(2)
-        # self.shf_set_clksrc_frequency(25)
-        # time.sleep(2)
-        # self.shf_set_clksrc_frequency(30)
-        # time.sleep(2)
-        # self.shf_turn_off()
+        self.shf_patternsetup("nrz")
+        time.sleep(2)
+        self.shf_set_amplitude(300)
+        time.sleep(2)
+        self.shf_set_preemphasis(0, 10)
+        self.shf_set_preemphasis(2, 10)
+        self.shf_set_preemphasis(3, 10)
+        time.sleep(2)
+        self.shf_set_clksrc_frequency(25)
+        time.sleep(2)
+        self.shf_set_clksrc_frequency(30)
+        time.sleep(2)
+        self.test_ea()
+        time.sleep(2)
+        self.autosearch_eye()
+        time.sleep(2)
+        self.shf_turn_off()

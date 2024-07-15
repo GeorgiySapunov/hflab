@@ -23,6 +23,25 @@ from pathlib import Path
 from src.analysis_ssm_one_file import one_file_approximation
 
 
+def fix_auto_csv_header_length(auto_file_path):
+    with open(auto_file_path, "r") as file:
+        line_num = 0
+        for line in file:
+            line_num += 1
+            if line_num >= 4:
+                return
+            elif line_num == 1:
+                tabs_first = line.count("\t")
+            else:
+                tabs = line.count("\t")
+                if tabs_first != tabs:
+                    df = pd.read_csv(
+                        auto_file_path, sep="\t", header=0, engine="python", dtype=str
+                    )
+                    df.to_csv(auto_file_path, sep="\t", index=False)
+                    print("header fixed")
+
+
 def name_from_directory(directory):
     name_from_dir = list(directory.parts)
     if name_from_dir[0] == "data":
@@ -210,6 +229,8 @@ def analyze_ssm(
                         np.array([None] * (len(f_GHz) - len(S21_Magnitude_fit))),
                     )
                 )
+            else:
+                S21_Magnitude_fit = S21_Magnitude_fit - c
             S21_Magnitude_to_fit = S21_Magnitude_to_fit - c
 
             S11r_name = f"{current} mA, {temperature} °C S11 Real "
@@ -312,6 +333,7 @@ def analyze_ssm(
     elif not s2p:  # automatic system csv file parsing and processing
         report_dir = start_directory / f"PNA_reports({auto_file_path.stem})"
         report_dir.mkdir(exist_ok=True)
+        fix_auto_csv_header_length(auto_file_path)
         auto_file = pd.read_csv(auto_file_path, header=[0, 1, 2], sep="\t")
         # print(auto_file.head())
         currents = (
@@ -403,6 +425,8 @@ def analyze_ssm(
                         np.array([None] * (len(f_GHz) - len(S21_Magnitude_fit))),
                     )
                 )
+            else:
+                S21_Magnitude_fit = S21_Magnitude_fit - c
             S21_Magnitude_to_fit = S21_Magnitude_to_fit - c
 
             S11r_name = f"{current} mA, {temperature} °C S11 Real"
