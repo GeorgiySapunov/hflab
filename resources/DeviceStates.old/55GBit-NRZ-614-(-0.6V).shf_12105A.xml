@@ -1,0 +1,444 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- File generation date is 2023-09-04T15:07:07 -->
+<SHFConfig>
+  <modules Type="113526" Count="1" GenerationDate="2023-09-04T15:07:07" Generator="SCC version 2.12.14">
+    <device Index="1" Type="046120" Count="7">
+      <Channels Type="046120" Count="8">
+        <Channel1 Type="046120" Count="8">
+          <Amplitude Type="029718" Value="0.65"/>
+          <AmplitudeUserBounds Type="042752">
+            <borderFlags Type="037093" Value="0"/>
+            <maxValue Type="029718" Value="0.65"/>
+            <minValue Type="029718" Value="-inf"/>
+          </AmplitudeUserBounds>
+          <Bitrate:20Divider Type="052907">
+            <Int Type="037093" Value="0"/>
+            <QString Value="1"/>
+          </Bitrate:20Divider>
+          <Duty:20Cycle Type="029718" Value="0"/>
+          <Error:20Injection Type="029718" Value="0"/>
+          <Pattern Value="Channel1:PAMX"/>
+          <Skew Type="029718" Value="6.5e-12"/>
+          <Synchronization:20Group Type="052907">
+            <Int Type="037093" Value="1"/>
+            <QString Value="Group 1"/>
+          </Synchronization:20Group>
+        </Channel1>
+        <Channel2 Type="046120" Count="8">
+          <Amplitude Type="029718" Value="0.65"/>
+          <AmplitudeUserBounds Type="042752">
+            <borderFlags Type="037093" Value="0"/>
+            <maxValue Type="029718" Value="0.65"/>
+            <minValue Type="029718" Value="-inf"/>
+          </AmplitudeUserBounds>
+          <Bitrate:20Divider Type="052907">
+            <Int Type="037093" Value="0"/>
+            <QString Value="1"/>
+          </Bitrate:20Divider>
+          <Duty:20Cycle Type="029718" Value="0"/>
+          <Error:20Injection Type="029718" Value="0"/>
+          <Pattern Value="Channel2:PAMX"/>
+          <Skew Type="029718" Value="5e-12"/>
+          <Synchronization:20Group Type="052907">
+            <Int Type="037093" Value="1"/>
+            <QString Value="Group 1"/>
+          </Synchronization:20Group>
+        </Channel2>
+        <Channel3 Type="046120" Count="8">
+          <Amplitude Type="029718" Value="0.65"/>
+          <AmplitudeUserBounds Type="042752">
+            <borderFlags Type="037093" Value="0"/>
+            <maxValue Type="029718" Value="0.65"/>
+            <minValue Type="029718" Value="-inf"/>
+          </AmplitudeUserBounds>
+          <Bitrate:20Divider Type="052907">
+            <Int Type="037093" Value="0"/>
+            <QString Value="1"/>
+          </Bitrate:20Divider>
+          <Duty:20Cycle Type="029718" Value="0"/>
+          <Error:20Injection Type="029718" Value="0"/>
+          <Pattern Value="Channel3:PAMX"/>
+          <Skew Type="029718" Value="7.5e-12"/>
+          <Synchronization:20Group Type="052907">
+            <Int Type="037093" Value="1"/>
+            <QString Value="Group 1"/>
+          </Synchronization:20Group>
+        </Channel3>
+        <Channel4 Type="046120" Count="8">
+          <Amplitude Type="029718" Value="0.65"/>
+          <AmplitudeUserBounds Type="042752">
+            <borderFlags Type="037093" Value="0"/>
+            <maxValue Type="029718" Value="0.65"/>
+            <minValue Type="029718" Value="-inf"/>
+          </AmplitudeUserBounds>
+          <Bitrate:20Divider Type="052907">
+            <Int Type="037093" Value="0"/>
+            <QString Value="1"/>
+          </Bitrate:20Divider>
+          <Duty:20Cycle Type="029718" Value="0"/>
+          <Error:20Injection Type="029718" Value="0"/>
+          <Pattern Value="Channel4:PAMX"/>
+          <Skew Type="029718" Value="5e-12"/>
+          <Synchronization:20Group Type="052907">
+            <Int Type="037093" Value="1"/>
+            <QString Value="Group 1"/>
+          </Synchronization:20Group>
+        </Channel4>
+        <Channel5 Type="046120" Count="8">
+          <Amplitude Type="029718" Value="0.65"/>
+          <AmplitudeUserBounds Type="042752">
+            <borderFlags Type="037093" Value="0"/>
+            <maxValue Type="029718" Value="0.65"/>
+            <minValue Type="029718" Value="-inf"/>
+          </AmplitudeUserBounds>
+          <Bitrate:20Divider Type="052907">
+            <Int Type="037093" Value="0"/>
+            <QString Value="1"/>
+          </Bitrate:20Divider>
+          <Duty:20Cycle Type="029718" Value="0"/>
+          <Error:20Injection Type="029718" Value="0"/>
+          <Pattern Value="Channel5:PAMX"/>
+          <Skew Type="029718" Value="2e-12"/>
+          <Synchronization:20Group Type="052907">
+            <Int Type="037093" Value="1"/>
+            <QString Value="Group 1"/>
+          </Synchronization:20Group>
+        </Channel5>
+        <Channel6 Type="046120" Count="8">
+          <Amplitude Type="029718" Value="0.65"/>
+          <AmplitudeUserBounds Type="042752">
+            <borderFlags Type="037093" Value="0"/>
+            <maxValue Type="029718" Value="0.65"/>
+            <minValue Type="029718" Value="-inf"/>
+          </AmplitudeUserBounds>
+          <Bitrate:20Divider Type="052907">
+            <Int Type="037093" Value="0"/>
+            <QString Value="1"/>
+          </Bitrate:20Divider>
+          <Duty:20Cycle Type="029718" Value="0"/>
+          <Error:20Injection Type="029718" Value="0"/>
+          <Pattern Value="Channel6:PAMX"/>
+          <Skew Type="029718" Value="6e-12"/>
+          <Synchronization:20Group Type="052907">
+            <Int Type="037093" Value="1"/>
+            <QString Value="Group 1"/>
+          </Synchronization:20Group>
+        </Channel6>
+        <Channel7 Type="046120" Count="8">
+          <Amplitude Type="029718" Value="0.5"/>
+          <AmplitudeUserBounds Type="042752">
+            <borderFlags Type="037093" Value="0"/>
+            <maxValue Type="029718" Value="0.65"/>
+            <minValue Type="029718" Value="-inf"/>
+          </AmplitudeUserBounds>
+          <Bitrate:20Divider Type="052907">
+            <Int Type="037093" Value="0"/>
+            <QString Value="1"/>
+          </Bitrate:20Divider>
+          <Duty:20Cycle Type="029718" Value="0"/>
+          <Error:20Injection Type="029718" Value="0"/>
+          <Pattern Value="Channel7:PRBS7"/>
+          <Skew Type="029718" Value="0"/>
+          <Synchronization:20Group Type="052907">
+            <Int Type="037093" Value="0"/>
+            <QString Value="None"/>
+          </Synchronization:20Group>
+        </Channel7>
+        <Channel8 Type="046120" Count="8">
+          <Amplitude Type="029718" Value="0.45"/>
+          <AmplitudeUserBounds Type="042752">
+            <borderFlags Type="037093" Value="0"/>
+            <maxValue Type="029718" Value="0.65"/>
+            <minValue Type="029718" Value="-inf"/>
+          </AmplitudeUserBounds>
+          <Bitrate:20Divider Type="052907">
+            <Int Type="037093" Value="0"/>
+            <QString Value="1"/>
+          </Bitrate:20Divider>
+          <Duty:20Cycle Type="029718" Value="0"/>
+          <Error:20Injection Type="029718" Value="0"/>
+          <Pattern Value="Channel8:PRBS7"/>
+          <Skew Type="029718" Value="0"/>
+          <Synchronization:20Group Type="052907">
+            <Int Type="037093" Value="0"/>
+            <QString Value="None"/>
+          </Synchronization:20Group>
+        </Channel8>
+      </Channels>
+      <Clock:20Divider Type="052907">
+        <Int Type="037093" Value="0"/>
+        <QString Value="4"/>
+      </Clock:20Divider>
+      <Clock:20Input Type="037093" Value="0"/>
+      <Device:20Info Type="046120" Count="10">
+        <childOrder Type="056317" Count="7">
+          <QString Index="1" Value="Prefix"/>
+          <QString Index="2" Value="Serial number"/>
+          <QString Index="3" Value="Product number"/>
+          <QString Index="4" Value="Revision"/>
+          <QString Index="5" Value="Firmware Version"/>
+          <QString Index="6" Value="Option"/>
+          <QString Index="7" Value="Kernel Version"/>
+        </childOrder>
+        <children Type="110760" Count="7">
+          <Firmware:20Version Index="4" Type="046120" Count="8">
+            <className Value="SHF::StringParameter"/>
+            <enabled Type="025189" Value="1"/>
+            <name Value="Firmware Version"/>
+            <readOnly Type="025189" Value="1"/>
+            <removable Type="025189" Value="0"/>
+            <type Value="string"/>
+            <value Value="1.0.27"/>
+            <visible Type="025189" Value="1"/>
+          </Firmware:20Version>
+          <Kernel:20Version Index="5" Type="046120" Count="8">
+            <className Value="SHF::StringParameter"/>
+            <enabled Type="025189" Value="1"/>
+            <name Value="Kernel Version"/>
+            <readOnly Type="025189" Value="1"/>
+            <removable Type="025189" Value="0"/>
+            <type Value="string"/>
+            <value Value=""/>
+            <visible Type="025189" Value="1"/>
+          </Kernel:20Version>
+          <Option Index="7" Type="046120" Count="8">
+            <className Value="SHF::StringParameter"/>
+            <enabled Type="025189" Value="1"/>
+            <name Value="Option"/>
+            <readOnly Type="025189" Value="1"/>
+            <removable Type="025189" Value="0"/>
+            <type Value="string"/>
+            <value Value="0"/>
+            <visible Type="025189" Value="1"/>
+          </Option>
+          <Prefix Index="3" Type="046120" Count="8">
+            <className Value="SHF::SelectParameter"/>
+            <enabled Type="025189" Value="1"/>
+            <list Type="044664" Count="2">
+              <QString Index="1" Value="BPG"/>
+              <QString Index="2" Value="SHF"/>
+            </list>
+            <name Value="Prefix"/>
+            <readOnly Type="025189" Value="1"/>
+            <removable Type="025189" Value="0"/>
+            <value Type="052907">
+              <Int Type="037093" Value="0"/>
+              <QString Value="BPG"/>
+            </value>
+            <visible Type="025189" Value="1"/>
+          </Prefix>
+          <Product:20number Index="6" Type="046120" Count="8">
+            <className Value="SHF::StringParameter"/>
+            <enabled Type="025189" Value="1"/>
+            <name Value="Product number"/>
+            <readOnly Type="025189" Value="1"/>
+            <removable Type="025189" Value="0"/>
+            <type Value="string"/>
+            <value Value="12105"/>
+            <visible Type="025189" Value="1"/>
+          </Product:20number>
+          <Revision Index="2" Type="046120" Count="8">
+            <className Value="SHF::StringParameter"/>
+            <enabled Type="025189" Value="1"/>
+            <name Value="Revision"/>
+            <readOnly Type="025189" Value="1"/>
+            <removable Type="025189" Value="0"/>
+            <type Value="string"/>
+            <value Value="A"/>
+            <visible Type="025189" Value="1"/>
+          </Revision>
+          <Serial:20number Index="1" Type="046120" Count="8">
+            <className Value="SHF::StringParameter"/>
+            <enabled Type="025189" Value="1"/>
+            <name Value="Serial number"/>
+            <readOnly Type="025189" Value="1"/>
+            <removable Type="025189" Value="0"/>
+            <type Value="string"/>
+            <value Value="51001"/>
+            <visible Type="025189" Value="1"/>
+          </Serial:20number>
+        </children>
+        <className Value="SHF::DeviceInfoParameter"/>
+        <enabled Type="025189" Value="1"/>
+        <name Value="Device Info"/>
+        <readOnly Type="025189" Value="1"/>
+        <removable Type="025189" Value="0"/>
+        <title Value="Device Info"/>
+        <value Type="000000" Value="@Invalid()"/>
+        <visible Type="025189" Value="1"/>
+      </Device:20Info>
+      <PAMX Type="045695" Count="2">
+        <children Type="045695" Count="11">
+          <DAC:20Configurations Type="045695" Count="2">
+            <children Type="045695" Count="1">
+              <SCC Type="045695" Count="2">
+                <children Type="045695" Count="4">
+                  <Encoding Type="045695" Count="1">
+                    <value Type="052907">
+                      <Int Type="037093" Value="0"/>
+                      <QString Value="Unipolar"/>
+                    </value>
+                  </Encoding>
+                  <Inputs Type="045695" Count="2">
+                    <children Type="045695" Count="6">
+                      <D0 Type="045695" Count="1">
+                        <value Type="052907">
+                          <Int Type="037093" Value="2"/>
+                          <QString Value="Channel 1"/>
+                        </value>
+                      </D0>
+                      <D1 Type="045695" Count="1">
+                        <value Type="052907">
+                          <Int Type="037093" Value="3"/>
+                          <QString Value="Channel 2"/>
+                        </value>
+                      </D1>
+                      <D2 Type="045695" Count="1">
+                        <value Type="052907">
+                          <Int Type="037093" Value="4"/>
+                          <QString Value="Channel 3"/>
+                        </value>
+                      </D2>
+                      <D3 Type="045695" Count="1">
+                        <value Type="052907">
+                          <Int Type="037093" Value="5"/>
+                          <QString Value="Channel 4"/>
+                        </value>
+                      </D3>
+                      <D4 Type="045695" Count="1">
+                        <value Type="052907">
+                          <Int Type="037093" Value="6"/>
+                          <QString Value="Channel 5"/>
+                        </value>
+                      </D4>
+                      <D5 Type="045695" Count="1">
+                        <value Type="052907">
+                          <Int Type="037093" Value="7"/>
+                          <QString Value="Channel 6"/>
+                        </value>
+                      </D5>
+                    </children>
+                    <value Type="000000" Value="@Invalid()"/>
+                  </Inputs>
+                  <Number:20of:20Bits Type="045695" Count="1">
+                    <value Type="029718" Value="6"/>
+                  </Number:20of:20Bits>
+                  <Reconstruction:20Voltages Type="045695" Count="0"/>
+                </children>
+                <value Type="000000" Value="@Invalid()"/>
+              </SCC>
+            </children>
+            <value Type="000000" Value="@Invalid()"/>
+          </DAC:20Configurations>
+          <Enable Type="045695" Count="1">
+            <value Type="025189" Value="1"/>
+          </Enable>
+          <FIR_Filter Type="045695" Count="2">
+            <children Type="045695" Count="1">
+              <Enable Type="045695" Count="0"/>
+            </children>
+            <value Type="000000" Value="@Invalid()"/>
+          </FIR_Filter>
+          <Inverted:20Input:20Pattern Type="045695" Count="1">
+            <value Type="025189" Value="0"/>
+          </Inverted:20Input:20Pattern>
+          <PAM:20Levels:20Configuration Type="045695" Count="2">
+            <children Type="045695" Count="1">
+              <SCC Type="045695" Count="2">
+                <children Type="045695" Count="2">
+                  <Level:20L0 Type="045695" Count="1">
+                    <value Type="029718" Value="0"/>
+                  </Level:20L0>
+                  <Level:20L1 Type="045695" Count="1">
+                    <value Type="029718" Value="100"/>
+                  </Level:20L1>
+                </children>
+                <value Type="000000" Value="@Invalid()"/>
+              </SCC>
+            </children>
+            <value Type="000000" Value="@Invalid()"/>
+          </PAM:20Levels:20Configuration>
+          <Pattern Type="045695" Count="1">
+            <value Type="052907">
+              <Int Type="037093" Value="31"/>
+              <QString Value="PRBS7"/>
+            </value>
+          </Pattern>
+          <Pattern1 Type="045695" Count="1">
+            <value Type="052907">
+              <Int Type="037093" Value="0"/>
+              <QString Value="PRBS7"/>
+            </value>
+          </Pattern1>
+          <Pattern2 Type="045695" Count="1">
+            <value Type="052907">
+              <Int Type="037093" Value="0"/>
+              <QString Value="PRBS7"/>
+            </value>
+          </Pattern2>
+          <PreEmphasis Type="045695" Count="2">
+            <children Type="045695" Count="7">
+              <DAC Type="045695" Count="1">
+                <value Type="052907">
+                  <Int Type="037093" Value="1"/>
+                  <QString Value="SCC"/>
+                </value>
+              </DAC>
+              <Enabled Type="045695" Count="0"/>
+              <PAM:20Level Type="045695" Count="1">
+                <value Type="052907">
+                  <Int Type="037093" Value="1"/>
+                  <QString Value="SCC"/>
+                </value>
+              </PAM:20Level>
+              <Tap0 Type="045695" Count="2">
+                <children Type="045695" Count="1">
+                  <Main:20Tap Type="045695" Count="1">
+                    <value Type="025189" Value="0"/>
+                  </Main:20Tap>
+                </children>
+                <value Type="029718" Value="0"/>
+              </Tap0>
+              <Tap1 Type="045695" Count="2">
+                <children Type="045695" Count="1">
+                  <Main:20Tap Type="045695" Count="1">
+                    <value Type="025189" Value="1"/>
+                  </Main:20Tap>
+                </children>
+                <value Type="029718" Value="101"/>
+              </Tap1>
+              <Tap2 Type="045695" Count="2">
+                <children Type="045695" Count="1">
+                  <Main:20Tap Type="045695" Count="1">
+                    <value Type="025189" Value="0"/>
+                  </Main:20Tap>
+                </children>
+                <value Type="029718" Value="0"/>
+              </Tap2>
+              <Tap3 Type="045695" Count="2">
+                <children Type="045695" Count="1">
+                  <Main:20Tap Type="045695" Count="1">
+                    <value Type="025189" Value="0"/>
+                  </Main:20Tap>
+                </children>
+                <value Type="029718" Value="0"/>
+              </Tap3>
+            </children>
+            <value Type="000000" Value="@Invalid()"/>
+          </PreEmphasis>
+          <Shift:201 Type="045695" Count="1">
+            <value Type="029718" Value="0"/>
+          </Shift:201>
+          <Shift:202 Type="045695" Count="1">
+            <value Type="029718" Value="0"/>
+          </Shift:202>
+        </children>
+        <value Type="000000" Value="@Invalid()"/>
+      </PAMX>
+      <Wordframe>
+        <Length Type="029718" Value="1024"/>
+        <Type Value="PRBS7"/>
+      </Wordframe>
+    </device>
+  </modules>
+</SHFConfig>

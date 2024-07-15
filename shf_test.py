@@ -23,6 +23,14 @@ def print_help():
 
 @click.command(context_settings={"ignore_unknown_options": True})
 @click.option(
+    "-p",
+    "--piezo",
+    is_flag=True,
+    show_default=True,
+    default=False,
+    help="adjust fiber by piezo KCubes",
+)
+@click.option(
     "-t",
     "--test",
     is_flag=True,
@@ -47,14 +55,14 @@ def print_help():
     help="Measure optical spectra with OSA",
 )
 @click.argument("arguments", nargs=-1)
-def analyze(test, liv, osa, arguments):
+def analyze(test, liv, osa, piezo, arguments):
     start_time = datetime.datetime.now()
     WaferID, Wavelength, Coordinates, Temperature = arguments
     print("WaferID: ", WaferID)
     print("Wavelength: ", Wavelength, " nm")
     print("Coordinates: ", Coordinates)
     print("Temperature: ", Temperature, " Deg. Celsius")
-    if not any((test, liv, osa)):
+    if not any((test, liv, osa, piezo)):
         # initiate pyvisa
         rm = pyvisa.ResourceManager()
         # rm = pyvisa.ResourceManager('@py') # for pyvisa-py
@@ -80,6 +88,11 @@ def analyze(test, liv, osa, arguments):
     try:
         if test:
             shfclass.test()
+        elif piezo:
+            self.rst_current_source()
+            assert self.rst_attenuator() == True
+            self.connect_kcubes()
+            self.start_optimizing_fiber()
         elif liv:
             shfclass.rst_current_source()
             print("rst_current_source done")

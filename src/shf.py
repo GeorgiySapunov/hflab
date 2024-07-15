@@ -46,7 +46,7 @@ class SHF:
     ?- Amplifier power source?
     """
 
-    skew = pd.read_csv((Path("resources") / "skew.csv")).transpose()
+    skew = pd.read_csv((Path("resources") / "skew.csv"), header=0, index_col=0).transpose()
     attenuator_shutter_min_timeinterval = 3
     attenuator_shutter_prev_time = time.time()
 
@@ -525,14 +525,14 @@ class SHF:
                 write_termination="\r\n",
                 read_termination="\n",
             )
-        if det:
-            self.det = det
-        else:
-            self.det = rm.open_resource(
-                instruments_config["DET_SHF11220A"],
-                write_termination="\r\n",
-                read_termination="\n",
-            )
+        #if det:
+        #    self.det = det
+        #else:
+        #    self.det = rm.open_resource(
+        #        instruments_config["DET_SHF11220A"],
+        #        write_termination="\r\n",
+        #        read_termination="\n",
+        #    )
         if amplifier_power:
             self.amplifier_power = amplifier_power
         else:
@@ -541,14 +541,14 @@ class SHF:
                 write_termination="\r\n",
                 read_termination="\n",
             )
-        if not pam4:
-            self.pam4 = pam4
-        else:
-            self.pam4 = rm.open_resource(
-                instruments_config["PAM4_SHF616C"],
-                write_termination="\r\n",
-                read_termination="\n",
-            )
+        #if not pam4:
+        #    self.pam4 = pam4
+        #else:
+        #    self.pam4 = rm.open_resource(
+        #        instruments_config["PAM4_SHF616C"],
+        #        write_termination="\r\n",
+        #        read_termination="\n",
+        #    )
         if mainframe:
             self.mainframe = mainframe
         else:
@@ -567,6 +567,8 @@ class SHF:
 
     def shf_command(self, command: str):
         """Sends a commands to a relative SHF equipment and query the result"""
+        print()
+        print("command:  " + command)
         if not self.shf_connected:
             self.logs.append(
                 [
@@ -586,13 +588,15 @@ class SHF:
         elif command.startswith("DET:"):
             responce = str(self.det.query(command))
         timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
+        command = command.strip()
+        responce = responce.strip()
         self.logs.append([timestr, command, responce])
         if command != responce:
             print(timestr)
             print("command:  " + command)
             print("responce: " + responce)
-            self.errorlogs.append([timestr, command, responce, self.log_state])
-        time.sleep(0.01)  # do we need this?
+            self.errorlogs.append([timestr, command, responce, self.log_state()])
+        time.sleep(0.1)  # do we need this?
         return responce
 
     def shf_init(self):
@@ -602,37 +606,38 @@ class SHF:
             "BPG:ALLOWNEWCONNECTIONS=ON;",
             "BPG:OUTPUTLEVEL=0;",
             "BPG:AMPLITUDE=Channel1:650 mV,Channel2:650 mV,Channel3:650 mV,Channel4:650 mV,Channel5:650 mV,Channel6:650 mV,Channel7:500 mV,Channel8:500 mV;",
-            "BPG:OUTPUT=Channel1:OFF,Channel2:OFF,Channel3:OFF,Channel4:OFF,Channel5:OFF,Channel6:OFF,Channel7:OFF,Channel8:OFF:",
-            "BPG:PATTERN=Channel1:PRBS7,Channel2:PRBS7,Channel3:PRBS7,Channel4:PRBS7,Channel5:PRBS7,Channel6:PRBS7;Channel7:PRBS7,Channel8:PRBS7;",
+            "BPG:OUTPUT=Channel1:OFF,Channel2:OFF,Channel3:OFF,Channel4:OFF,Channel5:OFF,Channel6:OFF,Channel7:OFF,Channel8:OFF;",
+            "BPG:PATTERN=Channel1:PRBS7,Channel2:PRBS7,Channel3:PRBS7,Channel4:PRBS7,Channel5:PRBS7,Channel6:PRBS7,Channel7:PRBS7,Channel8:PRBS7;",
             "BPG:ERRORINJECTION=Channel1:OFF,Channel2:OFF,Channel3:OFF,Channel4:OFF,Channel5:OFF,Channel6:OFF,Channel7:OFF,Channel8:OFF;",
             "BPG:DUTYCYCLEADJUST=Channel1:0,Channel2:0,Channel3:0,Channel4:0,Channel5:0,Channel6:0,Channel7:0,Channel8:0;",
             "BPG:CLOCKINPUT=FULL;",
             "BPG:SELECTABLECLOCK=4;",
-            "BPG:SELECTABLEOUTPUT=SELECTABLECLOCK"
-            "BPG:USERSETTINGS=SCC.PATTERN TYPE:PRBS7"
+            "BPG:SELECTABLEOUTPUT=SELECTABLECLOCK;",
+            "BPG:USERSETTINGS=SCC.PATTERN TYPE:PRBS7;",
             "BPG:FIRFILTER=GO:!PRBS7,G1:!PRBS7;",
         ]
         D0_onemV = 0.01587302
         D0 = float(150 * D0_onemV)
         dac_commands = [
+            "DAC:SYMMETRY=VALUE:?;", # TODO
             "DAC:SYMMETRY=VALUE:0.500;",
             "DAC:OUTPUT=STATE:DISABLED;",
-            f"DAC:SIGNAL=ALIAS:D0,VALUE:{D0:.4f};",
-            f"DAC:SIGNAL=ALIAS:D1,VALUE:{D0*2:4f};",
-            f"DAC:SIGNAL=ALIAS:D2,VALUE:{D0*4:4f};",
-            f"DAC:SIGNAL=ALIAS:D3,VALUE:{D0*8:4f};",
-            f"DAC:SIGNAL=ALIAS:D4,VALUE:{D0*16:4f};",
-            f"DAC:SIGNAL=ALIAS:D5,VALUE:{D0*32:4f};",
+            f"DAC:SIGNAL=ALIAS:D0,VALUE:{D0:.2f};",
+            f"DAC:SIGNAL=ALIAS:D1,VALUE:{D0*2:2f};",
+            f"DAC:SIGNAL=ALIAS:D2,VALUE:{D0*4:2f};",
+            f"DAC:SIGNAL=ALIAS:D3,VALUE:{D0*8:2f};",
+            f"DAC:SIGNAL=ALIAS:D4,VALUE:{D0*16:2f};",
+            f"DAC:SIGNAL=ALIAS:D5,VALUE:{D0*32:2f};",
         ]
         clksrc_commands = [
             "CLKSRC:OUTPUT=OFF;",
             "CLKSRC:AMPLITUDE=3.0;",
-            "CUKSRC:FREQUENCY=20000000 Hz;",
+            "CLKSRC:FREQUENCY=20000000000 Hz;",
             "CLKSRC:TRIGGER=MODE:CLKDIV2,MAX;",
             "CLKSRC:REFERENCE=SOURCE:INTERNAL;",
             "CLKSRC:SSCMODE=MODE:OFF;",
             "CLKSRC:SSCDEVIATION=VALUE:0.00;",
-            "CUKSRC:SSCFREQUENCY=VALUE:20000;",
+            "CLKSRC:SSCFREQUENCY=VALUE:20000;",
             "CLKSRC:JITTERSOURCE=STATE:OFF;",
         ]
         for command in bpg_commands + dac_commands + clksrc_commands:
@@ -678,7 +683,7 @@ class SHF:
             "BPG:PATTERN=Channel1:PRBS7,Channel2:PRBS7,Channel3:PRBS7,Channel4:PRBS7,Channel5:PRBS7,Channel6:PRBS7;",
             "BPG:FIRFILTER=ENABLE:OFF;",
             "BPG:PAMLEVELS=SCC.PAMORDER:2;",
-            "BPG:PAMLEVELS=SCC.L0:0.00%,SCC.L1:100.00%;",
+            "BPG:PAMLEVELS=SCC.L0:0%,SCC.L1:100%;",
             "BPG:PREEMPHASIS=DAC:SCC,PAMLEVELS:SCC;",
             # "BPG:FIRFILTER=G0:!PRBS7,G1:!PRBS7;",
             # "BPG:FIRFILTER=FUNCTION:1*y+0;",
@@ -708,9 +713,9 @@ class SHF:
         ]
         bpg_preemphasis_commands = [
             "BPG:PREEMPHASIS=ENABLE:ON;",
-            "BPG:PREEMPHASIS=TAP0:0 %;",
-            "BPG:PREEMPHASIS=TAP2:0 %;",
-            "BPG:PREEMPHASIS=TAP3:0 %;",
+            "BPG:PREEMPHASIS=TAP0:0%;",
+            "BPG:PREEMPHASIS=TAP2:0%;",
+            "BPG:PREEMPHASIS=TAP3:0%;",
         ]
         bpg_channelouptput_commands = [
             "BPG:OUTPUT=Channel1:ON,Channel2:ON,Channel3:ON,Channel4:ON,Channel5:ON,Channel6:ON;",
@@ -755,7 +760,7 @@ class SHF:
         """tap_index should be 0, 2 or 3
         TAP1 is MAIN"""
         if tap_index in (0, 2, 3):
-            self.shf_command(f"BPG:PREEMPHASIS=TAP{tap_index}:{value} %;")
+            self.shf_command(f"BPG:PREEMPHASIS=TAP{tap_index}:{value}%;")
             tap_str = f"TAP{tap_index}"
             self.bpg_preemphasis[tap_str] = value
             print(f"Preemphasis: Tap{tap_index}: {value}%")
@@ -769,12 +774,12 @@ class SHF:
         D0_onemV = 0.01587302
         D0 = float(target_amplitude * D0_onemV)
         dac_commands = [
-            f"DAC:SIGNAL=ALIAS:D0,VALUE:{D0:.4f};",
-            f"DAC:SIGNAL=ALIAS:D1,VALUE:{D0*2:4f};",
-            f"DAC:SIGNAL=ALIAS:D2,VALUE:{D0*4:4f};",
-            f"DAC:SIGNAL=ALIAS:D3,VALUE:{D0*8:4f};",
-            f"DAC:SIGNAL=ALIAS:D4,VALUE:{D0*16:4f};",
-            f"DAC:SIGNAL=ALIAS:D5,VALUE:{D0*32:4f};",
+            f"DAC:SIGNAL=ALIAS:D0,VALUE:{D0:.2f};",
+            f"DAC:SIGNAL=ALIAS:D1,VALUE:{D0*2:2f};",
+            f"DAC:SIGNAL=ALIAS:D2,VALUE:{D0*4:2f};",
+            f"DAC:SIGNAL=ALIAS:D3,VALUE:{D0*8:2f};",
+            f"DAC:SIGNAL=ALIAS:D4,VALUE:{D0*16:2f};",
+            f"DAC:SIGNAL=ALIAS:D5,VALUE:{D0*32:2f};",
             "DAC:OUTPUT=STATE:ENABLED;",
         ]
         for command in dac_commands:
@@ -800,9 +805,9 @@ class SHF:
         ]
         clksrc_commands = [
             "CLKSRC:OUTPUT=ON;",
-            f"CLKSRC:FREQUENCY={target_frequency*1,000,000,000} Hz;",
+            f"CLKSRC:FREQUENCY={target_frequency*1000000000} Hz;",
         ]
-        if target_frequency >= 46:
+        if target_frequency >= 45:
             dac_frequency = 60
             dac_databias_value = -0.6
         else:
@@ -819,7 +824,7 @@ class SHF:
         )
 
     def shf_turn_off(self):
-        if not self.shf_connected is False:
+        if not self.shf_connected:
             self.logs.append(
                 [
                     time.strftime("%Y%m%d-%H%M%S"),
@@ -831,14 +836,14 @@ class SHF:
             "DAC:OUTPUT=STATE:DISABLED;",
         ]
         bpg_commands = [
-            "BPG:PREEMPHASIS=TAP0:0 %;",
-            "BPG:PREEMPHASIS=TAP2:0 %;",
-            "BPG:PREEMPHASIS=TAP3:0 %;",
-            "BPG:OUTPUT=Channel1:OFF,Channel2:OFF,Channel3:OFF,Channel4:OFF,Channel5:OFF,Channel6:OFF,Channel7:OFF,Channel8:OFF:",
+            "BPG:PREEMPHASIS=TAP0:0%;",
+            "BPG:PREEMPHASIS=TAP2:0%;",
+            "BPG:PREEMPHASIS=TAP3:0%;",
+            "BPG:OUTPUT=Channel1:OFF,Channel2:OFF,Channel3:OFF,Channel4:OFF,Channel5:OFF,Channel6:OFF,Channel7:OFF,Channel8:OFF;",
         ]
         clksrc_commands = [
-            "CLKSRC:FREQUENCY=20000000000 Hz.",
-            "CLKSRC:OUTPUT=OFF",
+            "CLKSRC:FREQUENCY=20000000000 Hz;",
+            "CLKSRC:OUTPUT=OFF;",
         ]
         for command in dac_commands + bpg_commands + clksrc_commands:
             self.shf_command(command)
@@ -854,6 +859,7 @@ class SHF:
         self.clksrc_output = 0  # OFF
         self.bpg_preemphasis = {"TAP0": 0, "TAP2": 0, "TAP3": 0}  # TAP1 is Main
         self.dac_output = 0
+        self.shf_connected = False
         self.logs.append(
             [time.strftime("%Y%m%d-%H%M%S"), "DAC, BPG and Clock output is closed"]
         )
@@ -1482,7 +1488,7 @@ class SHF:
         "measure BER using EA"
         pass
 
-    def autosearch_eye(self):  # TODO
+    def autosearch_eye(self):  # TODO DET doesn't connect
         if self.bpg_pattern == "PRBS7Q":
             self.shf_command("DET:OUTPUT=STATE:ON;")
         value = self.shf_command("DET:AUTOSEARCH=VALUE:RUN;")
@@ -1557,17 +1563,17 @@ class SHF:
 
     def test_ea(self):
         self.shf_command("EA:AUTOSEARCH=channel1:simple;")
-
+        
     def test(self):
         self.rst_current_source()
         print("rst_current_source done")
         assert self.rst_attenuator() == True
         print("rst_attenuator done")
-        self.gently_apply_current(2)
+        self.gently_apply_current(8)
         self.update_attenuation_data()
         # print(self.log_state())
-        self.connect_kcubes()
-        self.start_optimizing_fiber()
+        # self.connect_kcubes()
+        # self.start_optimizing_fiber()
         # voltlist = [0, 10, 20, 30, 40, 50, 60, 70]
         # maxoutput = 0
         # minoutput = 10
@@ -1584,26 +1590,19 @@ class SHF:
         # print("min: ", minoutput)
         # self.kcubes_disconnect()
         # print(self.log_state())
-
         self.shf_init()
-        time.sleep(2)
-        # self.gently_apply_current(2)
-        # time.sleep(2)
-        #
         self.shf_patternsetup("nrz")
-        time.sleep(2)
         self.shf_set_amplitude(300)
-        time.sleep(2)
         self.shf_set_preemphasis(0, 10)
         self.shf_set_preemphasis(2, 10)
         self.shf_set_preemphasis(3, 10)
-        time.sleep(2)
         self.shf_set_clksrc_frequency(25)
-        time.sleep(2)
         self.shf_set_clksrc_frequency(30)
-        time.sleep(2)
+        self.set_attenuation(0)
+        self.open_attenuator_shutter()
+        input("test Tektronix!")
         self.test_ea()
-        time.sleep(2)
-        self.autosearch_eye()
-        time.sleep(2)
+        #self.autosearch_eye()
+        print("turning off the SHF equipment")
+        self.attenuator_shutter("close")
         self.shf_turn_off()
