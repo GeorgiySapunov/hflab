@@ -121,7 +121,7 @@ def analyze(test, liv, osa, piezo, arguments):
                 WaferID,
                 Wavelength,
                 Coordinates,
-                Temperature,
+                float(Temperature),
                 Keysight_B2901A=Keysight_B2901A,
                 YOKOGAWA_AQ6370D=YOKOGAWA_AQ6370D,
             )
