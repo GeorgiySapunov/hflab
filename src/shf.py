@@ -46,7 +46,9 @@ class SHF:
     ?- Amplifier power source?
     """
 
-    skew = pd.read_csv((Path("resources") / "skew.csv"), header=0, index_col=0).transpose()
+    skew = pd.read_csv(
+        (Path("resources") / "skew.csv"), header=0, index_col=0
+    ).transpose()
     attenuator_shutter_min_timeinterval = 3
     attenuator_shutter_prev_time = time.time()
 
@@ -289,6 +291,7 @@ class SHF:
                 f"{voltage} V",
             ]
         )  # Final current
+        print(" " * 80, end="\r")
         print(
             f"{oldcurrent} -> {target_current_mA} mA,\t{current_measured} mA,\t{voltage:3.3f} V"
         )
@@ -346,12 +349,14 @@ class SHF:
         return self.attenuator_powerin
 
     def attenuator_command(self, command):
+        "optical attenuator SCPI write"
         self.check_attenuator_timeout()
         self.attenuator.write(self.attenuator_lins + command)
         self.logs.append([time.strftime("%Y%m%d-%H%M%S"), command])
         self.check_attenuator_timeout()
 
     def query_attenuator_command(self, command):
+        "optical attenuator SCPI query"
         self.check_attenuator_timeout()
         responce = self.attenuator.query(self.attenuator_lins + command).rstrip()
         self.logs.append([time.strftime("%Y%m%d-%H%M%S"), command, responce])
@@ -359,6 +364,9 @@ class SHF:
         return responce
 
     def attenuator_shutter(self, status: str):
+        """open to open without power check
+        (see self.open_attenuator_shutter() to open with input power check),
+        close to close attenuator shuttter"""
         while (
             time.time() - self.attenuator_shutter_prev_time
         ) < self.attenuator_shutter_min_timeinterval:
@@ -405,7 +413,7 @@ class SHF:
         return not self.attenuator_locked and self.attenuator_status == "READY"
 
     def set_attenuation(self, target_value: float):
-        """Set the attenuation"""
+        """sets the optical attenuation"""
         self.update_attenuator_powerin()
         if target_value > self.max_optical_powermW:
             print(
@@ -437,12 +445,14 @@ class SHF:
         self.update_attenuation_data()
 
     def update_attenuation_data(self):
+        """updates self.attenuator_powerout containing optical output power"""
         self.update_attenuator_powerin()
         self.attenuator_powerout = float(
             self.query_attenuator_command(":OUTP:POW?")
         )  # dBm
 
     def open_attenuator_shutter(self):
+        """open to open with input power check"""
         self.attenuator_powerout = float(
             self.query_attenuator_command(":OUTP:POW?")
         )  # dBm
@@ -525,9 +535,9 @@ class SHF:
                 write_termination="\r\n",
                 read_termination="\n",
             )
-        #if det:
+        # if det:
         #    self.det = det
-        #else:
+        # else:
         #    self.det = rm.open_resource(
         #        instruments_config["DET_SHF11220A"],
         #        write_termination="\r\n",
@@ -541,9 +551,9 @@ class SHF:
                 write_termination="\r\n",
                 read_termination="\n",
             )
-        #if not pam4:
+        # if not pam4:
         #    self.pam4 = pam4
-        #else:
+        # else:
         #    self.pam4 = rm.open_resource(
         #        instruments_config["PAM4_SHF616C"],
         #        write_termination="\r\n",
@@ -577,6 +587,7 @@ class SHF:
                 ]
             )
             self.connect_shf()
+            self.shf_init()
         if command.startswith("BPG:"):
             responce = str(self.bpg.query(command))
         elif command.startswith("DAC:"):
@@ -614,26 +625,27 @@ class SHF:
             "BPG:SELECTABLECLOCK=4;",
             "BPG:SELECTABLEOUTPUT=SELECTABLECLOCK;",
             "BPG:USERSETTINGS=SCC.PATTERN TYPE:PRBS7;",
-            "BPG:FIRFILTER=GO:!PRBS7,G1:!PRBS7;",
+            "BPG:FIRFILTER=G0:!PRBS7,G1:!PRBS7;",
         ]
         D0_onemV = 0.01587302
         D0 = float(150 * D0_onemV)
         dac_commands = [
-            "DAC:SYMMETRY=VALUE:?;", # TODO
-            "DAC:SYMMETRY=VALUE:0.500;",
+            # "DAC:SYMMETRY=VALUE:?;",
             "DAC:OUTPUT=STATE:DISABLED;",
             f"DAC:SIGNAL=ALIAS:D0,VALUE:{D0:.2f};",
-            f"DAC:SIGNAL=ALIAS:D1,VALUE:{D0*2:2f};",
-            f"DAC:SIGNAL=ALIAS:D2,VALUE:{D0*4:2f};",
-            f"DAC:SIGNAL=ALIAS:D3,VALUE:{D0*8:2f};",
-            f"DAC:SIGNAL=ALIAS:D4,VALUE:{D0*16:2f};",
-            f"DAC:SIGNAL=ALIAS:D5,VALUE:{D0*32:2f};",
+            f"DAC:SIGNAL=ALIAS:D1,VALUE:{(D0*2):2f};",
+            f"DAC:SIGNAL=ALIAS:D2,VALUE:{(D0*4):2f};",
+            f"DAC:SIGNAL=ALIAS:D3,VALUE:{(D0*8):2f};",
+            f"DAC:SIGNAL=ALIAS:D4,VALUE:{(D0*16):2f};",
+            f"DAC:SIGNAL=ALIAS:D5,VALUE:{(D0*32):2f};",
         ]
         clksrc_commands = [
             "CLKSRC:OUTPUT=OFF;",
             "CLKSRC:AMPLITUDE=3.0;",
             "CLKSRC:FREQUENCY=20000000000 Hz;",
-            "CLKSRC:TRIGGER=MODE:CLKDIV2,MAX;",
+            "CLKSRC:TRIGGER=MODE:CLKDIV4;",
+            # "CLKSRC:TRIGGER=MODE:?",
+            # "CLKSRC:TRIGGER=MODE:CLKDIV2,MAX:?",
             "CLKSRC:REFERENCE=SOURCE:INTERNAL;",
             "CLKSRC:SSCMODE=MODE:OFF;",
             "CLKSRC:SSCDEVIATION=VALUE:0.00;",
@@ -775,16 +787,16 @@ class SHF:
         D0 = float(target_amplitude * D0_onemV)
         dac_commands = [
             f"DAC:SIGNAL=ALIAS:D0,VALUE:{D0:.2f};",
-            f"DAC:SIGNAL=ALIAS:D1,VALUE:{D0*2:2f};",
-            f"DAC:SIGNAL=ALIAS:D2,VALUE:{D0*4:2f};",
-            f"DAC:SIGNAL=ALIAS:D3,VALUE:{D0*8:2f};",
-            f"DAC:SIGNAL=ALIAS:D4,VALUE:{D0*16:2f};",
-            f"DAC:SIGNAL=ALIAS:D5,VALUE:{D0*32:2f};",
+            f"DAC:SIGNAL=ALIAS:D1,VALUE:{(D0*2):2f};",
+            f"DAC:SIGNAL=ALIAS:D2,VALUE:{(D0*4):2f};",
+            f"DAC:SIGNAL=ALIAS:D3,VALUE:{(D0*8):2f};",
+            f"DAC:SIGNAL=ALIAS:D4,VALUE:{(D0*16):2f};",
+            f"DAC:SIGNAL=ALIAS:D5,VALUE:{(D0*32):2f};",
             "DAC:OUTPUT=STATE:ENABLED;",
         ]
         for command in dac_commands:
             self.shf_command(command)
-        print(f"DAC amplitude set: {target_amplitude} mW")
+        print(f"DAC amplitude set: {target_amplitude} mV")
         self.dac_amplitude = target_amplitude
         self.dac_output = 1
         self.logs.append(
@@ -1173,6 +1185,7 @@ class SHF:
             ]
         )
         timeout = 300
+        self.gently_apply_current(self.test_current)
         start_time = time.time()  # start time for timeout
         while (time.time() - start_time) < timeout:
             prompt = f"The fiber optimization will preceed after {timeout} seconds. Start optimizing the fiber position? Y/n"
@@ -1563,7 +1576,7 @@ class SHF:
 
     def test_ea(self):
         self.shf_command("EA:AUTOSEARCH=channel1:simple;")
-        
+
     def test(self):
         self.rst_current_source()
         print("rst_current_source done")
@@ -1600,9 +1613,5 @@ class SHF:
         self.shf_set_clksrc_frequency(30)
         self.set_attenuation(0)
         self.open_attenuator_shutter()
-        input("test Tektronix!")
         self.test_ea()
-        #self.autosearch_eye()
-        print("turning off the SHF equipment")
         self.attenuator_shutter("close")
-        self.shf_turn_off()

@@ -89,10 +89,10 @@ def analyze(test, liv, osa, piezo, arguments):
         if test:
             shfclass.test()
         elif piezo:
-            self.rst_current_source()
-            assert self.rst_attenuator() == True
-            self.connect_kcubes()
-            self.start_optimizing_fiber()
+            shfclass.rst_current_source()
+            assert shfclass.rst_attenuator() == True
+            shfclass.connect_kcubes()
+            shfclass.start_optimizing_fiber()
         elif liv:
             shfclass.rst_current_source()
             print("rst_current_source done")
@@ -126,6 +126,7 @@ def analyze(test, liv, osa, piezo, arguments):
                 YOKOGAWA_AQ6370D=YOKOGAWA_AQ6370D,
             )
     finally:
+        shfclass.shf_turn_off()
         shfclass.gently_apply_current(0)
         shfclass.save_logs()
         end_time = datetime.datetime.now()
