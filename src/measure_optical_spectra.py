@@ -61,10 +61,10 @@ def measure_osa(
             # f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-*PM100USB.csv"
             f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-*EXPOLTB1.csv"
         ),
-        reverse=True,
+        reverse=False,
     )
     if len(livfiles) > 0:
-        print(colored(f"{len(livfiles)} LIV files found:", "red"))
+        print(colored(f"{len(livfiles)} LIV files found:", "green"))
         for fileindex, file in enumerate(livfiles, start=1):
             livfile_max_current, liv_dataframe = check_maximum_current(file)
             print(
@@ -74,7 +74,7 @@ def measure_osa(
         alarm = True
         print(
             colored(
-                f"ALARM! LIV file in not found!",
+                f"ALARM! LIV file is not found!",
                 "red",
             )
         )
@@ -143,108 +143,115 @@ def measure_osa(
 
     # main loop for OSA measurements at different currents
     for current_set in osa_current_list:
-        # Outputs i Ampere immediately
-        Keysight_B2901A.write(":SOUR:CURR " + str(current_set / 1000))
-        time.sleep(0.03)
-        # measure Voltage, V
-        voltage_measured_along_osa = float(Keysight_B2901A.query("MEAS:VOLT?"))
-        # measure Current, mA
-        current_measured = float(Keysight_B2901A.query("MEAS:CURR?")) * 1000
+        try:
+            # Outputs i Ampere immediately
+            Keysight_B2901A.write(":SOUR:CURR " + str(current_set / 1000))
+            time.sleep(0.03)
+            # measure Voltage, V
+            voltage_measured_along_osa = float(Keysight_B2901A.query("MEAS:VOLT?"))
+            # measure Current, mA
+            current_measured = float(Keysight_B2901A.query("MEAS:CURR?")) * 1000
 
-        # add current, measured current, voltage, power, power consumption to the DataFrame
-        iv.loc[len(iv)] = [
-            current_set,
-            current_measured,
-            voltage_measured_along_osa,
-            voltage_measured_along_osa * current_measured,
-        ]
+            # add current, measured current, voltage, power, power consumption to the DataFrame
+            iv.loc[len(iv)] = [
+                current_set,
+                current_measured,
+                voltage_measured_along_osa,
+                voltage_measured_along_osa * current_measured,
+            ]
 
-        # print data to the terminal
-        print(
-            f"[{current_set:3.2f}/{livfile_max_current:3.2f} mA] {current_measured:10.5f} mA, {voltage_measured_along_osa:8.5f} V",
-            end="\r",
-        )
+            # print data to the terminal
+            print(
+                f"[{current_set:3.2f}/{livfile_max_current:3.2f} mA] {current_measured:10.5f} mA, {voltage_measured_along_osa:8.5f} V",
+                end="\r",
+            )
 
-        # YOKOGAWA_AQ6370D.write("*CLS")
-        YOKOGAWA_AQ6370D.write(":INITiate")
+            # YOKOGAWA_AQ6370D.write("*CLS")
+            YOKOGAWA_AQ6370D.write(":INITiate")
 
-        status = YOKOGAWA_AQ6370D.query(":STATus:OPERation:EVENt?")[0]
-
-        # loop to check whether spectrum is aquired
-        while status != "1":
             status = YOKOGAWA_AQ6370D.query(":STATus:OPERation:EVENt?")[0]
-            time.sleep(0.3)
 
-        if not current_set:  # if i == 0.0:
-            wavelength_list = YOKOGAWA_AQ6370D.query(":TRACE:X? TRA").strip().split(",")
-            spectra["Wavelength, nm"] = (
-                pd.Series(wavelength_list).astype("float64") * 10**9
+            # loop to check whether spectrum is aquired
+            while status != "1":
+                status = YOKOGAWA_AQ6370D.query(":STATus:OPERation:EVENt?")[0]
+                time.sleep(0.3)
+
+            if not current_set:  # if i == 0.0:
+                wavelength_list = (
+                    YOKOGAWA_AQ6370D.query(":TRACE:X? TRA").strip().split(",")
+                )
+                spectra["Wavelength, nm"] = (
+                    pd.Series(wavelength_list).astype("float64") * 10**9
+                )
+            YOKOGAWA_AQ6370D.write("*CLS")
+            intensity = YOKOGAWA_AQ6370D.query(":TRACE:Y? TRA").strip().split(",")
+            column_spectra = f"Intensity at {current_set:.2f} mA, dBm"
+            spectra[column_spectra] = pd.Series(intensity).astype("float64")
+            intensity_max = spectra[column_spectra].max()
+            intensity_max_wavelength = spectra["Wavelength, nm"][
+                spectra[column_spectra].argmax()
+            ]
+            print(
+                f"[{current_set:3.2f}/{livfile_max_current:3.2f} mA] {current_measured:10.5f} mA, {voltage_measured_along_osa:8.5f} V, {intensity_max:3.1f} dBm, {intensity_max_wavelength:3.3f} nm"
             )
+
+            # deal with set/measured current mismatch
+            current_error = abs(current_set - current_measured)
+            if round(current_measured, round_to) != current_set:
+                warnings.append(
+                    f"Current set={current_set} mA, current measured={current_measured} mA"
+                )
+                print(
+                    colored(
+                        f"WARNING! Current set is {current_set}, while current measured is {current_measured}, current_error = {current_error} mA",
+                        "cyan",
+                    )
+                )
+
+            voltage_measured_along_liv = float(
+                (
+                    liv_dataframe.loc[liv_dataframe["Current set, mA"] == current_set][
+                        "Voltage, V"
+                    ]
+                ).iloc[0]
+            )
+            voltage_error = abs(voltage_measured_along_osa - voltage_measured_along_liv)
+            if round(voltage_measured_along_osa, 2) != round(
+                voltage_measured_along_liv, 2
+            ):
+                warnings.append(
+                    f"Voltage measured along osa={voltage_measured_along_osa} V, voltage measured along liv={voltage_measured_along_liv} V, voltage_error = {voltage_error} V"
+                )
+                print(
+                    colored(
+                        f"WARNING! Voltage measured along osa={voltage_measured_along_osa} V, voltage measured along liv={voltage_measured_along_liv} V, voltage_error = {voltage_error} V",
+                        "cyan",
+                    )
+                )
+
+            if current_error >= 0.03:
+                alarm = True
+                print(
+                    colored(
+                        f"ALARM! Current set is {current_set}, while current measured is {current_measured}, current_error = {current_error} mA\tBreaking the measurements!",
+                        "red",
+                    )
+                )
+                break  # break the loop
+
+            if voltage_error >= 0.2:
+                alarm = True
+                print(
+                    colored(
+                        f"ALARM! Voltage measured along osa={voltage_measured_along_osa} V, voltage measured along liv={voltage_measured_along_liv} V, voltage_error = {voltage_error}\tBreaking the measurements!",
+                        "red",
+                    )
+                )
+                break  # break the loop
+        except Exception as e:
+            print(e)
+
         YOKOGAWA_AQ6370D.write("*CLS")
-        intensity = YOKOGAWA_AQ6370D.query(":TRACE:Y? TRA").strip().split(",")
-        column_spectra = f"Intensity at {current_set:.2f} mA, dBm"
-        spectra[column_spectra] = pd.Series(intensity).astype("float64")
-        intensity_max = spectra[column_spectra].max()
-        intensity_max_wavelength = spectra["Wavelength, nm"][
-            spectra[column_spectra].argmax()
-        ]
-        print(
-            f"[{current_set:3.2f}/{livfile_max_current:3.2f} mA] {current_measured:10.5f} mA, {voltage_measured_along_osa:8.5f} V, {intensity_max:3.1f} dBm, {intensity_max_wavelength:3.3f} nm"
-        )
-
-        # deal with set/measured current mismatch
-        current_error = abs(current_set - current_measured)
-        if round(current_measured, round_to) != current_set:
-            warnings.append(
-                f"Current set={current_set} mA, current measured={current_measured} mA"
-            )
-            print(
-                colored(
-                    f"WARNING! Current set is {current_set}, while current measured is {current_measured}, current_error = {current_error} mA",
-                    "cyan",
-                )
-            )
-
-        voltage_measured_along_liv = float(
-            (
-                liv_dataframe.loc[liv_dataframe["Current set, mA"] == current_set][
-                    "Voltage, V"
-                ]
-            ).iloc[0]
-        )
-        voltage_error = abs(voltage_measured_along_osa - voltage_measured_along_liv)
-        if round(voltage_measured_along_osa, 2) != round(voltage_measured_along_liv, 2):
-            warnings.append(
-                f"Voltage measured along osa={voltage_measured_along_osa} V, voltage measured along liv={voltage_measured_along_liv} V, voltage_error = {voltage_error} V"
-            )
-            print(
-                colored(
-                    f"WARNING! Voltage measured along osa={voltage_measured_along_osa} V, voltage measured along liv={voltage_measured_along_liv} V, voltage_error = {voltage_error} V",
-                    "cyan",
-                )
-            )
-
-        if current_error >= 0.03:
-            alarm = True
-            print(
-                colored(
-                    f"ALARM! Current set is {current_set}, while current measured is {current_measured}, current_error = {current_error} mA\tBreaking the measurements!",
-                    "red",
-                )
-            )
-            break  # break the loop
-
-        if voltage_error >= 0.2:
-            alarm = True
-            print(
-                colored(
-                    f"ALARM! Voltage measured along osa={voltage_measured_along_osa} V, voltage measured along liv={voltage_measured_along_liv} V, voltage_error = {voltage_error}\tBreaking the measurements!",
-                    "red",
-                )
-            )
-            break  # break the loop
-
-    YOKOGAWA_AQ6370D.write("*CLS")
 
     # slowly decrease current
     current_measured = (
@@ -273,6 +280,6 @@ def measure_osa(
         print(colored(f"Warnings: {len(warnings)}", "cyan"))
         print(*[colored(warning, "cyan") for warning in warnings], sep="\n")
     print(f"Directory: {dirpath}")
-    print(f"To analyze run python analyze.py -o {dirpath}")
+    print(f"To analyze run: python analyze.py -o {dirpath}")
 
     return alarm

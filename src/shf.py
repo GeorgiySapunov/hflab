@@ -181,9 +181,8 @@ class SHF:
         timestr = time.strftime("%Y%m%d-%H%M%S")  # current time
         self.logs.append([timestr, "ALARM: " + message, self.log_state()])
         self.errorlogs.append([timestr, "ALARM: " + message, self.log_state()])
-        if self.shf_connected:
-            self.shf_turn_off()
-            time.sleep(0.2)  # can we remove it?
+        self.shf_turn_off()
+        time.sleep(0.2)  # can we remove it?
         self.gently_apply_current(0)
         self.save_logs()
         exit()
@@ -612,6 +611,7 @@ class SHF:
 
     def shf_init(self):
         bpg_commands = [
+            "BPG:USERSETTINGS=?",
             "BPG:PREEMPHASIS=ENABLE:OFF;",
             "BPG:FIRFILTER=ENABLE:OFF;",
             "BPG:ALLOWNEWCONNECTIONS=ON;",
@@ -682,6 +682,24 @@ class SHF:
                 "SHF initialization is finished",
             ]
         )
+
+    def ea_init(self):
+        ea_commands = [
+            "EA:USERSETTINGS=?;",
+            "EA:CLOCKINPUT=FULL;",
+            "EA:PATTERN=?;",
+            "EA:PATTERN=CHANNEL1:!PRBS7;",  # ! -- means inverted
+            "EA:MEASUREMENTMODE=?;",
+            "EA:THRESHOLDMODE=?;",
+            "EA:THRESHOLDMODE=CHANNEL1:INVERTED;",
+            "EA:MEASUREMENTMODE=CHANNEL1:SINGLE;",
+            "EA:MEASUREMENTPERIOD=CHANNEL1:?;",
+            "EA:MEASUREMENTPERIOD=CHANNEL1:55 s;",
+            # "EA:MEASUREMENTPERIOD=CHANNEL1:5 m;",
+        ]
+        for command in ea_commands:
+            self.shf_command(command)
+        pass
 
     def shf_patternsetup(self, pattern: str):
         """Configure PRBS7 and PRBS7Q pattern, open channels, set amplitude to 150 and open DAC output
@@ -1173,7 +1191,7 @@ class SHF:
             ]
         )
 
-    def start_optimizing_fiber(self):
+    def start_optimizing_fiber(self, ask=True):
         self.move_fiber_sim([37.5, 37.5, 37.5])
         print(
             "Piezo voltages set to 37.5. Please manually adjust the fiber position using nobs."
@@ -1188,8 +1206,11 @@ class SHF:
         self.gently_apply_current(self.test_current)
         start_time = time.time()  # start time for timeout
         while (time.time() - start_time) < timeout:
-            prompt = f"The fiber optimization will preceed after {timeout} seconds. Start optimizing the fiber position? Y/n"
-            answer = input(prompt)
+            if ask:
+                prompt = f"The fiber optimization will preceed after {timeout} seconds. Start optimizing the fiber position? Y/n"
+                answer = input(prompt)
+            else:
+                answer = None
             if answer:
                 if answer in ("Y", "y"):
                     self.simple_optimize_fiber()
@@ -1219,7 +1240,11 @@ class SHF:
         for i, step in enumerate(list_of_steps, start=1):
             print(" " * 80, end="\r")
             print(f"[{i}/{len(list_of_steps)}] step: {step}" + " " * 50)
-            max_powerin, max_powerin_position = self.optim_fiber_itteration(step=step)
+            max_powerin, max_powerin_position, border = self.optim_fiber_itteration(
+                step=step
+            )
+            if border:
+                return
         powerin = self.update_attenuator_powerin()
         print(" " * 80, end="\r")
         print(
@@ -1234,6 +1259,7 @@ class SHF:
         self.attenuator_command(":CONT:MODE POW")
 
     def optim_fiber_itteration(self, step: float = 1, piezo_sleep: float = 0.5):
+        border = False
         self.update_fiber_position()
         max_powerin = self.update_attenuator_powerin()
         max_powerin_position = self.piezo_voltages[:]
@@ -1245,6 +1271,8 @@ class SHF:
                 voltages[axis] += step
                 if voltages[axis] >= 74.7:
                     self.fiber_at_border(axis)
+                    border = True
+                    return max_powerin, max_powerin_position, border
                 power = self.fiber_position_to_power(voltages, sleep=piezo_sleep)
                 print(" " * 80, end="\r")
                 print(
@@ -1271,6 +1299,8 @@ class SHF:
                 voltages[axis] -= step
                 if voltages[axis] <= 0.3:
                     self.fiber_at_border(axis)
+                    border = True
+                    return max_powerin, max_powerin_position, border
                 power = self.fiber_position_to_power(voltages, sleep=piezo_sleep)
                 print(" " * 80, end="\r")
                 print(
@@ -1293,88 +1323,88 @@ class SHF:
                         sleep=piezo_sleep,
                     )
             self.move_fiber_sim(max_powerin_position)
-        return max_powerin, max_powerin_position
+        return max_powerin, max_powerin_position, border
 
-    def optimize_fiber(self):
-        "optimize the fiber position using Thorlabs KCubes"
-        self.update_fiber_position()
-        self.attenuator_shutter("close")
-        self.attenuator_command(f":INP:WAV {self.wavelength} NM")
-        self.attenuator_command(":CONT:MODE POW")
-        self.attenuator_command(":OUTP:ALC ON")  # Power tracking
-        self.attenuator_command(":OUTP:APM REF")  # Reference mode.
-        self.update_attenuator_powerin()
-        start_powerin = self.attenuator_powerin
-        self.gently_apply_current(self.test_current)
-        theta = [37.5, 37.5, 37.5]  # initial voltages
-        self.move_fiber_sim(theta)
-        eta = 2  # optimization rate
-        n_epochs = 150
-        sleep = 0.1
-        delta = 0.2
-        for epoch in range(n_epochs):
-            eta *= 0.988
-            # if sleep < 0.5:
-            #     sleep *= 1.01
-            # else:
-            #     sleep = 0.5
-            gradient = self.gradient_power(delta=delta, sleep=sleep)
-            mode = np.sqrt(gradient[0] ** 2 + gradient[1] ** 2 + gradient[2] ** 2)
-            if eta * mode > 5:
-                coeff = mode / 5
-                gradient = [
-                    gradient[0] / coeff,
-                    gradient[1] / coeff,
-                    gradient[2] / coeff,
-                ]
-            mode = np.sqrt(gradient[0] ** 2 + gradient[1] ** 2 + gradient[2] ** 2)
-            X = round(theta[0] + eta * gradient[0], 2)
-            Y = round(theta[1] + eta * gradient[1], 2)
-            Z = round(theta[2] + eta * gradient[2], 2)
-            theta = [X, Y, Z]
-            self.move_fiber_sim(theta)
-            print(f"X: {X}\tY: {Y}\tZ: {Z},\tlast step: {eta * mode}", end="\r")
-            if eta * mode < 0.1:
-                print(f"Fiber position is optimized in {epoch+1} epochs")
-                break
-        print(
-            f"The last epoch. Derivatives: X:{gradient[0]}, Y:{gradient[1]}, Z:{gradient[2]}"
-        )
-        self.attenuator_powerin = self.fiber_position_to_power(theta)
-        print(
-            f"X: {X}\tY: {Y}\tZ: {Z}\tPowerin: {start_powerin} -> {self.attenuator_powerin} mW"
-        )
-        self.logs.append(
-            [
-                time.strftime("%Y%m%d-%H%M%S"),
-                f"Fiber position is optimized. X: {X}\tY: {Y}\tZ: {Z}\tPowerin: {start_powerin} -> {self.attenuator_powerin} mW",
-            ]
-        )
+    # def optimize_fiber(self):
+    #     "optimize the fiber position using Thorlabs KCubes"
+    #     self.update_fiber_position()
+    #     self.attenuator_shutter("close")
+    #     self.attenuator_command(f":INP:WAV {self.wavelength} NM")
+    #     self.attenuator_command(":CONT:MODE POW")
+    #     self.attenuator_command(":OUTP:ALC ON")  # Power tracking
+    #     self.attenuator_command(":OUTP:APM REF")  # Reference mode.
+    #     self.update_attenuator_powerin()
+    #     start_powerin = self.attenuator_powerin
+    #     self.gently_apply_current(self.test_current)
+    #     theta = [37.5, 37.5, 37.5]  # initial voltages
+    #     self.move_fiber_sim(theta)
+    #     eta = 2  # optimization rate
+    #     n_epochs = 150
+    #     sleep = 0.1
+    #     delta = 0.2
+    #     for epoch in range(n_epochs):
+    #         eta *= 0.988
+    #         # if sleep < 0.5:
+    #         #     sleep *= 1.01
+    #         # else:
+    #         #     sleep = 0.5
+    #         gradient = self.gradient_power(delta=delta, sleep=sleep)
+    #         mode = np.sqrt(gradient[0] ** 2 + gradient[1] ** 2 + gradient[2] ** 2)
+    #         if eta * mode > 5:
+    #             coeff = mode / 5
+    #             gradient = [
+    #                 gradient[0] / coeff,
+    #                 gradient[1] / coeff,
+    #                 gradient[2] / coeff,
+    #             ]
+    #         mode = np.sqrt(gradient[0] ** 2 + gradient[1] ** 2 + gradient[2] ** 2)
+    #         X = round(theta[0] + eta * gradient[0], 2)
+    #         Y = round(theta[1] + eta * gradient[1], 2)
+    #         Z = round(theta[2] + eta * gradient[2], 2)
+    #         theta = [X, Y, Z]
+    #         self.move_fiber_sim(theta)
+    #         print(f"X: {X}\tY: {Y}\tZ: {Z},\tlast step: {eta * mode}", end="\r")
+    #         if eta * mode < 0.1:
+    #             print(f"Fiber position is optimized in {epoch+1} epochs")
+    #             break
+    #     print(
+    #         f"The last epoch. Derivatives: X:{gradient[0]}, Y:{gradient[1]}, Z:{gradient[2]}"
+    #     )
+    #     self.attenuator_powerin = self.fiber_position_to_power(theta)
+    #     print(
+    #         f"X: {X}\tY: {Y}\tZ: {Z}\tPowerin: {start_powerin} -> {self.attenuator_powerin} mW"
+    #     )
+    #     self.logs.append(
+    #         [
+    #             time.strftime("%Y%m%d-%H%M%S"),
+    #             f"Fiber position is optimized. X: {X}\tY: {Y}\tZ: {Z}\tPowerin: {start_powerin} -> {self.attenuator_powerin} mW",
+    #         ]
+    #     )
 
-    def gradient_power(self, delta: float = 0.1, sleep: float = 0.5):
-        "measure power and calculate gradient. You need to keep piezo voltages 2*delta away from the borders"
-        self.update_fiber_position()
-        mid_power = self.update_attenuator_powerin()
-        old_piezo_voltages = self.piezo_voltages[:]
-        gradient = [0.0, 0.0, 0.0]
-        for axis, start_voltage in enumerate(old_piezo_voltages):
-            if start_voltage < delta and start_voltage > 75 - delta:
-                self.fiber_at_border(axis)
-            piezo_voltages_tmp = old_piezo_voltages[:]
-            piezo_voltages_tmp[axis] = start_voltage - delta
-            plus_power = (
-                self.fiber_position_to_power(piezo_voltages_tmp, sleep=sleep)
-                / mid_power
-            )
-            piezo_voltages_tmp = old_piezo_voltages[:]
-            piezo_voltages_tmp[axis] = start_voltage + delta
-            minus_power = (
-                self.fiber_position_to_power(piezo_voltages_tmp, sleep=sleep)
-                / mid_power
-            )
-            gradient[axis] = (plus_power - minus_power) / (2 * delta)
-        self.move_fiber_sim(old_piezo_voltages)
-        return gradient
+    # def gradient_power(self, delta: float = 0.1, sleep: float = 0.5):
+    #     "measure power and calculate gradient. You need to keep piezo voltages 2*delta away from the borders"
+    #     self.update_fiber_position()
+    #     mid_power = self.update_attenuator_powerin()
+    #     old_piezo_voltages = self.piezo_voltages[:]
+    #     gradient = [0.0, 0.0, 0.0]
+    #     for axis, start_voltage in enumerate(old_piezo_voltages):
+    #         if start_voltage < delta and start_voltage > 75 - delta:
+    #             self.fiber_at_border(axis)
+    #         piezo_voltages_tmp = old_piezo_voltages[:]
+    #         piezo_voltages_tmp[axis] = start_voltage - delta
+    #         plus_power = (
+    #             self.fiber_position_to_power(piezo_voltages_tmp, sleep=sleep)
+    #             / mid_power
+    #         )
+    #         piezo_voltages_tmp = old_piezo_voltages[:]
+    #         piezo_voltages_tmp[axis] = start_voltage + delta
+    #         minus_power = (
+    #             self.fiber_position_to_power(piezo_voltages_tmp, sleep=sleep)
+    #             / mid_power
+    #         )
+    #         gradient[axis] = (plus_power - minus_power) / (2 * delta)
+    #     self.move_fiber_sim(old_piezo_voltages)
+    #     return gradient
 
     def fiber_at_border(self, axis: int):
         "Handle the piezo borders using timeout input"
@@ -1384,7 +1414,13 @@ class SHF:
             axis_name = "Y"
         elif axis == 2:
             axis_name = "Z"
-        print(f"Piezo axis {axis_name} reached {self.piezo_voltages[axis]}")
+        print(
+            colored(
+                f"Piezo axis {axis_name} reached {self.piezo_voltages[axis]}",
+                "yellow",
+                "on_black",
+            )
+        )
         timestr = time.strftime("%Y%m%d-%H%M%S")
         self.logs.append(
             [
@@ -1575,7 +1611,54 @@ class SHF:
         self.save_logs()
 
     def test_ea(self):
-        self.shf_command("EA:AUTOSEARCH=channel1:simple;")
+        self.ea_init()
+        self.shf_command("EA:SYNC=?;")
+        self.shf_command("EA:AUTOSEARCH=CHANNEL1.TYPE:SIMPLE;")
+        self.shf_command("EA:AUTOSEARCH=CHANNEL1.TYPE:SIMPLEBER:;")
+        self.shf_command(
+            "EA:AUTOSEARCH=CHANNEL1.TYPE:SIMPLEBER,CHANNEL1.PAMSEARCH:TRUE:;"
+        )
+        self.shf_command("EA:DEVICEINFO=?;")
+        self.shf_command("EA:DELAY=CHANNEL1:?;")
+        self.shf_command("EA:DELAYRANGE=CHANNEL1:?;")
+        self.shf_command("EA:THRESHOLD=CHANNEL1:?;")
+        self.shf_command("EA:THRESHOLDRANGE=CHANNEL1:?;")
+        self.shf_command("EA:ERRORTRIGGER=?;")
+        self.shf_command("EA:BITRATE=?;")
+        self.shf_command("EA:BITRATE=CHANNEL1:?;")
+        self.shf_command("EA:BITRATEAPPROX=?;")
+        self.shf_command("EA:BITRATEAPPROX=CHANNEL1:?;")
+        self.shf_command("EA:GATING=?;")
+        self.shf_command("EA:SELECTABLECLOCK=?;")
+        self.shf_command("EA:USERPATTERNLENGTH=?;")
+        self.test_ea_job()
+        self.shf_command("EA:MEASUREMENT=CHANNEL1:ON;")
+        self.test_ea_job()
+        self.shf_command("EA:RESULT=CHANNEL1:?;")
+        self.shf_command("EA:PAMMEASUREMENTPOINTS=CHANNEL1:?;")
+        self.test_ea_job()
+        self.shf_command("EA:RESULT=CHANNEL1:?;")
+        self.shf_command("EA:MEASUREBERPAM=CHANNEL1:ON;")
+        self.test_ea_job()
+        self.shf_command("EA:RESULT=CHANNEL1:?;")
+        self.shf_command("EA:MEASUREBERPAM=CHANNEL1:ON;")
+        self.test_ea_job()
+        self.shf_command("EA:RESULT=CHANNEL1:?;")
+        self.shf_command("EA:QFACTOR=CHANNEL1:.BERMIN:1e-9,CHANNEL1.BERMAX:1e-4;")
+        self.test_ea_job()
+        self.shf_command("EA:RESULT=CHANNEL1:?;")
+
+    def test_ea_job(self):
+        timeout = 600
+        start_time = time.time()  # start time for timeout
+        while (time.time() - start_time) < timeout:
+            job = self.shf_command("EA:CURRENTJOB=?;")
+            if job.lower() == "EA:CURRENTJOB=NONE;":
+                return
+            else:
+                time.sleep(30)  # TODO make it 2 sec
+        self.shf_command("EA:ABORT;")
+        self.set_alarm("Error Analyzer timeout")
 
     def test(self):
         self.rst_current_source()
