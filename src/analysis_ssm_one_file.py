@@ -91,6 +91,7 @@ def remove_pd(
     s2p_file: str | rf.Network | None = None,
     vcsel_df=None,
     photodiode_s2p="resources/T3K7V9_DXM30BF_U00162.s2p",
+    # connector_s2p="resources/SHF_connectrs_s2p/5_KPC292M185F/24022510.s2p", # TODO delite
     probe_port=1,
 ):
     if s2p_file:
@@ -102,6 +103,8 @@ def remove_pd(
             raise Exception("probe_port is unclear")
         if isinstance(s2p_file, str):
             s2p_file = rf.Network(s2p_file)
+        if isinstance(photodiode_s2p, str):
+            photodiode_s2p = rf.Network(photodiode_s2p)
         vcsel_df = s2p_file.to_dataframe("s")
     else:
         probe_port = 1
@@ -110,8 +113,10 @@ def remove_pd(
         S21_Real = vcsel_df[f"s {optical_port}{probe_port}"].values.real
         S21_Imag = vcsel_df[f"s {optical_port}{probe_port}"].values.imag
         S21_Magnitude = 10 * np.log10(S21_Real**2 + S21_Imag**2)
+        vcsel_df["s21_logm"] = S21_Magnitude
     else:
         S21_Magnitude = vcsel_df["s21_logm"].values
+    vcsel_df["s21_logm"].plot()
     pd_df = photodiode_s2p.to_dataframe("s")
     PD_S21_Real = pd_df["s 21"].values.real
     PD_S21_Imag = pd_df["s 21"].values.imag
@@ -121,6 +126,25 @@ def remove_pd(
     vcsel_df = vcsel_df.dropna()
     pd_Magnitude = vcsel_df["pd_s21_logm"].values
     S21_Magnitude_to_fit = S21_Magnitude - pd_Magnitude
+
+    # TODO delite
+    # connector_s2p = rf.Network(connector_s2p)
+    # connector_df = connector_s2p.to_dataframe("s")
+    # connector_S21_Real = connector_df["s 21"].values.real
+    # connector_S21_Imag = connector_df["s 21"].values.imag
+    # connector_df["connector_s21_logm"] = 10 * np.log10(
+    #     connector_S21_Real**2 + connector_S21_Imag**2
+    # )
+    # vcsel_df["pd_s21_logm"].plot()
+    # connector_df["connector_s21_logm"].plot()
+    # plt.show()
+    # vcsel_df = vcsel_df.join(connector_df[["connector_s21_logm"]], how="outer")
+    # vcsel_df["connector_s21_logm"] = vcsel_df["connector_s21_logm"].interpolate(
+    #     limit_direction="both"
+    # )
+    # vcsel_df = vcsel_df.dropna()
+    # connector_Magnitude = vcsel_df["connector_s21_logm"].values
+    # S21_Magnitude_to_fit = S21_Magnitude_to_fit - connector_Magnitude
     return S21_Magnitude, S21_Magnitude_to_fit
 
 

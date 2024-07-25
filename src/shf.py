@@ -92,6 +92,8 @@ class SHF:
     dac_amplitude = None
     dac_output = None
 
+    ea_initiated = None
+
     kcube_devices = [None, None, None]
 
     def __init__(
@@ -306,7 +308,7 @@ class SHF:
                     f"0 V",
                 ]
             )
-            print(f"Current output it turned off")
+            print(f"Current output is turned off")
             return
         elif target_current_mA > 0:
             current_measured = (
@@ -605,13 +607,19 @@ class SHF:
             print(timestr)
             print("command:  " + command)
             print("responce: " + responce)
-            self.errorlogs.append([timestr, command, responce, self.log_state()])
-        time.sleep(0.1)  # do we need this?
+            self.errorlogs.append(
+                [
+                    timestr,
+                    command,
+                    responce,
+                ]
+            )
+            # self.errorlogs.append([timestr, command, responce, self.log_state()])
+        time.sleep(0.03)  # do we need this?
         return responce
 
     def shf_init(self):
         bpg_commands = [
-            "BPG:USERSETTINGS=?",
             "BPG:PREEMPHASIS=ENABLE:OFF;",
             "BPG:FIRFILTER=ENABLE:OFF;",
             "BPG:ALLOWNEWCONNECTIONS=ON;",
@@ -633,11 +641,11 @@ class SHF:
             # "DAC:SYMMETRY=VALUE:?;",
             "DAC:OUTPUT=STATE:DISABLED;",
             f"DAC:SIGNAL=ALIAS:D0,VALUE:{D0:.2f};",
-            f"DAC:SIGNAL=ALIAS:D1,VALUE:{(D0*2):2f};",
-            f"DAC:SIGNAL=ALIAS:D2,VALUE:{(D0*4):2f};",
-            f"DAC:SIGNAL=ALIAS:D3,VALUE:{(D0*8):2f};",
-            f"DAC:SIGNAL=ALIAS:D4,VALUE:{(D0*16):2f};",
-            f"DAC:SIGNAL=ALIAS:D5,VALUE:{(D0*32):2f};",
+            f"DAC:SIGNAL=ALIAS:D1,VALUE:{(D0*2):.2f};",
+            f"DAC:SIGNAL=ALIAS:D2,VALUE:{(D0*4):.2f};",
+            f"DAC:SIGNAL=ALIAS:D3,VALUE:{(D0*8):.2f};",
+            f"DAC:SIGNAL=ALIAS:D4,VALUE:{(D0*16):.2f};",
+            f"DAC:SIGNAL=ALIAS:D5,VALUE:{(D0*32):.2f};",
         ]
         clksrc_commands = [
             "CLKSRC:OUTPUT=OFF;",
@@ -684,8 +692,8 @@ class SHF:
         )
 
     def ea_init(self):
+        self.ea.timeout = 60000
         ea_commands = [
-            "EA:USERSETTINGS=?;",
             "EA:CLOCKINPUT=FULL;",
             "EA:PATTERN=?;",
             "EA:PATTERN=CHANNEL1:!PRBS7;",  # ! -- means inverted
@@ -694,12 +702,13 @@ class SHF:
             "EA:THRESHOLDMODE=CHANNEL1:INVERTED;",
             "EA:MEASUREMENTMODE=CHANNEL1:SINGLE;",
             "EA:MEASUREMENTPERIOD=CHANNEL1:?;",
-            "EA:MEASUREMENTPERIOD=CHANNEL1:55 s;",
+            "EA:MEASUREMENTPERIOD=CHANNEL1:20 s;",  # TODO
             # "EA:MEASUREMENTPERIOD=CHANNEL1:5 m;",
         ]
         for command in ea_commands:
             self.shf_command(command)
-        pass
+        self.ea_initiated = True
+        time.sleep(3)
 
     def shf_patternsetup(self, pattern: str):
         """Configure PRBS7 and PRBS7Q pattern, open channels, set amplitude to 150 and open DAC output
@@ -788,7 +797,12 @@ class SHF:
 
     def shf_set_preemphasis(self, tap_index: int = 0, value: int = 0):
         """tap_index should be 0, 2 or 3
+        value should be from -100 to 100
         TAP1 is MAIN"""
+        if abs(value) > 100:
+            self.set_alarm(
+                f"Preemphasis value: {value}. It should be from -100 to 100."
+            )
         if tap_index in (0, 2, 3):
             self.shf_command(f"BPG:PREEMPHASIS=TAP{tap_index}:{value}%;")
             tap_str = f"TAP{tap_index}"
@@ -805,11 +819,11 @@ class SHF:
         D0 = float(target_amplitude * D0_onemV)
         dac_commands = [
             f"DAC:SIGNAL=ALIAS:D0,VALUE:{D0:.2f};",
-            f"DAC:SIGNAL=ALIAS:D1,VALUE:{(D0*2):2f};",
-            f"DAC:SIGNAL=ALIAS:D2,VALUE:{(D0*4):2f};",
-            f"DAC:SIGNAL=ALIAS:D3,VALUE:{(D0*8):2f};",
-            f"DAC:SIGNAL=ALIAS:D4,VALUE:{(D0*16):2f};",
-            f"DAC:SIGNAL=ALIAS:D5,VALUE:{(D0*32):2f};",
+            f"DAC:SIGNAL=ALIAS:D1,VALUE:{(D0*2):.2f};",
+            f"DAC:SIGNAL=ALIAS:D2,VALUE:{(D0*4):.2f};",
+            f"DAC:SIGNAL=ALIAS:D3,VALUE:{(D0*8):.2f};",
+            f"DAC:SIGNAL=ALIAS:D4,VALUE:{(D0*16):.2f};",
+            f"DAC:SIGNAL=ALIAS:D5,VALUE:{(D0*32):.2f};",
             "DAC:OUTPUT=STATE:ENABLED;",
         ]
         for command in dac_commands:
@@ -1207,7 +1221,7 @@ class SHF:
         start_time = time.time()  # start time for timeout
         while (time.time() - start_time) < timeout:
             if ask:
-                prompt = f"The fiber optimization will preceed after {timeout} seconds. Start optimizing the fiber position? Y/n"
+                prompt = f"The fiber optimization will be canceled after {timeout} seconds. Start optimizing the fiber position? Y/n"
                 answer = input(prompt)
             else:
                 answer = None
@@ -1235,8 +1249,9 @@ class SHF:
         self.move_fiber_sim([37.5, 37.5, 37.5])
         self.update_attenuator_powerin()
         start_powerin = self.attenuator_powerin
-        print(f"start_powerin: {start_powerin}")
+        print(f"start_powerin: {start_powerin:.6f} mW")
         list_of_steps = [10] * 5 + [3] * 5 + [1] * 5 + [0.1] * 7
+        print("Optimizing fiber position")
         for i, step in enumerate(list_of_steps, start=1):
             print(" " * 80, end="\r")
             print(f"[{i}/{len(list_of_steps)}] step: {step}" + " " * 50)
@@ -1270,6 +1285,8 @@ class SHF:
                 voltages = self.piezo_voltages[:]
                 voltages[axis] += step
                 if voltages[axis] >= 74.7:
+                    print(" " * 100, end="\r")
+                    print(voltages)
                     self.fiber_at_border(axis)
                     border = True
                     return max_powerin, max_powerin_position, border
@@ -1298,6 +1315,8 @@ class SHF:
                 voltages = self.piezo_voltages[:]
                 voltages[axis] -= step
                 if voltages[axis] <= 0.3:
+                    print(" " * 100, end="\r")
+                    print(voltages)
                     self.fiber_at_border(axis)
                     border = True
                     return max_powerin, max_powerin_position, border
@@ -1414,6 +1433,7 @@ class SHF:
             axis_name = "Y"
         elif axis == 2:
             axis_name = "Z"
+        print(" " * 100, end="\r")
         print(
             colored(
                 f"Piezo axis {axis_name} reached {self.piezo_voltages[axis]}",
@@ -1533,41 +1553,669 @@ class SHF:
         return self.attenuator_powerin
 
     # TODO EA
-    def measure_ber(self):  # TODO
-        "measure BER using EA"
-        pass
+    # def autosearch_eye(self):  # TODO DET doesn't connect
+    #     if self.bpg_pattern == "PRBS7Q":
+    #         self.shf_command("DET:OUTPUT=STATE:ON;")
+    #     value = self.shf_command("DET:AUTOSEARCH=VALUE:RUN;")
+    #     epoch = 0
+    #     while value not in ("FINISHED", "ABORTED"):
+    #         time.sleep(1)
+    #         epoch += 1
+    #         value = (
+    #             self.shf_command("DET:AUTOSEARCH=VALUE:?;").strip(";").split(":")[-1]
+    #         )
+    #         if epoch > 30:
+    #             break
+    #     if value == "FINISHED":
+    #         result = self.shf_command(
+    #             "DET:AUTOSEARCH=DELAY:?,THRESHOLDMIN:?,THRESHOLDMAX:?;"
+    #         )
+    #         return True
+    #     elif value == "ABORTED":
+    #         result = "ABORTED"
+    #         self.errorlogs.append(
+    #             [time.strftime("%Y%m%d-%H%M%S"), "Autosearch aborted"]
+    #         )
+    #         return False
 
-    def autosearch_eye(self):  # TODO DET doesn't connect
-        if self.bpg_pattern == "PRBS7Q":
-            self.shf_command("DET:OUTPUT=STATE:ON;")
-        value = self.shf_command("DET:AUTOSEARCH=VALUE:RUN;")
-        epoch = 0
-        while value not in ("FINISHED", "ABORTED"):
-            time.sleep(1)
-            epoch += 1
-            value = (
-                self.shf_command("DET:AUTOSEARCH=VALUE:?;").strip(";").split(":")[-1]
-            )
-            if epoch > 30:
-                break
-        if value == "FINISHED":
-            result = self.shf_command(
-                "DET:AUTOSEARCH=DELAY:?,THRESHOLDMIN:?,THRESHOLDMAX:?;"
-            )
+    def ea_sync(self):
+        "Checks EA sync"
+        responce = self.shf_command("EA:SYNC=?;")
+        if responce == "EA:SYNC=CHANNEL1:100.00 %;":
             return True
-        elif value == "ABORTED":
-            result = "ABORTED"
-            self.errorlogs.append(
-                [time.strftime("%Y%m%d-%H%M%S"), "Autosearch aborted"]
+        else:
+            time.sleep(5)
+            responce = self.shf_command("EA:SYNC=?;")
+            if responce == "EA:SYNC=CHANNEL1:100.00 %;":
+                return True
+            else:
+                self.set_alarm(f"Error Analyser is unsynced: {responce}")
+                return False
+
+    # for ea_autosearch
+    def remove_duplicates(self, list):
+        new_list = []
+        for elem in list:
+            if elem not in new_list:
+                new_list.append(elem)
+        return new_list
+
+    def calculate_eye_area(self, array):
+        "Use Green's theorem to compute the area enclosed by the given contour."
+        x = array[:, 0]
+        y = array[:, 1]
+        area = 0.5 * np.sum(y[:-1] * np.diff(x) - x[:-1] * np.diff(y))
+        area = np.abs(area)
+        return area
+
+    def handle_units(self, unit: str):
+        if len(unit) == 1:
+            prefix = 1
+        elif len(unit) == 2:
+            prefix = unit[0]
+            if prefix == "p":
+                prefix = 10**-12
+            elif prefix == "n":
+                prefix = 10**-9
+            elif prefix == "u":
+                prefix = 10**-6
+            elif prefix == "m":
+                prefix = 10**-3
+            else:
+                print(f"Can't parce unit: {unit}")
+                self.errorlogs.append(
+                    [time.strftime("%Y%m%d-%H%M%S"), f"Can't parce unit: {unit}"]
+                )
+                prefix = 0
+        return prefix
+
+    def process_points_in_eyecontour(self, line):
+        line = line[1:-1].split(",")
+        xvalue, xunit = line[0].split()
+        x = round(float(xvalue), 4) * self.handle_units(xunit)
+        yvalue, yunit = line[1].split()
+        y = round(float(yvalue), 4) * self.handle_units(yunit)
+        return [x, y]
+
+    # def hullpoints(self, eyecontour):
+    #     "convex hull for elliptic autosearch"
+    #     from scipy.spatial import ConvexHull
+    #
+    #     hull = ConvexHull(eyecontour).simplices
+    #     result = []
+    #     for x in hull:
+    #         for y, z in hull:
+    #             if y not in result:
+    #                 result.append(y)
+    #             if z not in result:
+    #                 result.append(z)
+    #     contour = eyecontour[sorted(result)]
+    #     contour_points = np.vstack((contour, contour[0]))
+    #     area = self.calculate_eye_area(contour_points)
+    #     return contour_points, area
+
+    def parce_eyecontour(self, responce: str):
+        "parce successfull autosearch responce"
+        if "success:true" in responce.lower():
+            eyecontour_raw = responce.split("CHANNEL1.EYECONTOUR:")[-1][1:-2].split(
+                "--"
             )
-            return False
+            eyecontour_open = np.array(
+                self.remove_duplicates(
+                    [self.process_points_in_eyecontour(x) for x in eyecontour_raw]
+                )
+            )
+            eyecontour = np.vstack((eyecontour_open, eyecontour_open[0]))
+            area = self.calculate_eye_area(eyecontour)
+            return round(area, 18), eyecontour
+        else:
+            return 0, False
+
+    def get_ea_bitrate(self):
+        "Gbit/s"
+        responce = self.shf_command("EA:BITRATEAPPROX=CHANNEL1:?;")
+        bitrate, unit = responce.lstrip("EA:BITRATEAPPROX=CHANNEL1:").split()
+        if unit == "Gbit/s;":
+            assert float(self.clksrc_frequency) == float(bitrate)
+            return float(bitrate)
+        if unit == "Mbit/s;":
+            assert float(self.clksrc_frequency) == float(bitrate) / 1000
+            return float(bitrate) / 1000
+
+    def ea_autosearch(self, type: str = "SIMPLEBER", logber: int = -6):
+        # TODO elliptic has a problems with correct area calculation due to outliers
+        self.ea_sync()
+        if type.upper() in ("SIMPLE", "SIMPLEBER", "ELLIPTIC"):
+            responce = self.shf_command(
+                f"EA:AUTOSEARCH=CHANNEL1.TYPE:{type.upper()},CHANNEL1.BER:1e{int(logber)};"
+            )
+            while True:
+                responce = str(self.ea.read_raw()).strip().decode("utf-8")
+                print(responce)
+                if "success:true" in responce.lower():
+                    bitrate = self.get_ea_bitrate()
+                    area, eyecontour = self.parce_eyecontour(responce)
+                    specific_area = area * bitrate * 10**12
+                    self.logs.append(
+                        [
+                            time.strftime("%Y%m%d-%H%M%S"),
+                            responce,
+                            f"eye contour area: {area*10**14}E-14\ts*V, specific eye contour area: {specific_area}\t mV, bitrate: {bitrate} Gbit/s",
+                        ]
+                    )
+                    print(
+                        f"eye contour area: {area*10**14}E-14\ts*V,\tspecific eye contour area: {specific_area}\t mV,\tbitrate: {bitrate} Gbit/s"
+                    )
+                    # in case you need it:
+                    # self.shf_command("EA:DELAY=CHANNEL1:?;") # "EA:DELAY=CHANNEL1:51.7 ps;"
+                    # self.shf_command("EA:DELAYRANGE=CHANNEL1:?;") # "EA:DELAYRANGE=CHANNEL1:0 s..79.1 ps;"
+                    # self.shf_command("EA:THRESHOLD=CHANNEL1:?;") # "EA:THRESHOLD=CHANNEL1:1.5 mV;"
+                    # self.shf_command("EA:THRESHOLDRANGE=CHANNEL1:?;") # "EA:THRESHOLDRANGE=CHANNEL1:-412 mV..389 mV;"
+                    return area, specific_area, eyecontour, bitrate
+        else:
+            self.set_alarm("Autosearch fail")
+            return 0, 0, [], 0
+
+    def test_ea_job(self):
+        if not self.ea_initiated:
+            self.ea_init()
+        timeout = 600
+        start_time = time.time()  # start time for timeout
+        while (time.time() - start_time) < timeout:
+            job = self.shf_command("EA:CURRENTJOB=?;")
+            if job.lower() == "EA:CURRENTJOB=NONE;".lower():
+                return
+            else:
+                time.sleep(2)
+        self.shf_command("EA:ABORT;")
+        self.set_alarm("Error Analyzer timeout")
+
+    def parce_ber_responce(self, responce: str):
+        "returns: BER, total Gbits countered so far, total number of errors, final result or not"
+        pattern = r"CHANNEL1\.BER:.*,,CHANNEL1\.BITS:"
+        ber = float(
+            re.findall(pattern, responce)[0]
+            .lstrip("CHANNEL1.BER:")
+            .rstrip(",,CHANNEL1.BITS:")
+        )
+        pattern = r"CHANNEL1\.BITS:.*,CHANNEL1\.INS:"
+        gbits = (
+            int(
+                re.findall(pattern, responce)[0]
+                .lstrip("CHANNEL1.BITS")
+                .lstrip(":")
+                .rstrip(",CHANNEL1.INS:")
+            )
+            * 10**-9
+        )
+        pattern = r"EA:RESULT=CHANNEL1.FINAL:.*,CHANNEL1.BER:"
+        final_result = (
+            re.findall(pattern, responce)[0]
+            .lstrip("EA:RESULT=CHANNEL1")
+            .lstrip(".FINAL")
+            .lstrip(":")
+            .rstrip(",CHANNEL1.BER:")
+        )
+        if final_result == "YES":
+            final = True
+        elif final_result == "NO":
+            final = False
+        else:
+            final = None
+        pattern = r"CHANNEL1.SUM:.*;"
+        number_of_errors = int(
+            re.findall(pattern, responce)[0]
+            .lstrip("CHANNEL1.SUM")
+            .lstrip(":")
+            .rstrip(";")
+        )
+        return ber, gbits, final, number_of_errors
+
+    def measure_ber(self):
+        "measure BER using EA"
+        self.test_ea_job()
+        self.ea_autosearch()
+        self.shf_command("EA:MEASUREMENT=CHANNEL1:ON;")
+        while True:
+            time.sleep(10)
+            responce = self.shf_command("EA:RESULT=CHANNEL1:?;")
+            ber, gbits, final, number_of_errors = self.parce_ber_responce(responce)
+            if "final:yes" in responce.lower():
+                break
+        return ber, gbits, final, number_of_errors
+
+    def parce_qfactor_responce(self, responce: str):
+        if ".qfactor:" in responce.lower():
+            pattern = r"CHANNEL1.QFACTOR:.*;"
+            qfactor = float(
+                re.findall(pattern, responce)[0].lstrip("CHANNEL1.QFACTOR:").rstrip(";")
+            )
+            return qfactor
+        else:
+            return -1
+
+    def measure_qfactor(self, logbermin=-9, logbermax=-4, exact=True):
+        self.test_ea_job()
+        self.ea_autosearch()
+        self.shf_command(
+            f"EA:QFACTOR=CHANNEL1.BERMIN:1e{logbermin},CHANNEL1.BERMAX:1e{logbermax},CHANNEL1.EXACT:{exact};"
+        )
+        qfactor = -1
+        while True:
+            responce = str(self.ea.read_raw()).strip()
+            print(responce)
+            self.logs.append([time.strftime("%Y%m%d-%H%M%S"), responce])
+            if ".qfactor:" in responce.lower():
+                qfactor = self.parce_qfactor_responce(responce)
+                print(f"Qfactor: {qfactor}")
+                break
+        return qfactor
+
+    def optimize_preemphasis(self, logber: int = -2):
+        start_taps = self.bpg_preemphasis.copy()
+        area, specific_area_start, eyecontour, bitrate = self.ea_autosearch(
+            type="SIMPLEBER", logber=logber
+        )
+        list_of_steps = [10, 10, 5]
+        print("Optimizing preemphasis")
+        for i, step in enumerate(list_of_steps):
+            print(" " * 80, end="\r")
+            print(f"[{i}/{len(list_of_steps)}] step: {step}" + " " * 50)
+            max_area_taps, max_specific_area = self.optim_preemphasis_itteration(
+                step=step, logber=logber
+            )
+        print(" " * 80, end="\r")
+        print(
+            max_area_taps, f"{specific_area_start:3.3f} -> {max_specific_area:3.3f} mV"
+        )
+        self.logs.append(
+            [
+                time.strftime("%Y%m%d-%H%M%S"),
+                f"Preemphasis is optimized. {max_area_taps} {specific_area_start:3.3f} -> {max_specific_area:3.3f} mV",
+            ]
+        )
+
+    def optim_preemphasis_itteration(self, step: int = 10, logber: int = -2):
+        max_specific_area = 0
+        max_area_taps = self.bpg_preemphasis.copy()
+        for tap_index in (0, 2, 3):
+            tap_str = f"TAP{tap_index}"
+            start_area, start_specific_area, _, _ = self.ea_autosearch(
+                type="SIMPLEBER", logber=logber
+            )
+            if start_specific_area >= max_specific_area:
+                max_specific_area = start_specific_area
+                max_area_taps = self.bpg_preemphasis.copy()
+                print(" " * 80, end="\r")
+                print(max_area_taps, f"{max_specific_area:3.3f} mV", end="\r")
+            start_position = self.bpg_preemphasis[tap_str]
+            plus_position = start_position + step
+            if start_position == 100:
+                plus_specific_area = 0
+                plus_position = None
+            if plus_position and plus_position > 100:
+                plus_position = 100
+            if plus_position:
+                self.shf_set_preemphasis(tap_index, plus_position)
+                plus_area, plus_specific_area, _, _ = self.ea_autosearch(
+                    type="SIMPLEBER", logber=logber
+                )
+                if plus_specific_area >= max_specific_area:
+                    max_specific_area = plus_specific_area
+                    max_area_taps = self.bpg_preemphasis.copy()
+                    print(" " * 80, end="\r")
+                    print(max_area_taps, f"{max_specific_area:3.3f} mV", end="\r")
+            minus_position = start_position - step
+            if start_position == -100:
+                minus_specific_area = 0
+                minus_position = None
+            if minus_position and minus_position < -100:
+                minus_position = -100
+            if minus_position:
+                self.shf_set_preemphasis(tap_index, minus_position)
+                minus_area, minus_specific_area, _, _ = self.ea_autosearch(
+                    type="SIMPLEBER", logber=logber
+                )
+                if minus_specific_area >= max_specific_area:
+                    max_specific_area = minus_specific_area
+                    max_area_taps = self.bpg_preemphasis.copy()
+                    print(" " * 80, end="\r")
+                    print(max_area_taps, f"{max_specific_area:3.3f} mV", end="\r")
+            if plus_specific_area >= start_specific_area:
+                prev_specific_area = plus_specific_area
+                prev_position = plus_position
+                while True:
+                    new_position = prev_position + step
+                    self.shf_set_preemphasis(tap_index, new_position)
+                    new_area, new_specific_area, _, _ = self.ea_autosearch(
+                        type="SIMPLEBER", logber=logber
+                    )
+                    if new_specific_area < prev_specific_area:
+                        break
+                    else:
+                        prev_specific_area = new_specific_area
+                        prev_position = new_position
+                        if new_specific_area >= max_specific_area:
+                            max_specific_area = new_specific_area
+                            max_area_taps = self.bpg_preemphasis.copy()
+                            print(" " * 80, end="\r")
+                            print(
+                                max_area_taps, f"{max_specific_area:3.3f} mV", end="\r"
+                            )
+            if minus_specific_area >= start_specific_area:
+                prev_specific_area = minus_specific_area
+                prev_position = minus_position
+                while True:
+                    new_position = prev_position - step
+                    self.shf_set_preemphasis(tap_index, new_position)
+                    new_area, new_specific_area, _, _ = self.ea_autosearch(
+                        type="SIMPLEBER", logber=logber
+                    )
+                    if new_specific_area < prev_specific_area:
+                        break
+                    else:
+                        prev_specific_area = new_specific_area
+                        prev_position = new_position
+                        if new_specific_area >= max_specific_area:
+                            max_specific_area = new_specific_area
+                            max_area_taps = self.bpg_preemphasis.copy()
+                            print(" " * 80, end="\r")
+                            print(
+                                max_area_taps, f"{max_specific_area:3.3f} mV", end="\r"
+                            )
+            self.shf_set_preemphasis(tap_index, max_area_taps[tap_str])
+        return max_area_taps, max_specific_area
+
+    def optimize_amplitude(self, logbermin=-9, logbermax=-4, exact=True):
+        start_qfactor_amplitude = self.dac_amplitude
+        start_qfactor = self.measure_qfactor(
+            logbermin=logbermin, logbermax=logbermax, exact=exact
+        )
+        list_of_steps = [100, 50, 10, 5]
+        print("Optimizing DAC amplitude")
+        for i, step in enumerate(list_of_steps):
+            print(" " * 80, end="\r")
+            print(f"[{i}/{len(list_of_steps)}] step: {step}" + " " * 50)
+            max_qfactor = self.optim_amplitude_itteration(
+                step=step, logbermin=logbermin, logbermax=logbermax, exact=exact
+            )
+        print(" " * 80, end="\r")
+        print(
+            f"Amplitude: {self.dac_amplitude} mV,\tQfactor: {start_qfactor:3.3f} -> {max_qfactor:3.3f}"
+        )
+        self.logs.append(
+            [
+                time.strftime("%Y%m%d-%H%M%S"),
+                f"DAC Amplitude is optimized. Amplitude: {self.dac_amplitude} mV, Qfactor: {start_qfactor:3.3f} -> {max_qfactor:3.3f}",
+            ]
+        )
+
+    def optim_amplitude_itteration(
+        self,
+        lowest_amplitude: int = 100,
+        largest_amplitude: int = 1000,
+        step: int = 10,
+        logbermin=-9,
+        logbermax=-2,
+        exact=True,
+    ):
+        max_qfactor = -1
+        max_qfactor_amplitude = self.dac_amplitude
+        start_qfactor = self.measure_qfactor(
+            logbermin=logbermin, logbermax=logbermax, exact=exact
+        )
+        if start_qfactor >= max_qfactor:
+            max_qfactor = start_qfactor
+            max_qfactor_amplitude = self.dac_amplitude
+            print(" " * 80, end="\r")
+            print(
+                f"Amplitude: {max_qfactor_amplitude:3.3f} mV, Qfactor: {max_qfactor:3.3f}",
+                end="\r",
+            )
+        start_position = self.dac_amplitude
+        plus_position = start_position + step
+        if start_position == largest_amplitude:
+            plus_qfactor = 0
+            plus_position = None
+        if plus_position and plus_position > largest_amplitude:
+            plus_position = largest_amplitude
+        if plus_position:
+            self.shf_set_amplitude(plus_position)
+            plus_qfactor = self.measure_qfactor(
+                logbermin=logbermin, logbermax=logbermax, exact=exact
+            )
+            if plus_qfactor >= max_qfactor:
+                max_qfactor = plus_qfactor
+                max_qfactor_amplitude = self.dac_amplitude
+                print(" " * 80, end="\r")
+                print(
+                    f"Amplitude: {max_qfactor_amplitude:3.3f} mV, Qfactor: {max_qfactor:3.3f}",
+                    end="\r",
+                )
+        minus_position = start_position - step
+        if start_position == lowest_amplitude:
+            minus_qfactor = 0
+            minus_position = None
+        if minus_position and minus_position < lowest_amplitude:
+            minus_position = lowest_amplitude
+        if minus_position:
+            self.shf_set_amplitude(minus_position)
+            minus_qfactor = self.measure_qfactor(
+                logbermin=logbermin, logbermax=logbermax, exact=exact
+            )
+            if minus_qfactor >= max_qfactor:
+                max_qfactor = minus_qfactor
+                max_qfactor_amplitude = self.dac_amplitude
+                print(" " * 80, end="\r")
+                print(
+                    f"Amplitude: {max_qfactor_amplitude:3.3f} mV, Qfactor: {max_qfactor:3.3f}",
+                    end="\r",
+                )
+        if plus_qfactor >= start_qfactor:
+            prev_qfactor = plus_qfactor
+            prev_position = plus_position
+            while True:
+                new_position = prev_position + step
+                self.shf_set_amplitude(new_position)
+                new_qfactor = self.measure_qfactor(
+                    logbermin=logbermin, logbermax=logbermax, exact=exact
+                )
+                if new_qfactor < prev_qfactor:
+                    break
+                else:
+                    prev_qfactor = new_qfactor
+                    prev_position = new_position
+                    if new_qfactor >= max_qfactor:
+                        max_qfactor = new_qfactor
+                        max_qfactor_amplitude = self.dac_amplitude
+                        print(" " * 80, end="\r")
+                        print(
+                            f"Amplitude: {max_qfactor_amplitude:3.3f} mV, Qfactor: {max_qfactor:3.3f}",
+                            end="\r",
+                        )
+        if minus_qfactor >= start_qfactor:
+            prev_qfactor = minus_qfactor
+            prev_position = minus_position
+            while True:
+                new_position = prev_position - step
+                self.shf_set_amplitude(new_position)
+                new_qfactor = self.measure_qfactor(
+                    logbermin=logbermin, logbermax=logbermax, exact=exact
+                )
+                if new_qfactor < prev_qfactor:
+                    break
+                else:
+                    prev_qfactor = new_qfactor
+                    prev_position = new_position
+                    if new_qfactor >= max_qfactor:
+                        max_qfactor = new_qfactor
+                        max_qfactor_amplitude = self.dac_amplitude
+                        print(" " * 80, end="\r")
+                        print(
+                            f"Amplitude: {max_qfactor_amplitude:3.3f} mV, Qfactor: {max_qfactor:3.3f}",
+                            end="\r",
+                        )
+        self.shf_set_amplitude(max_qfactor_amplitude)
+        return max_qfactor
+
+    def optimize_current(
+        self,
+        lowest_current: float = 1,
+        largest_current: float = 2,
+        logbermin=-9,
+        logbermax=-4,
+        exact=True,
+    ):
+        start_qfactor_amplitude = self.dac_amplitude
+        start_qfactor = self.measure_qfactor(
+            logbermin=logbermin, logbermax=logbermax, exact=exact
+        )
+        currentdelta = largest_current - lowest_current
+        list_of_steps = []
+        if currentdelta >= 35:
+            list_of_steps.append([7])
+        if currentdelta >= 15:
+            list_of_steps.append([3])
+        if currentdelta >= 10:
+            list_of_steps.append([2])
+        if currentdelta >= 5:
+            list_of_steps.append([1])
+        if currentdelta >= 2:
+            list_of_steps.append([0.5])
+        list_of_steps.append([0.1])
+        print("Optimizing current")
+        for i, step in enumerate(list_of_steps):
+            print(" " * 80, end="\r")
+            print(f"[{i}/{len(list_of_steps)}] step: {step}" + " " * 50)
+            max_qfactor = self.optim_current_itteration(
+                step=step,
+                lowest_current=lowest_current,
+                largest_current=largest_current,
+                logbermin=logbermin,
+                logbermax=logbermax,
+                exact=exact,
+            )
+        print(" " * 80, end="\r")
+        print(
+            f"Current: {self.current} mA,\tQfactor: {start_qfactor:3.3f} -> {max_qfactor:3.3f}"
+        )
+        self.logs.append(
+            [
+                time.strftime("%Y%m%d-%H%M%S"),
+                f"Current is optimized. Current: {self.current} mA, Qfactor: {start_qfactor:3.3f} -> {max_qfactor:3.3f}",
+            ]
+        )
+
+    def optim_current_itteration(
+        self,
+        lowest_current: float = 1,
+        largest_current: float = 2,
+        step: int = 10,
+        logbermin=-9,
+        logbermax=-2,
+        exact=True,
+    ):
+        max_qfactor = -1
+        max_qfactor_current = self.current
+        start_qfactor = self.measure_qfactor(
+            logbermin=logbermin, logbermax=logbermax, exact=exact
+        )
+        if start_qfactor >= max_qfactor:
+            max_qfactor = start_qfactor
+            max_qfactor_current = self.current
+            print(" " * 80, end="\r")
+            print(
+                f"Current {max_qfactor_current:3.3f} mA, Qfactor: {max_qfactor:3.3f}",
+                end="\r",
+            )
+        start_position = self.current
+        plus_position = start_position + step
+        if start_position == largest_current:
+            plus_qfactor = 0
+            plus_position = None
+        if plus_position and plus_position > largest_current:
+            plus_position = largest_current
+        if plus_position:
+            self.gently_apply_current(plus_position)
+            plus_qfactor = self.measure_qfactor(
+                logbermin=logbermin, logbermax=logbermax, exact=exact
+            )
+            if plus_qfactor >= max_qfactor:
+                max_qfactor = plus_qfactor
+                max_qfactor_current = self.current
+                print(" " * 80, end="\r")
+                print(
+                    f"Current {max_qfactor_current:3.3f} mA, Qfactor: {max_qfactor:3.3f}",
+                    end="\r",
+                )
+        minus_position = start_position - step
+        if start_position == lowest_current:
+            minus_qfactor = 0
+            minus_position = None
+        if minus_position and minus_position < lowest_current:
+            minus_position = lowest_current
+        if minus_position:
+            self.gently_apply_current(minus_position)
+            minus_qfactor = self.measure_qfactor(
+                logbermin=logbermin, logbermax=logbermax, exact=exact
+            )
+            if minus_qfactor >= max_qfactor:
+                max_qfactor = minus_qfactor
+                max_qfactor_current = self.current
+                print(" " * 80, end="\r")
+                print(
+                    f"Current {max_qfactor_current:3.3f} mA, Qfactor: {max_qfactor:3.3f}",
+                    end="\r",
+                )
+        if plus_qfactor >= start_qfactor:
+            prev_qfactor = plus_qfactor
+            prev_position = plus_position
+            while True:
+                new_position = prev_position + step
+                self.gently_apply_current(new_position)
+                new_qfactor = self.measure_qfactor(
+                    logbermin=logbermin, logbermax=logbermax, exact=exact
+                )
+                if new_qfactor < prev_qfactor:
+                    break
+                else:
+                    prev_qfactor = new_qfactor
+                    prev_position = new_position
+                    if new_qfactor >= max_qfactor:
+                        max_qfactor = new_qfactor
+                        max_qfactor_current = self.current
+                        print(" " * 80, end="\r")
+                        print(
+                            f"Current {max_qfactor_current:3.3f} mA, Qfactor: {max_qfactor:3.3f}",
+                            end="\r",
+                        )
+        if minus_qfactor >= start_qfactor:
+            prev_qfactor = minus_qfactor
+            prev_position = minus_position
+            while True:
+                new_position = prev_position - step
+                self.gently_apply_current(new_position)
+                new_qfactor = self.measure_qfactor(
+                    logbermin=logbermin, logbermax=logbermax, exact=exact
+                )
+                if new_qfactor < prev_qfactor:
+                    break
+                else:
+                    prev_qfactor = new_qfactor
+                    prev_position = new_position
+                    if new_qfactor >= max_qfactor:
+                        max_qfactor = new_qfactor
+                        max_qfactor_current = self.current
+                        print(" " * 80, end="\r")
+                        print(
+                            f"Current {max_qfactor_current:3.3f} mA, Qfactor: {max_qfactor:3.3f}",
+                            end="\r",
+                        )
+        self.gently_apply_current(max_qfactor_current)
+        return max_qfactor
 
     def measure_eye_diagrams(self):  # TODO
         "get an eye diagram picture"
-        pass
-
-    def find_eyes(self):  # TODO
-        "find eyes positions"
         pass
 
     def calculate_edr(self):  # TODO
@@ -1582,119 +2230,38 @@ class SHF:
         }
         return best_bitrate, best_parameters
 
-    def test_old(self):
-        self.rst_current_source()
-        time.sleep(2)
-        assert self.rst_attenuator() == True
-        time.sleep(2)
-        self.shf_init()
-        time.sleep(2)
-        self.gently_apply_current(3)
-        time.sleep(2)
-        self.shf_patternsetup("nrz")
-        time.sleep(2)
-        self.shf_set_amplitude(300)
-        time.sleep(2)
-        self.shf_set_preemphasis(0, 10)
-        self.shf_set_preemphasis(2, 10)
-        self.shf_set_preemphasis(3, 10)
-        time.sleep(2)
-        self.shf_set_clksrc_frequency(25)
-        time.sleep(2)
-        self.shf_set_clksrc_frequency(30)
-        time.sleep(2)
-        self.set_attenuation(-5)
-        time.sleep(2)
-        self.set_attenuation(-3)
-        time.sleep(2)
-        self.shf_turn_off()
-        self.save_logs()
-
     def test_ea(self):
-        self.ea_init()
-        self.shf_command("EA:SYNC=?;")
-        self.shf_command("EA:AUTOSEARCH=CHANNEL1.TYPE:SIMPLE;")
-        self.shf_command("EA:AUTOSEARCH=CHANNEL1.TYPE:SIMPLEBER:;")
-        self.shf_command(
-            "EA:AUTOSEARCH=CHANNEL1.TYPE:SIMPLEBER,CHANNEL1.PAMSEARCH:TRUE:;"
-        )
-        self.shf_command("EA:DEVICEINFO=?;")
-        self.shf_command("EA:DELAY=CHANNEL1:?;")
-        self.shf_command("EA:DELAYRANGE=CHANNEL1:?;")
-        self.shf_command("EA:THRESHOLD=CHANNEL1:?;")
-        self.shf_command("EA:THRESHOLDRANGE=CHANNEL1:?;")
-        self.shf_command("EA:ERRORTRIGGER=?;")
-        self.shf_command("EA:BITRATE=?;")
-        self.shf_command("EA:BITRATE=CHANNEL1:?;")
-        self.shf_command("EA:BITRATEAPPROX=?;")
-        self.shf_command("EA:BITRATEAPPROX=CHANNEL1:?;")
-        self.shf_command("EA:GATING=?;")
-        self.shf_command("EA:SELECTABLECLOCK=?;")
-        self.shf_command("EA:USERPATTERNLENGTH=?;")
+        self.measure_ber()
+        self.measure_qfactor()
         self.test_ea_job()
-        self.shf_command("EA:MEASUREMENT=CHANNEL1:ON;")
-        self.test_ea_job()
-        self.shf_command("EA:RESULT=CHANNEL1:?;")
-        self.shf_command("EA:PAMMEASUREMENTPOINTS=CHANNEL1:?;")
-        self.test_ea_job()
-        self.shf_command("EA:RESULT=CHANNEL1:?;")
-        self.shf_command("EA:MEASUREBERPAM=CHANNEL1:ON;")
-        self.test_ea_job()
-        self.shf_command("EA:RESULT=CHANNEL1:?;")
-        self.shf_command("EA:MEASUREBERPAM=CHANNEL1:ON;")
-        self.test_ea_job()
-        self.shf_command("EA:RESULT=CHANNEL1:?;")
-        self.shf_command("EA:QFACTOR=CHANNEL1:.BERMIN:1e-9,CHANNEL1.BERMAX:1e-4;")
-        self.test_ea_job()
-        self.shf_command("EA:RESULT=CHANNEL1:?;")
-
-    def test_ea_job(self):
-        timeout = 600
-        start_time = time.time()  # start time for timeout
-        while (time.time() - start_time) < timeout:
-            job = self.shf_command("EA:CURRENTJOB=?;")
-            if job.lower() == "EA:CURRENTJOB=NONE;":
-                return
-            else:
-                time.sleep(30)  # TODO make it 2 sec
-        self.shf_command("EA:ABORT;")
-        self.set_alarm("Error Analyzer timeout")
+        self.optimize_preemphasis()
+        self.optimize_amplitude()
+        self.optimize_current(lowest_current=1, largest_current=13)
+        # self.shf_command("EA:PAMMEASUREMENTPOINTS=CHANNEL1:?;")
+        # self.test_ea_job()
+        # self.shf_command("EA:RESULT=CHANNEL1:?;")
+        # self.shf_command("EA:MEASUREBERPAM=CHANNEL1:ON;")
+        # self.test_ea_job()
+        # elf.shf_command("EA:RESULT=CHANNEL1:?;")
+        # self.shf_command("EA:MEASUREBERPAM=CHANNEL1:ON;")
+        # self.test_ea_job()
+        # self.shf_command("EA:RESULT=CHANNEL1:?;")
 
     def test(self):
         self.rst_current_source()
         print("rst_current_source done")
         assert self.rst_attenuator() == True
         print("rst_attenuator done")
-        self.gently_apply_current(8)
+        self.gently_apply_current(10)
         self.update_attenuation_data()
-        # print(self.log_state())
-        # self.connect_kcubes()
-        # self.start_optimizing_fiber()
-        # voltlist = [0, 10, 20, 30, 40, 50, 60, 70]
-        # maxoutput = 0
-        # minoutput = 10
-        # for a in voltlist:
-        #     for b in voltlist:
-        #         for c in voltlist:
-        #             print(a, b, c)
-        #             output = round(self.fiber_position_to_power([a, b, c]), 6)
-        #             if maxoutput < output:
-        #                 maxoutput = output
-        #             if minoutput > output:
-        #                 minoutput = output
-        # print("max: ", maxoutput)
-        # print("min: ", minoutput)
-        # self.kcubes_disconnect()
-        # print(self.log_state())
         self.shf_init()
         self.shf_patternsetup("nrz")
-        self.shf_set_amplitude(300)
-        self.shf_set_preemphasis(0, 10)
-        self.shf_set_preemphasis(2, 10)
-        self.shf_set_preemphasis(3, 10)
+        self.shf_set_amplitude(400)
+        self.shf_set_preemphasis(0, 0)
+        self.shf_set_preemphasis(2, 0)
+        self.shf_set_preemphasis(3, 0)
         self.shf_set_clksrc_frequency(25)
-        self.shf_set_clksrc_frequency(30)
-        self.set_attenuation(0)
+        self.set_attenuation(-3)
         self.open_attenuator_shutter()
         self.test_ea()
         self.attenuator_shutter("close")

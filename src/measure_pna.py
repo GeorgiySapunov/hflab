@@ -104,13 +104,15 @@ def measure_pna(
     livdir = dirpath / "LIV"
     livfiles = sorted(
         livdir.glob(
-            f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-*PM100USB.csv"
+            # f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-*PM100USB.csv"
+            f"{waferid}-{wavelength}nm-{coordinates}-{temperature}°C-*EXPOLTB1.csv"
         ),
         reverse=True,
     )
+    print(livfiles)
     if livfiles:
         livfile = True
-        print(colored(f"{len(livfiles)} LIV files found:", "red"))
+        print(colored(f"{len(livfiles)} LIV files found:", "green"))
         for fileindex, file in enumerate(livfiles, start=1):
             livfile_max_current, liv_dataframe = check_maximum_current(file)
             print(
@@ -297,12 +299,13 @@ def measure_pna(
         )
         if f3dB > f3dBmax:
             f3dBmax = f3dB
+            f3dBmaxcurrent = current_set
             color = "green"
         else:
             color = "blue"
         print(
             colored(
-                f"{current_set_text} | f_r={f_r:3.2f} GHz, f_p={f_p:3.2f} GHz, gamma={gamma:3.2f} GHz, f3dB={f3dB:3.2f} GHz, f3dBmax={f3dBmax:3.2f} GHz",
+                f"{current_set_text} | f_r={f_r:3.2f} GHz, f_p={f_p:3.2f} GHz, gamma={gamma:3.2f} GHz, f3dB={f3dB:3.2f} GHz, f3dBmax={f3dBmax:3.2f} GHz (at {current_set:3.2f} mA)",
                 color=color,
             ),
             end="\n",

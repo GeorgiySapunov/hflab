@@ -1,0 +1,6 @@
+algorithm_name: analysis_table
+# directories:
+#   -
+#   -
+
+liv_threshold_decision_level: 2

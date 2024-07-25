@@ -131,10 +131,10 @@ def print_help():
 def analyze(quest, liv, osa, piezo, combined, temperature, arguments):
     start_time = datetime.datetime.now()
     WaferID, Wavelength, Coordinates, Temperature = arguments
-    print("WaferID: ", WaferID)
-    print("Wavelength: ", Wavelength, " nm")
-    print("Coordinates: ", Coordinates)
-    print("Temperature: ", Temperature, " °C")
+    print("WaferID:    ", WaferID)
+    print("Wavelength: ", Wavelength, "nm")
+    print("Coordinates:", Coordinates)
+    print("Temperature:", Temperature, "°C")
     if not any((quest, liv, osa, piezo, combined, temperature)):
         # initiate pyvisa
         rm = pyvisa.ResourceManager()

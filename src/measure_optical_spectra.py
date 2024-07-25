@@ -17,7 +17,10 @@ from pathlib import Path
 def check_maximum_current(livfile: Path):
     liv_dataframe = pd.read_csv(livfile)
     livfile_max_current = liv_dataframe.iloc[-1]["Current set, mA"]
-    return livfile_max_current, liv_dataframe
+    seti = liv_dataframe["Current set, mA"]
+    l = liv_dataframe["Output power, mW"]
+    rollover_current = float(seti[np.argmax(l)])
+    return livfile_max_current, liv_dataframe, rollover_current
 
 
 def measure_osa(
@@ -66,9 +69,11 @@ def measure_osa(
     if len(livfiles) > 0:
         print(colored(f"{len(livfiles)} LIV files found:", "green"))
         for fileindex, file in enumerate(livfiles, start=1):
-            livfile_max_current, liv_dataframe = check_maximum_current(file)
+            livfile_max_current, liv_dataframe, rollover_current = (
+                check_maximum_current(file)
+            )
             print(
-                f"[{fileindex}/{len(livfiles)}] {file.stem}\tMax current: {livfile_max_current} mA"
+                f"[{fileindex}/{len(livfiles)}] {file.stem}\tMax current: {livfile_max_current} mA\tRollover current: {rollover_current} mA"
             )
     else:
         alarm = True
@@ -81,12 +86,14 @@ def measure_osa(
         return
 
     # make a list of currents for spectra measurements
-    osa_current_list = [0.0]
+    osa_current_list = [0.0]  # mA
     round_to = max(0, int(np.ceil(np.log10(1 / current_increment_OSA))))
     while osa_current_list[-1] <= livfile_max_current - current_increment_OSA:
         osa_current_list.append(
             round(osa_current_list[-1] + current_increment_OSA, round_to)
         )
+    osa_current_list.append(rollover_current)
+    osa_current_list.sort()
     livfile_max_current = osa_current_list[-1]
 
     # make a data frame for additional IV measurements (.csv file in OSA directory)
