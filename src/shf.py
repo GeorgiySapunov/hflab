@@ -1695,25 +1695,25 @@ class SHF:
                 if "success:true" in responce.lower():
                     bitrate = self.get_ea_bitrate()
                     area, eyecontour = self.parce_eyecontour(responce)
-                    specific_area = area * bitrate * 10**12
+                    specific_area_mV = area * bitrate * 10**12
                     self.logs.append(
                         [
                             time.strftime("%Y%m%d-%H%M%S"),
                             responce,
-                            f"eye contour area: {area*10**14}E-14\ts*V, specific eye contour area: {specific_area}\t mV, bitrate: {bitrate} Gbit/s",
+                            f"eye contour area: {area*10**14}E-14\ts*V, specific eye contour area: {specific_area_mV}\t mV, bitrate: {bitrate} Gbit/s",
                         ]
                     )
                     print(
-                        f"eye contour area: {area*10**14}E-14\ts*V,\tspecific eye contour area: {specific_area}\t mV,\tbitrate: {bitrate} Gbit/s"
+                        f"eye contour area: {area*10**14}E-14\ts*V,\tspecific eye contour area: {specific_area_mV}\t mV,\tbitrate: {bitrate} Gbit/s"
                     )
                     # in case you need it:
                     # self.shf_command("EA:DELAY=CHANNEL1:?;") # "EA:DELAY=CHANNEL1:51.7 ps;"
                     # self.shf_command("EA:DELAYRANGE=CHANNEL1:?;") # "EA:DELAYRANGE=CHANNEL1:0 s..79.1 ps;"
                     # self.shf_command("EA:THRESHOLD=CHANNEL1:?;") # "EA:THRESHOLD=CHANNEL1:1.5 mV;"
                     # self.shf_command("EA:THRESHOLDRANGE=CHANNEL1:?;") # "EA:THRESHOLDRANGE=CHANNEL1:-412 mV..389 mV;"
-                    return area, specific_area, eyecontour, bitrate
+                    return area, specific_area_mV, eyecontour, bitrate
         else:
-            self.set_alarm("Autosearch fail")
+            self.set_alarm("Autosearch fail")  # TODO what about closed eye?
             return 0, 0, [], 0
 
     def test_ea_job(self):
@@ -1959,7 +1959,7 @@ class SHF:
         logbermax=-2,
         exact=True,
     ):
-        max_qfactor = -1
+        max_qfactor = 0
         max_qfactor_amplitude = self.dac_amplitude
         start_qfactor = self.measure_qfactor(
             logbermin=logbermin, logbermax=logbermax, exact=exact
@@ -1975,7 +1975,7 @@ class SHF:
         start_position = self.dac_amplitude
         plus_position = start_position + step
         if start_position == largest_amplitude:
-            plus_qfactor = 0
+            plus_qfactor = -1
             plus_position = None
         if plus_position and plus_position > largest_amplitude:
             plus_position = largest_amplitude
@@ -1994,7 +1994,7 @@ class SHF:
                 )
         minus_position = start_position - step
         if start_position == lowest_amplitude:
-            minus_qfactor = 0
+            minus_qfactor = -1
             minus_position = None
         if minus_position and minus_position < lowest_amplitude:
             minus_position = lowest_amplitude
@@ -2115,7 +2115,7 @@ class SHF:
         logbermax=-2,
         exact=True,
     ):
-        max_qfactor = -1
+        max_qfactor = 0
         max_qfactor_current = self.current
         start_qfactor = self.measure_qfactor(
             logbermin=logbermin, logbermax=logbermax, exact=exact
@@ -2131,7 +2131,7 @@ class SHF:
         start_position = self.current
         plus_position = start_position + step
         if start_position == largest_current:
-            plus_qfactor = 0
+            plus_qfactor = -1
             plus_position = None
         if plus_position and plus_position > largest_current:
             plus_position = largest_current
@@ -2150,7 +2150,7 @@ class SHF:
                 )
         minus_position = start_position - step
         if start_position == lowest_current:
-            minus_qfactor = 0
+            minus_qfactor = -1
             minus_position = None
         if minus_position and minus_position < lowest_current:
             minus_position = lowest_current
@@ -2231,12 +2231,27 @@ class SHF:
         return best_bitrate, best_parameters
 
     def test_ea(self):
-        self.measure_ber()
+        self.ea_autosearch()
+        self.shf_set_clksrc_frequency(35)
+        self.ea_autosearch()
+        self.shf_set_clksrc_frequency(45)
+        self.ea_autosearch()
+        self.shf_set_clksrc_frequency(50)
+        self.ea_autosearch()
+        self.shf_set_clksrc_frequency(55)
+        self.ea_autosearch()
+        self.shf_set_clksrc_frequency(60)
+        self.ea_autosearch()
+        self.shf_set_clksrc_frequency(25)
+        self.ea_autosearch()
         self.measure_qfactor()
-        self.test_ea_job()
+        self.measure_ber()
+        input("optimize preemphasis?")
         self.optimize_preemphasis()
+        input("optimize amplitude?")
         self.optimize_amplitude()
-        self.optimize_current(lowest_current=1, largest_current=13)
+        input("optimize current?")
+        self.optimize_current(lowest_current=7, largest_current=13)
         # self.shf_command("EA:PAMMEASUREMENTPOINTS=CHANNEL1:?;")
         # self.test_ea_job()
         # self.shf_command("EA:RESULT=CHANNEL1:?;")
