@@ -294,7 +294,7 @@ class SHF:
         )  # Final current
         print(" " * 80, end="\r")
         print(
-            f"{oldcurrent} -> {target_current_mA} mA,\t{current_measured} mA,\t{voltage:3.3f} V"
+            f"{oldcurrent:3.3f} -> {target_current_mA:3.3f} mA,\t{current_measured:3.3f} mA,\t{voltage:3.3f} V"
         )
         if target_current_mA == 0:
             self.current_source.write(":OUTP OFF")
@@ -578,8 +578,8 @@ class SHF:
 
     def shf_command(self, command: str):
         """Sends a commands to a relative SHF equipment and query the result"""
-        print()
-        print("command:  " + command)
+        #print()
+        #print("command:  " + command)
         if not self.shf_connected:
             self.logs.append(
                 [
@@ -604,9 +604,9 @@ class SHF:
         responce = responce.strip()
         self.logs.append([timestr, command, responce])
         if command != responce:
-            print(timestr)
-            print("command:  " + command)
-            print("responce: " + responce)
+            #print(timestr)
+            #print("command:  " + command)
+            print("responce:", command, responce)
             self.errorlogs.append(
                 [
                     timestr,
@@ -708,7 +708,7 @@ class SHF:
         for command in ea_commands:
             self.shf_command(command)
         self.ea_initiated = True
-        time.sleep(3)
+        time.sleep(5)
 
     def shf_patternsetup(self, pattern: str):
         """Configure PRBS7 and PRBS7Q pattern, open channels, set amplitude to 150 and open DAC output
@@ -866,6 +866,7 @@ class SHF:
         self.logs.append(
             [time.strftime("%Y%m%d-%H%M%S"), f"Clock is set to {target_frequency} GHz"]
         )
+        time.sleep(2)
 
     def shf_turn_off(self):
         if not self.shf_connected:
@@ -1580,17 +1581,19 @@ class SHF:
 
     def ea_sync(self):
         "Checks EA sync"
+        if not self.ea_initiated:
+            self.ea_init()
         responce = self.shf_command("EA:SYNC=?;")
         if responce == "EA:SYNC=CHANNEL1:100.00 %;":
             return True
         else:
-            time.sleep(5)
-            responce = self.shf_command("EA:SYNC=?;")
-            if responce == "EA:SYNC=CHANNEL1:100.00 %;":
-                return True
-            else:
-                self.set_alarm(f"Error Analyser is unsynced: {responce}")
-                return False
+            for i in range(10):
+                time.sleep(3)
+                responce = self.shf_command("EA:SYNC=?;")
+                if responce == "EA:SYNC=CHANNEL1:100.00 %;":
+                    return True
+            self.set_alarm(f"Error Analyser is unsynced: {responce}")
+            return False
 
     # for ea_autosearch
     def remove_duplicates(self, list):
@@ -1689,10 +1692,22 @@ class SHF:
             responce = self.shf_command(
                 f"EA:AUTOSEARCH=CHANNEL1.TYPE:{type.upper()},CHANNEL1.BER:1e{int(logber)};"
             )
+            if "SUCCESS:FALSE" in responce:
+                bitrate = self.get_ea_bitrate()
+                self.logs.append(
+                    [
+                        time.strftime("%Y%m%d-%H%M%S"),
+                        responce,
+                        f"No eye contour, bitrate: {bitrate:3.3f} Gbit/s",
+                    ]
+                )
+                print(
+                    f"No eye contour,\tbitrate: {bitrate:3.3f} Gbit/s"
+                )
+                return 0, 0, [], bitrate
             while True:
-                responce = str(self.ea.read_raw()).strip().decode("utf-8")
-                print(responce)
-                if "success:true" in responce.lower():
+                responce = str(self.ea.read_raw().strip(), "utf-8")
+                if "SUCCESS:TRUE" in responce:
                     bitrate = self.get_ea_bitrate()
                     area, eyecontour = self.parce_eyecontour(responce)
                     specific_area_mV = area * bitrate * 10**12
@@ -1700,11 +1715,11 @@ class SHF:
                         [
                             time.strftime("%Y%m%d-%H%M%S"),
                             responce,
-                            f"eye contour area: {area*10**14}E-14\ts*V, specific eye contour area: {specific_area_mV}\t mV, bitrate: {bitrate} Gbit/s",
+                            f"eye contour area: {area*10**14:3.3f}E-14 s*V, specific eye contour area: {specific_area_mV:3.3f} mV, bitrate: {bitrate:3.3f} Gbit/s",
                         ]
                     )
                     print(
-                        f"eye contour area: {area*10**14}E-14\ts*V,\tspecific eye contour area: {specific_area_mV}\t mV,\tbitrate: {bitrate} Gbit/s"
+                        f"eye contour area: {area*10**14:3.3f}E-14 s*V,\tspecific eye contour area: {specific_area_mV:3.3f} mV,\tbitrate: {bitrate:3.3f} Gbit/s"
                     )
                     # in case you need it:
                     # self.shf_command("EA:DELAY=CHANNEL1:?;") # "EA:DELAY=CHANNEL1:51.7 ps;"
@@ -1712,6 +1727,19 @@ class SHF:
                     # self.shf_command("EA:THRESHOLD=CHANNEL1:?;") # "EA:THRESHOLD=CHANNEL1:1.5 mV;"
                     # self.shf_command("EA:THRESHOLDRANGE=CHANNEL1:?;") # "EA:THRESHOLDRANGE=CHANNEL1:-412 mV..389 mV;"
                     return area, specific_area_mV, eyecontour, bitrate
+                elif "SUCCESS:FALSE" in responce:
+                    bitrate = self.get_ea_bitrate()
+                    self.logs.append(
+                        [
+                            time.strftime("%Y%m%d-%H%M%S"),
+                            responce,
+                            f"No eye contour, bitrate: {bitrate:3.3f} Gbit/s",
+                        ]
+                    )
+                    print(
+                        f"No eye contour,\tbitrate: {bitrate:3.3f} Gbit/s"
+                    )
+                    return 0, 0, [], bitrate
         else:
             self.set_alarm("Autosearch fail")  # TODO what about closed eye?
             return 0, 0, [], 0
@@ -1736,7 +1764,8 @@ class SHF:
         ber = float(
             re.findall(pattern, responce)[0]
             .lstrip("CHANNEL1.BER:")
-            .rstrip(",,CHANNEL1.BITS:")
+            .rstrip("CHANNEL1.BITS:")
+            .rstrip(",,")
         )
         pattern = r"CHANNEL1\.BITS:.*,CHANNEL1\.INS:"
         gbits = (
@@ -1781,6 +1810,7 @@ class SHF:
             responce = self.shf_command("EA:RESULT=CHANNEL1:?;")
             ber, gbits, final, number_of_errors = self.parce_ber_responce(responce)
             if "final:yes" in responce.lower():
+                print(f"BER: {ber}")
                 break
         return ber, gbits, final, number_of_errors
 
@@ -1788,7 +1818,7 @@ class SHF:
         if ".qfactor:" in responce.lower():
             pattern = r"CHANNEL1.QFACTOR:.*;"
             qfactor = float(
-                re.findall(pattern, responce)[0].lstrip("CHANNEL1.QFACTOR:").rstrip(";")
+                re.findall(pattern, responce)[0].lstrip("CHANNEL1.QFACTOR").lstrip(":").rstrip(";")
             )
             return qfactor
         else:
@@ -1802,8 +1832,8 @@ class SHF:
         )
         qfactor = -1
         while True:
-            responce = str(self.ea.read_raw()).strip()
-            print(responce)
+            responce = str(self.ea.read_raw(), "utf-8").strip()
+            #print(responce)
             self.logs.append([time.strftime("%Y%m%d-%H%M%S"), responce])
             if ".qfactor:" in responce.lower():
                 qfactor = self.parce_qfactor_responce(responce)
@@ -1811,12 +1841,12 @@ class SHF:
                 break
         return qfactor
 
-    def optimize_preemphasis(self, logber: int = -2):
+    def optimize_preemphasis(self, logber: int = -9):
         start_taps = self.bpg_preemphasis.copy()
         area, specific_area_start, eyecontour, bitrate = self.ea_autosearch(
             type="SIMPLEBER", logber=logber
         )
-        list_of_steps = [10, 10, 5]
+        list_of_steps = [20, 10, 10, 10, 5, 5, 5, 1, 1, 1]
         print("Optimizing preemphasis")
         for i, step in enumerate(list_of_steps):
             print(" " * 80, end="\r")
@@ -1839,6 +1869,8 @@ class SHF:
         max_specific_area = 0
         max_area_taps = self.bpg_preemphasis.copy()
         for tap_index in (0, 2, 3):
+            plus_specific_area = -1
+            minus_specific_area = -1
             tap_str = f"TAP{tap_index}"
             start_area, start_specific_area, _, _ = self.ea_autosearch(
                 type="SIMPLEBER", logber=logber
@@ -1881,6 +1913,7 @@ class SHF:
                     max_area_taps = self.bpg_preemphasis.copy()
                     print(" " * 80, end="\r")
                     print(max_area_taps, f"{max_specific_area:3.3f} mV", end="\r")
+            print(f"\t\t\tstart_specific_area: {start_specific_area:3.3f}\tplus_specific_area: {plus_specific_area:3.3f}\tminus_specific_area: {minus_specific_area:3.3f}")
             if plus_specific_area >= start_specific_area:
                 prev_specific_area = plus_specific_area
                 prev_position = plus_position
@@ -1931,7 +1964,7 @@ class SHF:
         start_qfactor = self.measure_qfactor(
             logbermin=logbermin, logbermax=logbermax, exact=exact
         )
-        list_of_steps = [100, 50, 10, 5]
+        list_of_steps = [100, 100, 50, 50, 10, 10, 5, 5]
         print("Optimizing DAC amplitude")
         for i, step in enumerate(list_of_steps):
             print(" " * 80, end="\r")
@@ -1961,6 +1994,8 @@ class SHF:
     ):
         max_qfactor = 0
         max_qfactor_amplitude = self.dac_amplitude
+        plus_qfactor = -1
+        minus_qfactor = -1
         start_qfactor = self.measure_qfactor(
             logbermin=logbermin, logbermax=logbermax, exact=exact
         )
@@ -2073,16 +2108,22 @@ class SHF:
         currentdelta = largest_current - lowest_current
         list_of_steps = []
         if currentdelta >= 35:
-            list_of_steps.append([7])
+            list_of_steps.append(7)
+            list_of_steps.append(7)
         if currentdelta >= 15:
-            list_of_steps.append([3])
+            list_of_steps.append(3)
+            list_of_steps.append(3)
         if currentdelta >= 10:
-            list_of_steps.append([2])
+            list_of_steps.append(2)
+            list_of_steps.append(2)
         if currentdelta >= 5:
-            list_of_steps.append([1])
+            list_of_steps.append(1)
+            list_of_steps.append(1)
         if currentdelta >= 2:
-            list_of_steps.append([0.5])
-        list_of_steps.append([0.1])
+            list_of_steps.append(0.5)
+            list_of_steps.append(0.5)
+        list_of_steps.append(0.1)
+        list_of_steps.append(0.1)
         print("Optimizing current")
         for i, step in enumerate(list_of_steps):
             print(" " * 80, end="\r")
@@ -2231,27 +2272,40 @@ class SHF:
         return best_bitrate, best_parameters
 
     def test_ea(self):
-        self.ea_autosearch()
-        self.shf_set_clksrc_frequency(35)
-        self.ea_autosearch()
-        self.shf_set_clksrc_frequency(45)
-        self.ea_autosearch()
-        self.shf_set_clksrc_frequency(50)
-        self.ea_autosearch()
-        self.shf_set_clksrc_frequency(55)
-        self.ea_autosearch()
-        self.shf_set_clksrc_frequency(60)
-        self.ea_autosearch()
-        self.shf_set_clksrc_frequency(25)
-        self.ea_autosearch()
+        self.ea_init()
+        #self.ea_autosearch()
+        #self.shf_set_clksrc_frequency(35)
+        #self.ea_autosearch()
+        #self.shf_set_clksrc_frequency(40)
+        #self.ea_autosearch()
+        #self.shf_set_clksrc_frequency(45)
+        #self.ea_autosearch()
+        #self.shf_set_clksrc_frequency(50)
+        #self.ea_autosearch()
+        #self.shf_set_clksrc_frequency(55)
+        #self.ea_autosearch()
+        #self.shf_set_clksrc_frequency(60)
+        #self.ea_autosearch()
+        #self.shf_set_clksrc_frequency(25)
+        #self.ea_autosearch()
+        #self.ea_autosearch()
+        #self.ea_autosearch()
+        self.measure_qfactor()
+        self.measure_qfactor()
         self.measure_qfactor()
         self.measure_ber()
-        input("optimize preemphasis?")
-        self.optimize_preemphasis()
-        input("optimize amplitude?")
+        #input("optimize preemphasis?")
+        #self.optimize_preemphasis()
+        #self.measure_qfactor()
+        #self.ea_autosearch()
+        #self.measure_ber()
+        #input("optimize amplitude?")
         self.optimize_amplitude()
-        input("optimize current?")
-        self.optimize_current(lowest_current=7, largest_current=13)
+        self.measure_qfactor()
+        self.ea_autosearch()
+        self.measure_ber()
+        #input("optimize current?")
+        self.optimize_current(lowest_current=4, largest_current=14)
         # self.shf_command("EA:PAMMEASUREMENTPOINTS=CHANNEL1:?;")
         # self.test_ea_job()
         # self.shf_command("EA:RESULT=CHANNEL1:?;")
@@ -2267,7 +2321,7 @@ class SHF:
         print("rst_current_source done")
         assert self.rst_attenuator() == True
         print("rst_attenuator done")
-        self.gently_apply_current(10)
+        self.gently_apply_current(12)
         self.update_attenuation_data()
         self.shf_init()
         self.shf_patternsetup("nrz")
@@ -2275,8 +2329,8 @@ class SHF:
         self.shf_set_preemphasis(0, 0)
         self.shf_set_preemphasis(2, 0)
         self.shf_set_preemphasis(3, 0)
-        self.shf_set_clksrc_frequency(25)
-        self.set_attenuation(-3)
+        self.shf_set_clksrc_frequency(35)
+        self.set_attenuation(-2)
         self.open_attenuator_shutter()
         self.test_ea()
         self.attenuator_shutter("close")
